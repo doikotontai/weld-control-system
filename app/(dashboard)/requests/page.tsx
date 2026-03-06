@@ -70,6 +70,7 @@ export default async function RequestsPage() {
                                 <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Ngày Yêu cầu</th>
                                 <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Người tạo</th>
                                 <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Trạng thái</th>
+                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569', textAlign: 'right' }}>Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -91,16 +92,14 @@ export default async function RequestsPage() {
                                 safeRequests.map((req: any) => {
                                     const typeColors: Record<string, { bg: string; color: string }> = {
                                         fitup: { bg: '#dbeafe', color: '#1e40af' },
-                                        visual: { bg: '#f3e8ff', color: '#7c3aed' },
                                         backgouge: { bg: '#ffedd5', color: '#c2410c' },
                                         lamcheck: { bg: '#ecfdf5', color: '#065f46' },
                                         mpi: { bg: '#fef9c3', color: '#854d0e' },
-                                        final_visual: { bg: '#ede9fe', color: '#4c1d95' },
                                     }
                                     const tc = typeColors[req.request_type] || { bg: '#f1f5f9', color: '#475569' }
                                     const typeLabel: Record<string, string> = {
-                                        fitup: 'Fit-Up', visual: 'Visual', backgouge: 'Backgouge',
-                                        lamcheck: 'Lamcheck', mpi: 'MPI/MT', final_visual: 'VS Final',
+                                        fitup: 'Fit-Up', backgouge: 'Backgouge',
+                                        lamcheck: 'Lamcheck', mpi: 'MPI/MT/UT',
                                     }
                                     return (
                                         <tr key={req.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -131,6 +130,13 @@ export default async function RequestsPage() {
                                                 }}>
                                                     {req.status === 'completed' ? '✅ Hoàn thành' : req.status === 'submitted' ? '📤 Đã gửi' : '📝 Bản nháp'}
                                                 </span>
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                                <Link href={`/requests/${req.id}`} style={{
+                                                    display: 'inline-block', padding: '6px 12px', background: '#f1f5f9', color: '#334155', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none'
+                                                }}>
+                                                    👁️ Xem
+                                                </Link>
                                             </td>
                                         </tr>
                                     )

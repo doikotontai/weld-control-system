@@ -106,8 +106,9 @@ export async function createInspectionRequest(formData: FormData) {
         if (weldIds.length > 0) {
             let updateData: any = {}
             if (requestType === 'fitup') updateData.fitup_request_no = requestNo
-            else if (requestType === 'visual' || requestType === 'final_visual') updateData.visual_request_no = requestNo
             else if (requestType === 'backgouge') updateData.backgouge_request_no = requestNo
+            else if (requestType === 'lamcheck') updateData.lamcheck_request_no = requestNo
+            else if (requestType === 'mpi') updateData.mt_report_no = requestNo
 
             if (Object.keys(updateData).length > 0) {
                 const { error: updateWeldsError } = await supabase.from('welds').update(updateData).in('id', weldIds)

@@ -29,31 +29,25 @@ interface Weld {
 
 // Map request type → DB column that holds the request number
 const REQUEST_TYPE_COLUMN: Record<string, string> = {
-    fitup: 'fitup_request_no',
-    visual: 'visual_request_no',
-    backgouge: 'backgouge_request_no',
-    lamcheck: 'lamcheck_request_no',
-    mpi: 'mt_report_no',   // MPI uses MT report/request
-    final_visual: 'visual_request_no',
+    fitup: 'fitup_request_no', // cot O
+    backgouge: 'backgouge_request_no', // cot V
+    lamcheck: 'lamcheck_request_no', // cot X
+    mpi: 'visual_request_no',   // cot T (VS Request)
 }
 
 const REQUEST_TYPE_LABELS: Record<string, string> = {
     fitup: '🔩 Fit-Up',
-    visual: '👁️ Visual',
     backgouge: '⚙️ Backgouge',
     lamcheck: '🔍 Lamcheck',
     mpi: '🔬 MPI / MT / UT',
-    final_visual: '✅ Final Visual (VS FINAL)',
 }
 
 // Request No prefix hints per type
 const REQUEST_PREFIX: Record<string, string> = {
     fitup: 'F-',
-    visual: 'V-',
     backgouge: 'BG-',
     lamcheck: 'LC-',
-    mpi: 'MT-',
-    final_visual: 'V-',
+    mpi: 'V-',
 }
 
 export default function RequestForm({ projects, userName }: { projects: Project[]; userName: string }) {
@@ -84,15 +78,19 @@ export default function RequestForm({ projects, userName }: { projects: Project[
             setError('Vui lòng chọn Dự án, Loại yêu cầu và nhập Số Request!')
             return
         }
+
+        const col = REQUEST_TYPE_COLUMN[requestType]
+        if (!col) return
+
         setLoadingWelds(true)
         setError('')
         setSearched(true)
 
-        // As requested by user: Always search by visual_request_no (VS Request - Column T in Excel)
+        // Search based on the mapped column for the current request type
         const { data, error: dbErr } = await (supabase.from('welds') as any)
             .select('id, weld_id, drawing_no, weld_no, joint_type, ndt_requirements, weld_length, position, stage, fitup_request_no, visual_request_no, backgouge_request_no, lamcheck_request_no, mt_report_no, mt_result, ut_result, rt_result')
             .eq('project_id', projectId)
-            .eq('visual_request_no', requestNo.trim())
+            .eq(col, requestNo.trim())
             .order('excel_row_order', { ascending: true })
 
         if (dbErr) {
@@ -172,14 +170,14 @@ export default function RequestForm({ projects, userName }: { projects: Project[
             <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                 <h3 style={{ fontWeight: 700, marginBottom: '4px', color: '#1e40af', fontSize: '0.95rem' }}>2️⃣ Nhập Số Request → Tự động tìm mối hàn</h3>
                 <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '14px' }}>
-                    Nhập số Request (ví dụ: <strong>V-191</strong>) — hệ thống sẽ tìm <em>tất cả mối hàn trong dự án có VS Request = V-191</em>
+                    Nhập số Request (ví dụ: <strong>V-191</strong>) — hệ thống sẽ tìm trong cột tương ứng (thường là cột T, O, V, X).
                 </p>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
                     <div style={{ flex: 1 }}>
                         <label style={labelStyle}>
                             Số Request *
                             {requestType && <span style={{ color: '#94a3b8', fontWeight: 400, textTransform: 'none', marginLeft: '6px' }}>
-                                (cột: <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '3px' }}>visual_request_no</code>)
+                                (cột: <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '3px' }}>{REQUEST_TYPE_COLUMN[requestType]}</code>)
                             </span>}
                         </label>
                         <input
@@ -211,7 +209,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                     <div style={{ marginTop: '16px' }}>
                         {matchedWelds.length === 0 ? (
                             <div style={{ padding: '20px', textAlign: 'center', background: '#fef9c3', borderRadius: '8px', color: '#854d0e', fontWeight: 500 }}>
-                                ⚠️ Không tìm thấy mối hàn nào có visual_request_no = &quot;{requestNo}&quot;
+                                ⚠️ Không tìm thấy mối hàn nào có {REQUEST_TYPE_COLUMN[requestType]} = &quot;{requestNo}&quot;
                                 <div style={{ fontSize: '0.8rem', marginTop: '4px', color: '#92400e' }}>
                                     Kiểm tra lại Số Request hoặc đảm bảo dữ liệu đã được import từ Excel.
                                 </div>
