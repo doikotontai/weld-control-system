@@ -27,7 +27,7 @@ export async function loginWithSupabase(formData: FormData) {
             // Thiết lập cookie tường minh trên server để Next.js đảm bảo nhận diện auth
             const cookieStore = await cookies()
             cookieStore.set('weld-control-auth', data.session.access_token, {
-                httpOnly: true,
+                httpOnly: false, // Thay đổi để Client (Browser) có thể đọc được cookie này
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax',
                 path: '/',
