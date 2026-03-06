@@ -422,33 +422,36 @@ export default function ImportPage() {
                 <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                     <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>2. Xem trước (Preview — 10 dòng đầu)</h3>
                     <div className="table-container">
-                        <table style={{ fontSize: '0.73rem', minWidth: '1600px' }}>
+                        <table style={{ fontSize: '0.73rem', minWidth: '1800px' }}>
                             <thead>
                                 <tr>
-                                    <th>Weld ID</th>
-                                    <th>B\u1ea3n v\u1ebd</th>
-                                    <th>M#</th>
-                                    <th>Joints</th>
-                                    <th>Type</th>
-                                    <th>NDT Req</th>
-                                    <th>GOC</th>
-                                    <th>WPS</th>
-                                    <th>D\u00e0i(mm)</th>
-                                    <th>D\u00e0y</th>
-                                    <th>Th\u1ee3 h\u00e0n</th>
-                                    <th>FU QC</th>
+                                    <th>&amp; (Weld ID)</th>
+                                    <th>DrawingNo</th>
+                                    <th>Weld No</th>
+                                    <th>Weld Joints</th>
+                                    <th>Weld Type</th>
+                                    <th>NDT</th>
+                                    <th>OD /L</th>
+                                    <th>Length (mm)</th>
+                                    <th>Thick (mm)</th>
+                                    <th>Thick LC</th>
+                                    <th>WPS No.</th>
+                                    <th>GOC Code</th>
+                                    <th>FU Inspector</th>
                                     <th>FU Date</th>
-                                    <th>FU Req</th>
-                                    <th>VS QC</th>
+                                    <th>FU Request</th>
+                                    <th>FU Finish</th>
+                                    <th>Welders&apos; ID</th>
+                                    <th>VS Inspector</th>
                                     <th>VS Date</th>
-                                    <th>VS Req</th>
+                                    <th>VS Request</th>
                                     <th>BG Date</th>
-                                    <th>BG Req</th>
-                                    <th>MT</th>
+                                    <th>BG Request</th>
+                                    <th>MT Result</th>
                                     <th>MT Report</th>
-                                    <th>UT</th>
+                                    <th>UT Result</th>
                                     <th>UT Report</th>
-                                    <th>RT</th>
+                                    <th>RT Result</th>
                                     <th>IRN No</th>
                                     <th>IRN Date</th>
                                     <th>Stage</th>
@@ -463,14 +466,17 @@ export default function ImportPage() {
                                         <td style={{ fontWeight: 600 }}>{row.joint_family}</td>
                                         <td style={{ fontWeight: 600 }}>{row.joint_type}</td>
                                         <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.ndt_requirements}</td>
-                                        <td><span style={{ padding: '1px 4px', background: '#f1f5f9', borderRadius: '3px' }}>{row.goc_code}</span></td>
-                                        <td style={{ color: '#6366f1' }}>{row.wps_no}</td>
+                                        <td style={{ textAlign: 'center' }}>{row.position}</td>
                                         <td style={{ textAlign: 'right' }}>{row.weld_length?.toLocaleString()}</td>
                                         <td style={{ textAlign: 'right' }}>{row.thickness}</td>
-                                        <td style={{ whiteSpace: 'nowrap' }}>{row.welders}</td>
+                                        <td style={{ textAlign: 'right', color: '#64748b' }}>{row.thickness_lamcheck}</td>
+                                        <td style={{ color: '#6366f1' }}>{row.wps_no}</td>
+                                        <td><span style={{ padding: '1px 4px', background: '#f1f5f9', borderRadius: '3px' }}>{row.goc_code}</span></td>
                                         <td>{row.fitup_inspector}</td>
                                         <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.fitup_date}</td>
                                         <td>{row.fitup_request_no}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.fitup_accepted_date}</td>
+                                        <td style={{ whiteSpace: 'nowrap' }}>{row.welders}</td>
                                         <td>{row.visual_inspector}</td>
                                         <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.visual_date}</td>
                                         <td>{row.visual_request_no}</td>

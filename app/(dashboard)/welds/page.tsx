@@ -181,30 +181,33 @@ export default function WeldsPage() {
                         <table style={{ fontSize: '0.75rem', minWidth: '1800px' }}>
                             <thead>
                                 <tr>
-                                    <th style={{ minWidth: '180px' }}>Weld ID</th>
-                                    <th style={{ minWidth: '140px' }}>Bản vẽ</th>
-                                    <th>Mối #</th>
-                                    <th>Joints</th>
-                                    <th>Type</th>
-                                    <th>NDT Req</th>
-                                    <th>GOC</th>
-                                    <th>WPS</th>
-                                    <th>Dài (mm)</th>
-                                    <th>Dày (mm)</th>
-                                    <th>Thợ hàn</th>
+                                    <th style={{ minWidth: '180px' }}>&amp; (Weld ID)</th>
+                                    <th style={{ minWidth: '140px' }}>DrawingNo</th>
+                                    <th>Weld No</th>
+                                    <th>Weld Joints</th>
+                                    <th>Weld Type</th>
+                                    <th>NDT</th>
+                                    <th>OD /L</th>
+                                    <th>Length (mm)</th>
+                                    <th>Thick (mm)</th>
+                                    <th>Thick LC</th>
+                                    <th>WPS No.</th>
+                                    <th>GOC Code</th>
                                     <th>FU Inspector</th>
                                     <th>FU Date</th>
                                     <th>FU Request</th>
+                                    <th>FU Finish</th>
+                                    <th>Welders&apos; ID</th>
                                     <th>VS Inspector</th>
                                     <th>VS Date</th>
                                     <th>VS Request</th>
                                     <th>BG Date</th>
                                     <th>BG Request</th>
-                                    <th>MT</th>
+                                    <th>MT Result</th>
                                     <th>MT Report</th>
-                                    <th>UT</th>
+                                    <th>UT Result</th>
                                     <th>UT Report</th>
-                                    <th>RT</th>
+                                    <th>RT Result</th>
                                     <th>IRN No</th>
                                     <th>IRN Date</th>
                                     <th>Stage</th>
@@ -214,7 +217,7 @@ export default function WeldsPage() {
                             <tbody>
                                 {welds.length === 0 ? (
                                     <tr>
-                                        <td colSpan={29} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                                        <td colSpan={32} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
                                             Không có dữ liệu. Hãy import Excel hoặc tạo mối hàn mới.
                                         </td>
                                     </tr>
@@ -230,26 +233,29 @@ export default function WeldsPage() {
                                         <td style={{ fontWeight: 600 }}>{(weld as any).joint_family}</td>
                                         <td style={{ fontWeight: 600, color: '#374151' }}>{weld.joint_type}</td>
                                         <td style={{ color: '#64748b', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{weld.ndt_requirements}</td>
-                                        <td><span style={{ padding: '1px 4px', background: '#f1f5f9', borderRadius: '3px' }}>{weld.goc_code}</span></td>
-                                        <td style={{ color: '#64748b' }}>{weld.wps_no}</td>
+                                        <td style={{ textAlign: 'center' }}>{(weld as any).position}</td>
                                         <td style={{ textAlign: 'right' }}>{weld.weld_length?.toLocaleString()}</td>
                                         <td style={{ textAlign: 'right' }}>{weld.thickness}</td>
-                                        <td style={{ maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{weld.welders}</td>
+                                        <td style={{ textAlign: 'right', color: '#64748b' }}>{(weld as any).thickness_lamcheck}</td>
+                                        <td style={{ color: '#6366f1' }}>{weld.wps_no}</td>
+                                        <td><span style={{ padding: '1px 4px', background: '#f1f5f9', borderRadius: '3px' }}>{weld.goc_code}</span></td>
                                         <td>{weld.fitup_inspector}</td>
-                                        <td style={{ color: '#64748b' }}>{weld.fitup_date ? String(weld.fitup_date).slice(0, 10) : ''}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{weld.fitup_date ? String(weld.fitup_date).slice(0, 10) : ''}</td>
                                         <td>{weld.fitup_request_no}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{(weld as any).fitup_accepted_date ? String((weld as any).fitup_accepted_date).slice(0, 10) : ''}</td>
+                                        <td style={{ maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{weld.welders}</td>
                                         <td>{(weld as any).visual_inspector}</td>
-                                        <td style={{ color: '#64748b' }}>{weld.visual_date ? String(weld.visual_date).slice(0, 10) : ''}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{weld.visual_date ? String(weld.visual_date).slice(0, 10) : ''}</td>
                                         <td>{weld.visual_request_no}</td>
-                                        <td style={{ color: '#64748b' }}>{weld.backgouge_date ? String(weld.backgouge_date).slice(0, 10) : ''}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{weld.backgouge_date ? String(weld.backgouge_date).slice(0, 10) : ''}</td>
                                         <td>{weld.backgouge_request_no}</td>
                                         <td><ResultBadge result={weld.mt_result} /></td>
-                                        <td style={{ color: '#64748b' }}>{weld.mt_report_no}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{weld.mt_report_no}</td>
                                         <td><ResultBadge result={weld.ut_result} /></td>
-                                        <td style={{ color: '#64748b' }}>{weld.ut_report_no}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{weld.ut_report_no}</td>
                                         <td><ResultBadge result={weld.rt_result} /></td>
-                                        <td style={{ fontWeight: 600, color: '#0369a1' }}>{weld.irn_no}</td>
-                                        <td style={{ color: '#64748b' }}>{weld.irn_date ? String(weld.irn_date).slice(0, 10) : ''}</td>
+                                        <td style={{ fontWeight: 600, color: '#0369a1', whiteSpace: 'nowrap' }}>{weld.irn_no}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{weld.irn_date ? String(weld.irn_date).slice(0, 10) : ''}</td>
                                         <td><StageBadge stage={weld.stage} /></td>
                                         <td>
                                             <Link href={`/welds/${weld.id}/edit`} style={{ color: '#3b82f6', textDecoration: 'none' }}>✏️ Sửa</Link>
