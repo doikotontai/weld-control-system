@@ -19,7 +19,8 @@ ALTER TABLE welds
   ADD COLUMN IF NOT EXISTS final_visual_date     DATE,
   ADD COLUMN IF NOT EXISTS final_visual_request_no TEXT,
   ADD COLUMN IF NOT EXISTS pwht_result           TEXT,
-  ADD COLUMN IF NOT EXISTS fitup_accepted_date   DATE;
+  ADD COLUMN IF NOT EXISTS fitup_accepted_date   DATE,
+  ADD COLUMN IF NOT EXISTS excel_row_order       INT;  -- Số thứ tự dòng trong Excel (để giữ đúng thứ tự khi hiển thị)
 
 -- Sửa weld_no từ TEXT thành INT (nếu chưa là INT)
 -- (Bỏ qua nếu đã là INT hoặc có lỗi)

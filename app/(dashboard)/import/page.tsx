@@ -273,9 +273,11 @@ export default function ImportPage() {
                 const dataRows: Record<string, unknown>[] = []
 
                 // Parse all rows
+                let dataRowIndex = 0
                 for (const row of rawData as unknown[][]) {
                     const weldId = String(row[0] || '')
                     if (!weldId || !weldId.includes('-WM')) continue
+                    dataRowIndex++
 
                     const rowObj: Record<string, unknown> = {}
                     Object.entries(COLUMN_MAP).forEach(([idx, key]) => {
@@ -326,6 +328,7 @@ export default function ImportPage() {
                         pwht_result: String(rowObj['pwht_result'] || '') || null,
                         stage: parseStage(rowObj),
                         final_status: (mtResult === 'ACC' && utResult === 'ACC') ? 'OK' : null,
+                        excel_row_order: dataRowIndex,
                     }
                     dataRows.push(weldData)
                 }

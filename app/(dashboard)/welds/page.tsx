@@ -1,37 +1,116 @@
 'use client'
-// app/(dashboard)/welds/page.tsx — Danh sách mối hàn
-import { useState, useEffect, useCallback } from 'react'
+// app/(dashboard)/welds/page.tsx — Danh sách mối hàn với Sort + Filter theo từng cột
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { Weld, WeldStage, NDTResult, STAGE_LABELS } from '@/types'
 
-// Local filter state type with loose string types for form inputs
-interface FilterState {
-    search: string
-    stage: string
-    mt_result: string
-    ut_result: string
-    goc_code: string
+// ─── Types ───────────────────────────────────────────────────────────────────
+type SortDir = 'asc' | 'desc'
+interface ColSort { col: string; dir: SortDir }
+interface ColFilters { [col: string]: string }
+
+const LIMIT = 100
+
+// Sortable columns: field name → display header (must match DB column names)
+const COLUMNS: { key: string; label: string; minWidth?: number; align?: 'right' | 'center' }[] = [
+    { key: 'excel_row_order', label: '#', minWidth: 48, align: 'center' },
+    { key: 'weld_id', label: '& (Weld ID)', minWidth: 180 },
+    { key: 'drawing_no', label: 'DrawingNo', minWidth: 130 },
+    { key: 'weld_no', label: 'Weld No', minWidth: 70, align: 'center' },
+    { key: 'joint_family', label: 'Weld Joints', minWidth: 90 },
+    { key: 'joint_type', label: 'Weld Type', minWidth: 90 },
+    { key: 'ndt_requirements', label: 'NDT', minWidth: 110 },
+    { key: 'position', label: 'OD /L', minWidth: 65, align: 'center' },
+    { key: 'weld_length', label: 'Length (mm)', minWidth: 90, align: 'right' },
+    { key: 'thickness', label: 'Thick (mm)', minWidth: 80, align: 'right' },
+    { key: 'thickness_lamcheck', label: 'Thick LC', minWidth: 70, align: 'right' },
+    { key: 'wps_no', label: 'WPS No.', minWidth: 90 },
+    { key: 'goc_code', label: 'GOC Code', minWidth: 90 },
+    { key: 'fitup_inspector', label: 'FU Inspector', minWidth: 100 },
+    { key: 'fitup_date', label: 'FU Date', minWidth: 95 },
+    { key: 'fitup_request_no', label: 'FU Request', minWidth: 95 },
+    { key: 'fitup_accepted_date', label: 'FU Finish', minWidth: 90 },
+    { key: 'welders', label: "Welders' ID", minWidth: 110 },
+    { key: 'visual_inspector', label: 'VS Inspector', minWidth: 100 },
+    { key: 'visual_date', label: 'VS Date', minWidth: 95 },
+    { key: 'visual_request_no', label: 'VS Request', minWidth: 95 },
+    { key: 'backgouge_date', label: 'BG Date', minWidth: 90 },
+    { key: 'backgouge_request_no', label: 'BG Request', minWidth: 90 },
+    { key: 'mt_result', label: 'MT Result', minWidth: 80, align: 'center' },
+    { key: 'mt_report_no', label: 'MT Report', minWidth: 130 },
+    { key: 'ut_result', label: 'UT Result', minWidth: 80, align: 'center' },
+    { key: 'ut_report_no', label: 'UT Report', minWidth: 130 },
+    { key: 'rt_result', label: 'RT Result', minWidth: 80, align: 'center' },
+    { key: 'irn_no', label: 'IRN No', minWidth: 150 },
+    { key: 'irn_date', label: 'IRN Date', minWidth: 90 },
+    { key: 'stage', label: 'Stage', minWidth: 100 },
+]
+
+// Result badge
+function ResultBadge({ result }: { result: string | null | undefined }) {
+    if (!result) return <span style={{ color: '#94a3b8' }}>—</span>
+    const ok = result === 'ACC'
+    const rej = result === 'REJ'
+    return (
+        <span style={{
+            display: 'inline-block', padding: '1px 7px', borderRadius: '4px', fontWeight: 700, fontSize: '0.72rem',
+            background: ok ? '#dcfce7' : rej ? '#fee2e2' : '#f1f5f9',
+            color: ok ? '#166534' : rej ? '#991b1b' : '#64748b',
+        }}>{result}</span>
+    )
 }
 
-const LIMIT = 50
+const STAGE_COLORS: Record<string, string> = {
+    FINAL: '#166534', IRN: '#0369a1', NDT: '#7c3aed', VISUAL: '#b45309',
+    BACKGOUGE: '#c2410c', FITUP: '#0891b2', PLANNED: '#94a3b8',
+}
+function StageBadge({ stage }: { stage: string | null | undefined }) {
+    if (!stage) return <span style={{ color: '#94a3b8' }}>—</span>
+    const c = STAGE_COLORS[stage] || '#64748b'
+    return <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, background: c + '18', color: c, whiteSpace: 'nowrap' }}>{stage}</span>
+}
 
+function fmtDate(v: unknown): string {
+    if (!v) return ''
+    return String(v).slice(0, 10)
+}
+
+// ─── Cell renderer ────────────────────────────────────────────────────────────
+function renderCell(col: string, weld: Record<string, unknown>) {
+    const v = weld[col]
+    switch (col) {
+        case 'excel_row_order': return <span style={{ color: '#94a3b8', fontWeight: 600 }}>{v as number || ''}</span>
+        case 'weld_id': return <Link href={`/welds/${weld.id}`} style={{ color: '#1d4ed8', textDecoration: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}>{v as string}</Link>
+        case 'drawing_no': return <span style={{ color: '#64748b' }}>{v as string}</span>
+        case 'weld_no': return <span>{v as number}</span>
+        case 'joint_family': return <span style={{ fontWeight: 600 }}>{v as string}</span>
+        case 'joint_type': return <span style={{ fontWeight: 600 }}>{v as string}</span>
+        case 'goc_code': return v ? <span style={{ padding: '1px 4px', background: '#f1f5f9', borderRadius: '3px' }}>{v as string}</span> : null
+        case 'wps_no': return <span style={{ color: '#6366f1' }}>{v as string}</span>
+        case 'weld_length': return <span>{(v as number)?.toLocaleString()}</span>
+        case 'mt_result': case 'ut_result': case 'rt_result': return <ResultBadge result={v as string} />
+        case 'irn_no': return <span style={{ fontWeight: 600, color: '#0369a1' }}>{v as string}</span>
+        case 'stage': return <StageBadge stage={v as string} />
+        case 'fitup_date': case 'visual_date': case 'backgouge_date': case 'irn_date':
+        case 'fitup_accepted_date': return <span style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDate(v)}</span>
+        default: return <span style={{ whiteSpace: 'nowrap' }}>{v as string || ''}</span>
+    }
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function WeldsPage() {
     const supabase = createClient()
-    const [welds, setWelds] = useState<Weld[]>([])
+    const [welds, setWelds] = useState<Record<string, unknown>[]>([])
     const [loading, setLoading] = useState(true)
     const [totalCount, setTotalCount] = useState(0)
     const [page, setPage] = useState(0)
-    const [filters, setFilters] = useState<FilterState>({
-        search: '',
-        stage: '',
-        mt_result: '',
-        ut_result: '',
-        goc_code: '',
-    })
+    const [sort, setSort] = useState<ColSort>({ col: 'excel_row_order', dir: 'asc' })
+    const [colFilters, setColFilters] = useState<ColFilters>({})
+    const [globalSearch, setGlobalSearch] = useState('')
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
+    const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
-    // Parse current Project ID from cookie on mount
     useEffect(() => {
         if (typeof document !== 'undefined') {
             const match = document.cookie.match(/(?:^|;)\s*weld-control-project-id=([^;]+)/)
@@ -41,42 +120,57 @@ export default function WeldsPage() {
 
     const fetchWelds = useCallback(async () => {
         if (!currentProjectId) {
-            setWelds([])
-            setTotalCount(0)
-            setLoading(false)
-            return
+            setWelds([]); setTotalCount(0); setLoading(false); return
         }
-
         setLoading(true)
         let query = supabase
             .from('welds')
             .select('*', { count: 'exact' })
             .eq('project_id', currentProjectId)
-            .order('updated_at', { ascending: false })
+            .order(sort.col || 'excel_row_order', { ascending: sort.dir === 'asc', nullsFirst: sort.dir === 'asc' })
             .range(page * LIMIT, (page + 1) * LIMIT - 1) as any
 
-        if (filters.search) {
-            query = query.or(`weld_id.ilike.%${filters.search}%,weld_no.ilike.%${filters.search}%,drawing_no.ilike.%${filters.search}%,welders.ilike.%${filters.search}%`)
+        // Global search
+        if (globalSearch.trim()) {
+            query = query.or(`weld_id.ilike.%${globalSearch}%,weld_no.ilike.%${globalSearch}%,drawing_no.ilike.%${globalSearch}%,welders.ilike.%${globalSearch}%,joint_family.ilike.%${globalSearch}%`)
         }
-        if (filters.stage) query = query.eq('stage', filters.stage as WeldStage)
-        if (filters.mt_result) query = query.eq('mt_result', filters.mt_result as NDTResult)
-        if (filters.ut_result) query = query.eq('ut_result', filters.ut_result as NDTResult)
-        if (filters.goc_code) query = query.ilike('goc_code', `%${filters.goc_code}%`)
+        // Per-column filters
+        Object.entries(colFilters).forEach(([col, val]) => {
+            if (!val?.trim()) return
+            const numericCols = ['weld_no', 'weld_length', 'thickness', 'thickness_lamcheck', 'excel_row_order']
+            if (numericCols.includes(col)) {
+                query = query.eq(col, val.trim())
+            } else {
+                query = query.ilike(col, `%${val.trim()}%`)
+            }
+        })
 
         const { data, count } = await query
-        setWelds((data as Weld[]) || [])
+        setWelds((data as Record<string, unknown>[]) || [])
         setTotalCount(count || 0)
         setLoading(false)
-    }, [filters, page, supabase, currentProjectId])
+    }, [colFilters, globalSearch, page, sort, supabase, currentProjectId])
 
     useEffect(() => {
         if (currentProjectId !== null) {
-            fetchWelds()
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+            debounceRef.current = setTimeout(fetchWelds, 280)
         }
     }, [fetchWelds, currentProjectId])
 
+    const handleSort = (col: string) => {
+        setSort(s => ({ col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc' }))
+        setPage(0)
+    }
+
+    const setFilter = (col: string, val: string) => {
+        setColFilters(f => ({ ...f, [col]: val }))
+        setPage(0)
+    }
+
+    const totalPages = Math.ceil(totalCount / LIMIT)
+
     const handleExport = async () => {
-        // Export to Excel using xlsx library
         const { utils, writeFile } = await import('xlsx')
         const ws = utils.json_to_sheet(welds)
         const wb = utils.book_new()
@@ -84,89 +178,45 @@ export default function WeldsPage() {
         writeFile(wb, `weld-export-${new Date().toISOString().slice(0, 10)}.xlsx`)
     }
 
+    const SortIcon = ({ col }: { col: string }) => {
+        if (sort.col !== col) return <span style={{ opacity: 0.3, marginLeft: '4px' }}>⇅</span>
+        return <span style={{ marginLeft: '4px', color: '#3b82f6' }}>{sort.dir === 'asc' ? '↑' : '↓'}</span>
+    }
+
     return (
         <div className="page-enter">
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                 <div>
                     <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>🔩 Quản lý Mối hàn</h1>
                     <p style={{ color: '#64748b', marginTop: '4px' }}>
-                        {currentProjectId ? `${totalCount.toLocaleString()} mối hàn trong dự án` : 'Vui lòng chọn Dự án ở thẻ menu trái.'}
+                        {currentProjectId ? `${totalCount.toLocaleString()} mối hàn` : 'Chọn Dự án ở menu trái'}
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={handleExport} className="btn btn-secondary">
-                        📤 Export Excel
-                    </button>
-                    <Link href="/welds/new" className="btn btn-primary">
-                        ➕ Tạo mối hàn mới
-                    </Link>
+                    <button onClick={handleExport} className="btn btn-secondary">📤 Export Excel</button>
+                    <Link href="/welds/new" className="btn btn-primary">➕ Tạo mới</Link>
                 </div>
             </div>
 
-            {/* Filter Bar */}
-            <div style={{
-                background: 'white',
-                borderRadius: '10px',
-                padding: '16px',
-                marginBottom: '16px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end',
-            }}>
-                <div style={{ flex: '1', minWidth: '200px' }}>
-                    <label className="form-label">🔍 Tìm kiếm</label>
-                    <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Weld ID, Bản vẽ, Thợ hàn..."
-                        value={filters.search}
-                        onChange={e => { setPage(0); setFilters(f => ({ ...f, search: e.target.value })) }}
-                    />
-                </div>
-                <div style={{ minWidth: '140px' }}>
-                    <label className="form-label">Stage</label>
-                    <select
-                        className="form-input"
-                        value={filters.stage}
-                        onChange={e => { setPage(0); setFilters(f => ({ ...f, stage: e.target.value })) }}
-                    >
-                        <option value="">Tất cả</option>
-                        {Object.entries(STAGE_LABELS).map(([k, v]) => (
-                            <option key={k} value={k}>{v}</option>
-                        ))}
-                    </select>
-                </div>
-                <div style={{ minWidth: '100px' }}>
-                    <label className="form-label">MT Result</label>
-                    <select className="form-input" value={filters.mt_result ?? ''} onChange={e => { setPage(0); setFilters(f => ({ ...f, mt_result: e.target.value })) }}>
-                        <option value="">Tất cả</option>
-                        <option value="ACC">ACC</option>
-                        <option value="REJ">REJ</option>
-                        <option value="N/A">N/A</option>
-                    </select>
-                </div>
-                <div style={{ minWidth: '100px' }}>
-                    <label className="form-label">UT Result</label>
-                    <select className="form-input" value={filters.ut_result ?? ''} onChange={e => { setPage(0); setFilters(f => ({ ...f, ut_result: e.target.value })) }}>
-                        <option value="">Tất cả</option>
-                        <option value="ACC">ACC</option>
-                        <option value="REJ">REJ</option>
-                        <option value="N/A">N/A</option>
-                    </select>
-                </div>
-                <div style={{ minWidth: '100px' }}>
-                    <label className="form-label">GOC Code</label>
-                    <input
-                        type="text"
-                        className="form-input"
-                        placeholder="ST-22"
-                        value={filters.goc_code}
-                        onChange={e => { setPage(0); setFilters(f => ({ ...f, goc_code: e.target.value })) }}
-                    />
-                </div>
-                <button className="btn btn-secondary" onClick={() => { setFilters({ search: '', stage: '', mt_result: '', ut_result: '', goc_code: '' }); setPage(0) }}>
-                    🔄 Xóa lọc
-                </button>
+            {/* Global Search + Clear */}
+            <div style={{ background: 'white', borderRadius: '10px', padding: '12px 16px', marginBottom: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <input
+                    type="text"
+                    className="form-input"
+                    placeholder="🔍 Tìm nhanh: Weld ID, DrawingNo, Welders..."
+                    value={globalSearch}
+                    style={{ flex: 1 }}
+                    onChange={e => { setGlobalSearch(e.target.value); setPage(0) }}
+                />
+                {(globalSearch || Object.values(colFilters).some(v => v)) && (
+                    <button className="btn btn-secondary" onClick={() => { setGlobalSearch(''); setColFilters({}); setPage(0) }}>
+                        ✕ Xóa lọc
+                    </button>
+                )}
+                <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                    Hiển thị {Math.min(LIMIT, welds.length)}/{totalCount}
+                </span>
             </div>
 
             {/* Table */}
@@ -174,91 +224,93 @@ export default function WeldsPage() {
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '60px' }}>
                         <div className="spinner" style={{ margin: '0 auto 16px' }} />
-                        <p style={{ color: '#64748b' }}>Đang tải dữ liệu...</p>
+                        <p style={{ color: '#64748b' }}>Đang tải...</p>
                     </div>
                 ) : (
                     <div className="table-container">
-                        <table style={{ fontSize: '0.75rem', minWidth: '1800px' }}>
+                        <table style={{ fontSize: '0.74rem', borderCollapse: 'collapse', width: '100%' }}>
                             <thead>
+                                {/* Row 1: Sortable column headers */}
                                 <tr>
-                                    <th style={{ minWidth: '180px' }}>&amp; (Weld ID)</th>
-                                    <th style={{ minWidth: '140px' }}>DrawingNo</th>
-                                    <th>Weld No</th>
-                                    <th>Weld Joints</th>
-                                    <th>Weld Type</th>
-                                    <th>NDT</th>
-                                    <th>OD /L</th>
-                                    <th>Length (mm)</th>
-                                    <th>Thick (mm)</th>
-                                    <th>Thick LC</th>
-                                    <th>WPS No.</th>
-                                    <th>GOC Code</th>
-                                    <th>FU Inspector</th>
-                                    <th>FU Date</th>
-                                    <th>FU Request</th>
-                                    <th>FU Finish</th>
-                                    <th>Welders&apos; ID</th>
-                                    <th>VS Inspector</th>
-                                    <th>VS Date</th>
-                                    <th>VS Request</th>
-                                    <th>BG Date</th>
-                                    <th>BG Request</th>
-                                    <th>MT Result</th>
-                                    <th>MT Report</th>
-                                    <th>UT Result</th>
-                                    <th>UT Report</th>
-                                    <th>RT Result</th>
-                                    <th>IRN No</th>
-                                    <th>IRN Date</th>
-                                    <th>Stage</th>
-                                    <th>Action</th>
+                                    {COLUMNS.map(col => (
+                                        <th
+                                            key={col.key}
+                                            style={{
+                                                minWidth: col.minWidth, textAlign: col.align || 'left',
+                                                cursor: 'pointer', userSelect: 'none',
+                                                background: sort.col === col.key ? '#eff6ff' : undefined,
+                                                borderBottom: 'none', paddingBottom: '4px',
+                                            }}
+                                            onClick={() => handleSort(col.key)}
+                                            title={`Sắp xếp theo ${col.label}`}
+                                        >
+                                            {col.label}<SortIcon col={col.key} />
+                                        </th>
+                                    ))}
+                                    <th style={{ minWidth: 60 }}>Action</th>
+                                </tr>
+                                {/* Row 2: Per-column filter inputs */}
+                                <tr style={{ background: '#f8fafc' }}>
+                                    {COLUMNS.map(col => {
+                                        const isResult = ['mt_result', 'ut_result', 'rt_result', 'stage'].includes(col.key)
+                                        const isExcelRow = col.key === 'excel_row_order'
+                                        return (
+                                            <td key={col.key} style={{ padding: '3px 6px', borderTop: '1px solid #e2e8f0' }}>
+                                                {isExcelRow ? null : isResult ? (
+                                                    <select
+                                                        value={colFilters[col.key] || ''}
+                                                        onChange={e => setFilter(col.key, e.target.value)}
+                                                        style={{
+                                                            width: '100%', fontSize: '0.7rem', border: '1px solid #e2e8f0',
+                                                            borderRadius: '4px', padding: '2px 4px', background: 'white',
+                                                            outline: 'none', color: colFilters[col.key] ? '#0f172a' : '#94a3b8',
+                                                        }}
+                                                    >
+                                                        <option value="">All</option>
+                                                        {col.key === 'stage'
+                                                            ? Object.entries(STAGE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)
+                                                            : <>
+                                                                <option value="ACC">ACC</option>
+                                                                <option value="REJ">REJ</option>
+                                                                <option value="N/A">N/A</option>
+                                                            </>
+                                                        }
+                                                    </select>
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        value={colFilters[col.key] || ''}
+                                                        onChange={e => setFilter(col.key, e.target.value)}
+                                                        placeholder="🔍"
+                                                        style={{
+                                                            width: '100%', fontSize: '0.7rem', border: '1px solid #e2e8f0',
+                                                            borderRadius: '4px', padding: '2px 5px', boxSizing: 'border-box',
+                                                            outline: 'none', background: colFilters[col.key] ? '#eff6ff' : 'white',
+                                                        }}
+                                                    />
+                                                )}
+                                            </td>
+                                        )
+                                    })}
+                                    <td style={{ borderTop: '1px solid #e2e8f0' }} />
                                 </tr>
                             </thead>
                             <tbody>
                                 {welds.length === 0 ? (
                                     <tr>
-                                        <td colSpan={32} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-                                            Không có dữ liệu. Hãy import Excel hoặc tạo mối hàn mới.
+                                        <td colSpan={COLUMNS.length + 1} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                                            {currentProjectId ? 'Không có dữ liệu phù hợp.' : 'Chọn Dự án ở menu trái.'}
                                         </td>
                                     </tr>
-                                ) : welds.map(weld => (
-                                    <tr key={weld.id}>
-                                        <td>
-                                            <Link href={`/welds/${weld.id}`} style={{ color: '#1d4ed8', textDecoration: 'none', fontWeight: 600 }}>
-                                                {weld.weld_id}
-                                            </Link>
-                                        </td>
-                                        <td style={{ color: '#64748b', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{weld.drawing_no}</td>
-                                        <td style={{ fontWeight: 500, textAlign: 'center' }}>{weld.weld_no}</td>
-                                        <td style={{ fontWeight: 600 }}>{(weld as any).joint_family}</td>
-                                        <td style={{ fontWeight: 600, color: '#374151' }}>{weld.joint_type}</td>
-                                        <td style={{ color: '#64748b', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{weld.ndt_requirements}</td>
-                                        <td style={{ textAlign: 'center' }}>{(weld as any).position}</td>
-                                        <td style={{ textAlign: 'right' }}>{weld.weld_length?.toLocaleString()}</td>
-                                        <td style={{ textAlign: 'right' }}>{weld.thickness}</td>
-                                        <td style={{ textAlign: 'right', color: '#64748b' }}>{(weld as any).thickness_lamcheck}</td>
-                                        <td style={{ color: '#6366f1' }}>{weld.wps_no}</td>
-                                        <td><span style={{ padding: '1px 4px', background: '#f1f5f9', borderRadius: '3px' }}>{weld.goc_code}</span></td>
-                                        <td>{weld.fitup_inspector}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{weld.fitup_date ? String(weld.fitup_date).slice(0, 10) : ''}</td>
-                                        <td>{weld.fitup_request_no}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{(weld as any).fitup_accepted_date ? String((weld as any).fitup_accepted_date).slice(0, 10) : ''}</td>
-                                        <td style={{ maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{weld.welders}</td>
-                                        <td>{(weld as any).visual_inspector}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{weld.visual_date ? String(weld.visual_date).slice(0, 10) : ''}</td>
-                                        <td>{weld.visual_request_no}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{weld.backgouge_date ? String(weld.backgouge_date).slice(0, 10) : ''}</td>
-                                        <td>{weld.backgouge_request_no}</td>
-                                        <td><ResultBadge result={weld.mt_result} /></td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{weld.mt_report_no}</td>
-                                        <td><ResultBadge result={weld.ut_result} /></td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{weld.ut_report_no}</td>
-                                        <td><ResultBadge result={weld.rt_result} /></td>
-                                        <td style={{ fontWeight: 600, color: '#0369a1', whiteSpace: 'nowrap' }}>{weld.irn_no}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{weld.irn_date ? String(weld.irn_date).slice(0, 10) : ''}</td>
-                                        <td><StageBadge stage={weld.stage} /></td>
-                                        <td>
-                                            <Link href={`/welds/${weld.id}/edit`} style={{ color: '#3b82f6', textDecoration: 'none' }}>✏️ Sửa</Link>
+                                ) : welds.map((weld, idx) => (
+                                    <tr key={String(weld.id)} style={{ background: idx % 2 ? '#fafafa' : 'white' }}>
+                                        {COLUMNS.map(col => (
+                                            <td key={col.key} style={{ textAlign: col.align || 'left', padding: '5px 8px' }}>
+                                                {renderCell(col.key, weld)}
+                                            </td>
+                                        ))}
+                                        <td style={{ padding: '5px 8px' }}>
+                                            <Link href={`/welds/${weld.id}/edit`} style={{ color: '#3b82f6', textDecoration: 'none' }}>✏️</Link>
                                         </td>
                                     </tr>
                                 ))}
@@ -268,44 +320,20 @@ export default function WeldsPage() {
                 )}
 
                 {/* Pagination */}
-                <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: '#64748b', fontSize: '0.875rem' }}>
-                        Trang {page + 1} / {Math.ceil(totalCount / LIMIT)} — Hiện {welds.length}/{totalCount}
-                    </span>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <button className="btn btn-secondary" disabled={page === 0} onClick={() => setPage(p => p - 1)}>← Trước</button>
-                        <button className="btn btn-secondary" disabled={(page + 1) * LIMIT >= totalCount} onClick={() => setPage(p => p + 1)}>Tiếp →</button>
+                {totalPages > 1 && (
+                    <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                            Trang {page + 1}/{totalPages} — {totalCount} mối hàn
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                            <button className="btn btn-secondary" onClick={() => setPage(0)} disabled={page === 0}>«</button>
+                            <button className="btn btn-secondary" onClick={() => setPage(p => p - 1)} disabled={page === 0}>‹ Trước</button>
+                            <button className="btn btn-secondary" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1}>Sau ›</button>
+                            <button className="btn btn-secondary" onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1}>»</button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
-    )
-}
-
-function ResultBadge({ result }: { result: string | null }) {
-    const styles = {
-        ACC: { bg: '#dcfce7', color: '#166534' },
-        REJ: { bg: '#fee2e2', color: '#991b1b' },
-        'N/A': { bg: '#f1f5f9', color: '#64748b' },
-    }
-    const s = result ? styles[result as keyof typeof styles] : styles['N/A']
-    return (
-        <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, background: s?.bg || '#f1f5f9', color: s?.color || '#64748b' }}>
-            {result || '—'}
-        </span>
-    )
-}
-
-function StageBadge({ stage }: { stage: string }) {
-    const colors: Record<string, string> = {
-        completed: '#22c55e', rejected: '#ef4444', mpi: '#ec4899',
-        ut: '#06b6d4', visual: '#f97316', welding: '#f59e0b',
-        fitup: '#3b82f6', backgouge: '#8b5cf6', lamcheck: '#6366f1',
-    }
-    const c = colors[stage] || '#94a3b8'
-    return (
-        <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600, background: c + '20', color: c }}>
-            {STAGE_LABELS[stage as keyof typeof STAGE_LABELS] || stage}
-        </span>
     )
 }
