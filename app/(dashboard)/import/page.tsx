@@ -333,21 +333,49 @@ export default function ImportPage() {
                     dataRows.push(weldData)
                 }
 
-                // Import in batches
+                // Import in batches — with fallback if column not in DB yet
                 const total = dataRows.length
-                for (let i = 0; i < dataRows.length; i += batchSize) {
-                    const batch = dataRows.slice(i, i + batchSize)
+                // Track which columns are known to be missing in DB schema
+                const missingCols = new Set<string>()
+
+                const upsertBatch = async (batch: Record<string, unknown>[], attempt = 0): Promise<boolean> => {
+                    // Remove any columns already known to be missing
+                    const cleanBatch = batch.map(row => {
+                        const cleaned = { ...row }
+                        missingCols.forEach(col => delete cleaned[col])
+                        return cleaned
+                    })
                     const { error } = await supabase
                         .from('welds')
-                        .upsert(batch as any, { onConflict: 'project_id,weld_id' })
+                        .upsert(cleanBatch as any, { onConflict: 'project_id,weld_id' })
 
                     if (error) {
-                        errorCount += batch.length
-                        errors.push(`Dòng ${i + 1}-${i + batch.length}: ${error.message}`)
-                    } else {
+                        // If schema cache error → find missing column and retry without it
+                        const schemaMatch = error.message.match(/Could not find the '(\w+)' column/)
+                        if (schemaMatch && attempt < 10) {
+                            missingCols.add(schemaMatch[1])
+                            return upsertBatch(batch, attempt + 1)
+                        }
+                        errors.push(`Dòng ${total}: ${error.message}`)
+                        return false
+                    }
+                    return true
+                }
+
+                for (let i = 0; i < dataRows.length; i += batchSize) {
+                    const batch = dataRows.slice(i, i + batchSize)
+                    const ok = await upsertBatch(batch)
+                    if (ok) {
                         successCount += batch.length
+                    } else {
+                        errorCount += batch.length
                     }
                     setProgress(Math.round(((i + batch.length) / total) * 100))
+                }
+
+                // Warn if columns were auto-skipped due to missing migration
+                if (missingCols.size > 0) {
+                    errors.push(`⚠️ Các cột chưa có trong DB (cần chạy Migration SQL): ${[...missingCols].join(', ')}`)
                 }
 
                 setResult({ success: successCount, errors: errorCount, messages: errors.slice(0, 5) })
