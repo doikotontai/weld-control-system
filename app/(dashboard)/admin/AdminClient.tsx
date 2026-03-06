@@ -36,7 +36,7 @@ export default function AdminClient({ users }: { users: Profile[] }) {
     }
 
     const handleUpdateRole = async (userId: string, newRole: UserRole) => {
-        const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId)
+        const { error } = await (supabase.from('profiles') as any).update({ role: newRole }).eq('id', userId)
         if (!error) {
             setLocalUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u))
             setMessage(`✅ Đã cập nhật role!`)
