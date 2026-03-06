@@ -18,7 +18,7 @@ export default async function NewRequestPage() {
     // Fetch user profile to check roles
     const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, full_name')
         .eq('id', user.id)
         .single()
 
