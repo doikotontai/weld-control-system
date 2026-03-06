@@ -1,6 +1,6 @@
 'use client'
 // app/(dashboard)/welds/new/page.tsx — Form tạo mối hàn mới
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -14,7 +14,11 @@ export default function NewWeldPage() {
     const [success, setSuccess] = useState('')
 
     // Form state
+    const [projects, setProjects] = useState<{ id: string, code: string, name: string }[]>([])
+
+    // Default form configuration
     const [form, setForm] = useState({
+        project_id: '',
         weld_no: '',
         drawing_no: '',
         joint_type: '',
@@ -42,14 +46,23 @@ export default function NewWeldPage() {
 
     const set = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }))
 
+    // Load available projects
+    useEffect(() => {
+        async function fetchProjects() {
+            const { data } = await supabase.from('projects').select('id, code, name').eq('is_active', true)
+            if (data) setProjects(data)
+        }
+        fetchProjects()
+    }, [supabase])
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setError('')
 
         // Validate required fields
-        if (!form.weld_no || !form.drawing_no) {
-            setError('Số mối hàn và Bản vẽ là bắt buộc!')
+        if (!form.project_id || !form.weld_no || !form.drawing_no) {
+            setError('Dự án, Số mối hàn và Bản vẽ là bắt buộc!')
             setLoading(false)
             return
         }
@@ -57,12 +70,8 @@ export default function NewWeldPage() {
         // Build weld_id
         const weldId = `${form.drawing_no}-WM${form.weld_no}`.replace(/\s/g, '')
 
-        // Get default project
-        const { data: project } = await supabase.from('projects').select('id').limit(1).single()
-        if (!project) { setError('Không tìm thấy dự án. Vui lòng tạo dự án trước.'); setLoading(false); return }
-
         const insertData = {
-            project_id: (project as any).id,
+            project_id: form.project_id,
             weld_id: weldId,
             weld_no: form.weld_no,
             drawing_no: form.drawing_no,
@@ -96,7 +105,10 @@ export default function NewWeldPage() {
             setError(`Lỗi: ${insertError.message}`)
         } else {
             setSuccess(`✅ Đã tạo mối hàn ${weldId} thành công!`)
-            setTimeout(() => router.push('/welds'), 1500)
+            router.refresh()
+            setTimeout(() => {
+                window.location.href = '/welds' // Force hard reload to guarantee fresh data
+            }, 1500)
         }
         setLoading(false)
     }
@@ -122,6 +134,20 @@ export default function NewWeldPage() {
                         📋 Thông tin cơ bản
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                        <div>
+                            <Label>Dự án *</Label>
+                            <select
+                                className="form-input"
+                                required
+                                value={form.project_id}
+                                onChange={e => set('project_id', e.target.value)}
+                            >
+                                <option value="">-- Chọn Dự án --</option>
+                                {projects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.code}</option>
+                                ))}
+                            </select>
+                        </div>
                         <div>
                             <Label>Số bản vẽ (Drawing No.) *</Label>
                             <input className="form-input" value={form.drawing_no} onChange={e => set('drawing_no', e.target.value)} placeholder="9001-2211-DS-0032-01-WM" required />
