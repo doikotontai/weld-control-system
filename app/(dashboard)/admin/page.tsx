@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AdminClient from './AdminClient'
+import ProjectManagement from './ProjectManagement'
 
 import { cookies } from 'next/headers'
 
@@ -32,5 +33,16 @@ export default async function AdminPage() {
         .select('*')
         .order('created_at', { ascending: false })
 
-    return <AdminClient users={users || []} />
+    // Lấy danh sách projects
+    const { data: projects } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '48px', paddingBottom: '48px' }}>
+            <AdminClient users={users || []} />
+            <ProjectManagement initialProjects={projects || []} />
+        </div>
+    )
 }
