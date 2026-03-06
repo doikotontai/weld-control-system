@@ -326,7 +326,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
     }
 
     return (
-        <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+        <div className="print-wrapper" style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
             {/* Action Bar (Not printed) */}
             <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', background: 'white', padding: '16px 24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <div>
@@ -576,12 +576,46 @@ export default function RequestPrintView({ request, welds }: { request: Request,
             <style dangerouslySetInnerHTML={{
                 __html: `
                 @media print {
-                    @page { size: A4 landscape; margin: 10mm; }
-                    body { background: white !important; margin: 0; padding: 0; }
-                    .no-print { display: none !important; }
-                    .print-container { box-shadow: none !important; margin: 0; padding: 0 !important; }
-                    nav, sidebar, #sidebar { display: none !important; }
-                    html, body { min-width: 100%; overflow: visible; }
+                    @page { 
+                        size: A4 landscape; 
+                        margin: 5mm; 
+                    }
+                    body { 
+                        background: white !important; 
+                        margin: 0 !important; 
+                        padding: 0 !important;
+                    }
+                    /* Hide everything except the print container */
+                    body > *:not(.print-wrapper) {
+                        display: none !important;
+                    }
+                    .no-print, nav, aside, header, footer, #sidebar, .sidebar { 
+                        display: none !important; 
+                    }
+                    /* Force the wrapper to take full screen */
+                    .print-wrapper {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .print-container { 
+                        box-shadow: none !important; 
+                        margin: 0 auto !important; 
+                        padding: 0 !important; 
+                        width: 100% !important;
+                        max-width: none !important;
+                        page-break-inside: avoid;
+                    }
+                    /* Ensure tables don't break across pages poorly */
+                    table { page-break-inside: auto; }
+                    tr { page-break-inside: avoid; page-break-after: auto; }
+                    html, body { 
+                        min-width: 100%; 
+                        overflow: visible; 
+                    }
                 }
             `}} />
         </div>
