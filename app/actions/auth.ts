@@ -49,5 +49,5 @@ export async function logoutWithSupabase() {
 
     const cookieStore = await cookies()
     cookieStore.delete('weld-control-auth')
-    cookieStore.delete('sb-dvazznhnstlowhdvgee-auth-token')
+    cookieStore.delete('sb-dvazznhntsltowhdvgee-auth-token')
 }

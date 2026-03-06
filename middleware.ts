@@ -23,7 +23,7 @@ export function middleware(req: NextRequest) {
     // Kiểm tra auth cookie (Supabase lưu session trong localStorage khi dùng supabase-js trực tiếp)
     // Với PKCE flow, token được lưu trong localStorage nên middleware không cần check
     // Chỉ redirect /login → /dashboard nếu đã login (dựa trên cookie sb-* của Supabase)
-    const supabaseAuthCookie = req.cookies.get('sb-dvazznhnstlowhdvgee-auth-token')
+    const supabaseAuthCookie = req.cookies.get('sb-dvazznhntsltowhdvgee-auth-token')
         || req.cookies.get('supabase-auth-token')
         || req.cookies.get('weld-control-auth')
 
