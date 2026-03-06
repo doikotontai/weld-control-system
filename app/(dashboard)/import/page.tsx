@@ -96,12 +96,12 @@ const COLUMN_MAP: Record<number, string> = {
 function parseResult(val: unknown): string | null {
     if (!val) return null
     const s = String(val).toUpperCase().trim()
-    if (s === 'ACC' || s === 'ACCEPT') return 'ACC'
-    if (s === 'REJ' || s === 'REJECT') return 'REJ'
-    if (s === 'N/A' || s === 'NA') return 'N/A'
-    if (s === 'FINISH') return 'ACC'
-    if (s === 'A') return 'ACC'
-    return s || null
+    if (s === 'ACC' || s === 'ACCEPT' || s === 'ACCEPTED' || s === 'PASS') return 'ACC'
+    if (s === 'REJ' || s === 'REJECT' || s === 'REJECTED' || s === 'FAIL') return 'REJ'
+    if (s === 'N/A' || s === 'NA' || s === 'NOT APPLICABLE') return 'N/A'
+    if (s === 'FINISH' || s === 'FINISHED' || s === 'A' || s === 'OK') return 'ACC'
+    // Any other value → null (do NOT return raw string, it would violate DB CHECK constraint)
+    return null
 }
 
 function parseDate(val: unknown): string | null {
@@ -275,8 +275,12 @@ export default function ImportPage() {
                 // Parse all rows
                 let dataRowIndex = 0
                 for (const row of rawData as unknown[][]) {
-                    const weldId = String(row[0] || '')
-                    if (!weldId || !weldId.includes('-WM')) continue
+                    const weldId = String(row[0] || '').trim()
+                    // Accept any row that has a non-empty weld ID (not just '-WM' rows)
+                    // This allows partial rows (only weld number) to be imported too
+                    if (!weldId || weldId.length < 3) continue
+                    // Skip header rows (text values in first column that look like headers)
+                    if (/^(weld\s*id|no\.|stt|#|\&|column)/i.test(weldId)) continue
                     dataRowIndex++
 
                     const rowObj: Record<string, unknown> = {}
@@ -325,7 +329,7 @@ export default function ImportPage() {
                         repair_length: rowObj['repair_length'] ? parseFloat(String(rowObj['repair_length'])) : null,
                         irn_date: parseDate(rowObj['irn_date']),
                         irn_no: String(rowObj['irn_no'] || '') || null,
-                        pwht_result: String(rowObj['pwht_result'] || '') || null,
+                        pwht_result: parseResult(rowObj['pwht_result']),
                         stage: parseStage(rowObj),
                         final_status: (mtResult === 'ACC' && utResult === 'ACC') ? 'OK' : null,
                         excel_row_order: dataRowIndex,
