@@ -59,7 +59,7 @@ export default async function DashboardLayout({
             />
 
             {/* Main content */}
-            <main style={{
+            <main className="dashboard-layout-main" style={{
                 marginLeft: '240px',
                 flex: 1,
                 minHeight: '100vh',

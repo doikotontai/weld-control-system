@@ -586,8 +586,19 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                         padding: 0 !important;
                         min-width: 100%;
                     }
-                    /* Hiding sidebar and topbar using common layout classes */
-                    .no-print, nav, aside, header, footer, #sidebar, .sidebar { 
+                    /* Hiding sidebar specifically and gracefully reset main layout */
+                    .dashboard-sidebar { 
+                        display: none !important; 
+                    }
+                    .dashboard-layout-main {
+                        margin-left: 0 !important;
+                        padding: 0 !important;
+                        background: white !important;
+                        min-height: auto !important;
+                    }
+                    
+                    /* Hiding top action bar */
+                    .no-print { 
                         display: none !important; 
                     }
                     /* Remove padding limits from wrapper and its parents if possible */

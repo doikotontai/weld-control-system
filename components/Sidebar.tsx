@@ -69,7 +69,7 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
     }
 
     return (
-        <div style={{ width: '240px', height: '100vh', background: '#0f172a', position: 'fixed', left: 0, top: 0, display: 'flex', flexDirection: 'column', zIndex: 50, borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="dashboard-sidebar" style={{ width: '240px', height: '100vh', background: '#0f172a', position: 'fixed', left: 0, top: 0, display: 'flex', flexDirection: 'column', zIndex: 50, borderRight: '1px solid rgba(255,255,255,0.05)' }}>
             {/* Brand */}
             <div style={{ padding: '14px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
