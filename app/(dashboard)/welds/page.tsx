@@ -29,12 +29,29 @@ export default function WeldsPage() {
         ut_result: '',
         goc_code: '',
     })
+    const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
+
+    // Parse current Project ID from cookie on mount
+    useEffect(() => {
+        if (typeof document !== 'undefined') {
+            const match = document.cookie.match(/(?:^|;)\s*weld-control-project-id=([^;]+)/)
+            setCurrentProjectId(match ? match[1] : null)
+        }
+    }, [])
 
     const fetchWelds = useCallback(async () => {
+        if (!currentProjectId) {
+            setWelds([])
+            setTotalCount(0)
+            setLoading(false)
+            return
+        }
+
         setLoading(true)
         let query = supabase
             .from('welds')
             .select('*', { count: 'exact' })
+            .eq('project_id', currentProjectId)
             .order('updated_at', { ascending: false })
             .range(page * LIMIT, (page + 1) * LIMIT - 1) as any
 
@@ -52,7 +69,11 @@ export default function WeldsPage() {
         setLoading(false)
     }, [filters, page, supabase])
 
-    useEffect(() => { fetchWelds() }, [fetchWelds])
+    useEffect(() => {
+        if (currentProjectId !== null) {
+            fetchWelds()
+        }
+    }, [fetchWelds, currentProjectId])
 
     const handleExport = async () => {
         // Export to Excel using xlsx library
@@ -70,7 +91,7 @@ export default function WeldsPage() {
                 <div>
                     <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>🔩 Quản lý Mối hàn</h1>
                     <p style={{ color: '#64748b', marginTop: '4px' }}>
-                        {totalCount.toLocaleString()} mối hàn tổng cộng
+                        {currentProjectId ? `${totalCount.toLocaleString()} mối hàn trong dự án` : 'Vui lòng chọn Dự án ở thẻ menu trái.'}
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>

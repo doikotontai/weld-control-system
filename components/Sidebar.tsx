@@ -5,10 +5,19 @@ import { usePathname } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { UserRole, ROLE_LABELS } from '@/types'
 import { logoutWithSupabase } from '@/app/actions/auth'
+import { setActiveProject } from '@/app/actions/project-context'
+
+interface Project {
+    id: string
+    code: string
+    name: string
+}
 
 interface SidebarProps {
     userRole: UserRole
     userName: string
+    projects: Project[]
+    currentProjectId: string
 }
 
 const navItems = [
@@ -21,7 +30,7 @@ const navItems = [
     { href: '/admin', icon: '⚙️', label: 'Quản trị hệ thống', roles: ['admin'] },
 ]
 
-export default function Sidebar({ userRole, userName }: SidebarProps) {
+export default function Sidebar({ userRole, userName, projects, currentProjectId }: SidebarProps) {
     const pathname = usePathname()
     const router = useRouter()
 
@@ -29,6 +38,11 @@ export default function Sidebar({ userRole, userName }: SidebarProps) {
         await logoutWithSupabase()
         router.push('/login')
         router.refresh()
+    }
+
+    const handleProjectChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = e.target.value
+        await setActiveProject(value)
     }
 
     const visibleItems = navItems.filter(item => item.roles.includes(userRole))
@@ -69,8 +83,28 @@ export default function Sidebar({ userRole, userName }: SidebarProps) {
                     background: 'rgba(255,255,255,0.05)',
                     borderRadius: '8px',
                 }}>
-                    <div style={{ color: '#94a3b8', fontSize: '0.7rem' }}>THIEN NGA – HAI AU</div>
-                    <div style={{ color: '#64748b', fontSize: '0.65rem' }}>Phase 1 • Block 12/11</div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.7rem' }}>CHỌN DỰ ÁN LÀM VIỆC</div>
+                    <select
+                        value={currentProjectId}
+                        onChange={handleProjectChange}
+                        style={{
+                            width: '100%',
+                            marginTop: '4px',
+                            background: 'rgba(0,0,0,0.2)',
+                            color: 'white',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '4px',
+                            padding: '6px',
+                            fontSize: '0.8rem',
+                            outline: 'none',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <option value="">-- Tất cả dự án --</option>
+                        {projects.map(p => (
+                            <option key={p.id} value={p.id}>{p.code}</option>
+                        ))}
+                    </select>
                 </div>
             </div>
 

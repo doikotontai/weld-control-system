@@ -17,15 +17,24 @@ export default async function RequestsPage() {
     const { data: { user } } = await supabase.auth.getUser(accessToken)
     if (!user) redirect('/login')
 
-    // Fetch requests joined with projects
-    const { data: requests, error } = await supabase
-        .from('inspection_requests')
-        .select(`
-            *,
-            projects ( code, name ),
-            profiles ( full_name )
-        `)
-        .order('created_at', { ascending: false })
+    const currentProjectId = cookieStore.get('weld-control-project-id')?.value || null
+
+    let requests: any[] = []
+
+    if (currentProjectId) {
+        // Fetch requests joined with projects
+        const { data, error } = await supabase
+            .from('inspection_requests')
+            .select(`
+                *,
+                projects ( code, name ),
+                profiles ( full_name )
+            `)
+            .eq('project_id', currentProjectId)
+            .order('created_at', { ascending: false })
+
+        if (data) requests = data
+    }
 
     // If tables are empty or error occurs
     const safeRequests = requests || []
@@ -64,10 +73,16 @@ export default async function RequestsPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {safeRequests.length === 0 ? (
+                            {!currentProjectId ? (
                                 <tr>
                                     <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>
-                                        Chưa có Yêu cầu kiểm tra nào.
+                                        Vui lòng chọn Dự án ở thẻ menu trái để xem Yêu cầu kiểm tra.
+                                    </td>
+                                </tr>
+                            ) : safeRequests.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>
+                                        Chưa có Yêu cầu kiểm tra nào trong Dự án này.
                                     </td>
                                 </tr>
                             ) : (

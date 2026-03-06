@@ -1,6 +1,6 @@
 'use client'
 // app/(dashboard)/import/page.tsx — Import Excel
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import * as XLSX from 'xlsx'
 
@@ -90,6 +90,25 @@ export default function ImportPage() {
     const [result, setResult] = useState<{ success: number; errors: number; messages: string[] } | null>(null)
     const fileRef = useRef<HTMLInputElement>(null)
     const supabase = createClient()
+    const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
+    const [currentProjectCode, setCurrentProjectCode] = useState<string>('')
+
+    // Read the globally selected project from cookie
+    useEffect(() => {
+        if (typeof document !== 'undefined') {
+            const match = document.cookie.match(/(?:^|;)\s*weld-control-project-id=([^;]+)/)
+            const pid = match ? match[1] : null
+            setCurrentProjectId(pid)
+            if (pid) {
+                // Fetch project name to show in UI
+                supabase.from('projects').select('code, name').eq('id', pid).single()
+                    .then(({ data }) => {
+                        const p = data as { code: string; name: string } | null
+                        if (p) setCurrentProjectCode(`${p.code} \u2014 ${p.name}`)
+                    })
+            }
+        }
+    }, [])
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0]
@@ -169,9 +188,9 @@ export default function ImportPage() {
                 const ws = workbook.Sheets[sheetName]
                 const rawData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null }) as unknown[][]
 
-                // Get project
-                const { data: project } = await supabase.from('projects').select('id').limit(1).single()
-                if (!project) { alert('Không tìm thấy dự án!'); setImporting(false); return }
+                // Get project from cookie-based global context
+                const projectId = currentProjectId
+                if (!projectId) { alert('Bạn chưa chọn Dự án! Hãy chọn Dự án ở menu trái trước khi Import.'); setImporting(false); return }
 
                 let successCount = 0
                 let errorCount = 0
@@ -193,7 +212,7 @@ export default function ImportPage() {
                     const utResult = parseResult(rowObj['ut_result'])
 
                     const weldData = {
-                        project_id: (project as any).id,
+                        project_id: projectId,
                         weld_id: weldId,
                         drawing_no: String(rowObj['drawing_no'] || ''),
                         weld_no: String(rowObj['weld_no'] || ''),
@@ -253,6 +272,25 @@ export default function ImportPage() {
                 <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>📥 Import từ Excel</h1>
                 <p style={{ color: '#64748b', marginTop: '4px' }}>Import dữ liệu từ sheet DATA INPUT của file WELD CONTROL.xlsx</p>
             </div>
+
+            {/* Project Context Banner */}
+            {!currentProjectId ? (
+                <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+                    <div>
+                        <div style={{ fontWeight: 600, color: '#b91c1c' }}>Chưa chọn Dự án!</div>
+                        <div style={{ color: '#dc2626', fontSize: '0.875rem' }}>Vui lòng chọn Dự án ở menu bên trái trước khi Import. Dữ liệu sẽ được gắn vào Dự án bạn chọn.</div>
+                    </div>
+                </div>
+            ) : (
+                <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: '8px', padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '1.5rem' }}>✅</span>
+                    <div>
+                        <div style={{ fontWeight: 600, color: '#166534' }}>Dự án được Import</div>
+                        <div style={{ color: '#15803d', fontSize: '0.875rem' }}>{currentProjectCode || currentProjectId}</div>
+                    </div>
+                </div>
+            )}
 
             {/* Instructions */}
             <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>

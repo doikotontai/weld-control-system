@@ -3,38 +3,61 @@
 import { createClient } from '@/lib/supabase/server'
 import { WeldStats } from '@/types'
 
+import { cookies } from 'next/headers'
+
 export default async function DashboardPage() {
     const supabase = await createClient()
+    const cookieStore = await cookies()
+    const currentProjectId = cookieStore.get('weld-control-project-id')?.value || null
+
+    if (!currentProjectId) {
+        return (
+            <div className="page-enter" style={{ padding: '24px', textAlign: 'center' }}>
+                <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a', marginBottom: '16px' }}>📊 Dashboard</h1>
+                <div style={{ background: 'white', padding: '40px', borderRadius: '12px', color: '#64748b' }}>
+                    Vui lòng chọn Dự án ở thẻ menu trái để xem thống kê.
+                </div>
+            </div>
+        )
+    }
+
+    // Lấy thông tin dự án hiện tại để hiển thị tên
+    const { data: project } = await supabase
+        .from('projects')
+        .select('name, code')
+        .eq('id', currentProjectId)
+        .single()
 
     // Lấy số liệu từ view vw_weld_stats
     const { data: statsData } = await supabase
         .from('vw_weld_stats')
         .select('*')
+        .eq('project_id', currentProjectId)
         .single()
 
     const stats = statsData as WeldStats | null
 
-    // Lấy 10 mối hàn mới nhất
     const { data: recentWelds } = await supabase
         .from('welds')
         .select('weld_id, weld_no, drawing_no, joint_type, stage, final_status, mt_result, ut_result, updated_at')
+        .eq('project_id', currentProjectId)
         .order('updated_at', { ascending: false })
         .limit(10)
 
-    // Lấy thống kê theo stage
     const { data: stageStats } = await supabase
         .from('welds')
         .select('stage')
+        .eq('project_id', currentProjectId)
 
     const stageCounts: Record<string, number> = {}
     stageStats?.forEach(w => {
         stageCounts[w.stage] = (stageCounts[w.stage] || 0) + 1
     })
 
-    // Lấy thống kê theo khu vực (GOC code)
     const { data: gocStats } = await supabase
         .from('welds')
         .select('goc_code')
+        .eq('project_id', currentProjectId)
 
     const gocCounts: Record<string, number> = {}
     gocStats?.forEach(w => {
@@ -50,13 +73,12 @@ export default async function DashboardPage() {
 
     return (
         <div className="page-enter">
-            {/* Header */}
             <div style={{ marginBottom: '24px' }}>
                 <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>
                     📊 Dashboard
                 </h1>
                 <p style={{ color: '#64748b', marginTop: '4px' }}>
-                    Tổng quan tiến độ hàn — THIEN NGA – HAI AU PHASE 1 PROJECT
+                    Tổng quan tiến độ hàn — Dự án: {project?.code} - {project?.name}
                 </p>
             </div>
 

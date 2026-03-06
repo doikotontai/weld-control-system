@@ -39,10 +39,24 @@ export default async function DashboardLayout({
     const userRole = (profile?.role as UserRole) || 'viewer'
     const userName = profile?.full_name || user.email || 'User'
 
+    // Đọc projectId đang được select từ cookie
+    const currentProjectId = cookieStore.get('weld-control-project-id')?.value || ''
+
+    // Lấy danh sách dự án cho Dropdown Filter
+    const { data: projects } = await supabase
+        .from('projects')
+        .select('id, code, name')
+        .order('created_at', { ascending: false })
+
     return (
         <div style={{ display: 'flex', minHeight: '100vh' }}>
             {/* Sidebar */}
-            <Sidebar userRole={userRole} userName={userName} />
+            <Sidebar
+                userRole={userRole}
+                userName={userName}
+                projects={projects || []}
+                currentProjectId={currentProjectId}
+            />
 
             {/* Main content */}
             <main style={{
