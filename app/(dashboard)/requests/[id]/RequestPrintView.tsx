@@ -578,44 +578,35 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                 @media print {
                     @page { 
                         size: A4 landscape; 
-                        margin: 5mm; 
+                        margin: 10mm; 
                     }
-                    body { 
+                    body, html { 
                         background: white !important; 
                         margin: 0 !important; 
                         padding: 0 !important;
+                        min-width: 100%;
                     }
-                    /* Hide everything except the print container */
-                    body > *:not(.print-wrapper) {
-                        display: none !important;
-                    }
+                    /* Hiding sidebar and topbar using common layout classes */
                     .no-print, nav, aside, header, footer, #sidebar, .sidebar { 
                         display: none !important; 
                     }
-                    /* Force the wrapper to take full screen */
+                    /* Remove padding limits from wrapper and its parents if possible */
                     .print-wrapper {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 100%;
-                        margin: 0;
-                        padding: 0;
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        max-width: none !important;
+                        width: 100% !important;
                     }
                     .print-container { 
                         box-shadow: none !important; 
-                        margin: 0 auto !important; 
+                        margin: 0 !important; 
                         padding: 0 !important; 
                         width: 100% !important;
                         max-width: none !important;
-                        page-break-inside: avoid;
                     }
-                    /* Ensure tables don't break across pages poorly */
+                    /* Prevent page breaks inside rows */
                     table { page-break-inside: auto; }
                     tr { page-break-inside: avoid; page-break-after: auto; }
-                    html, body { 
-                        min-width: 100%; 
-                        overflow: visible; 
-                    }
                 }
             `}} />
         </div>
