@@ -193,7 +193,7 @@ export default function ImportPage() {
                     const utResult = parseResult(rowObj['ut_result'])
 
                     const weldData = {
-                        project_id: project.id,
+                        project_id: (project as any).id,
                         weld_id: weldId,
                         drawing_no: String(rowObj['drawing_no'] || ''),
                         weld_no: String(rowObj['weld_no'] || ''),
@@ -227,7 +227,7 @@ export default function ImportPage() {
                     const batch = dataRows.slice(i, i + batchSize)
                     const { error } = await supabase
                         .from('welds')
-                        .upsert(batch, { onConflict: 'project_id,weld_id' })
+                        .upsert(batch as any, { onConflict: 'project_id,weld_id' })
 
                     if (error) {
                         errorCount += batch.length

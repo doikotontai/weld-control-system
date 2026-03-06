@@ -62,7 +62,7 @@ export default function NewWeldPage() {
         if (!project) { setError('Không tìm thấy dự án. Vui lòng tạo dự án trước.'); setLoading(false); return }
 
         const insertData = {
-            project_id: project.id,
+            project_id: (project as any).id,
             weld_id: weldId,
             weld_no: form.weld_no,
             drawing_no: form.drawing_no,
@@ -90,7 +90,7 @@ export default function NewWeldPage() {
             remarks: form.remarks || null,
         }
 
-        const { error: insertError } = await supabase.from('welds').insert(insertData)
+        const { error: insertError } = await (supabase.from('welds') as any).insert(insertData)
 
         if (insertError) {
             setError(`Lỗi: ${insertError.message}`)

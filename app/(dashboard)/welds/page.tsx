@@ -36,7 +36,7 @@ export default function WeldsPage() {
             .from('welds')
             .select('*', { count: 'exact' })
             .order('updated_at', { ascending: false })
-            .range(page * LIMIT, (page + 1) * LIMIT - 1)
+            .range(page * LIMIT, (page + 1) * LIMIT - 1) as any
 
         if (filters.search) {
             query = query.or(`weld_id.ilike.%${filters.search}%,weld_no.ilike.%${filters.search}%,drawing_no.ilike.%${filters.search}%,welders.ilike.%${filters.search}%`)

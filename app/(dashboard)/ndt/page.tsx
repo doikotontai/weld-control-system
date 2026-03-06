@@ -55,7 +55,7 @@ export default function NDTPage() {
             company: form.company || null,
             defect_length: form.defect_length ? parseFloat(form.defect_length) : null,
             remarks: form.remarks || null,
-        })
+        } as any)
 
         if (insErr) { setError(insErr.message); setLoading(false); return }
 
@@ -75,7 +75,7 @@ export default function NDTPage() {
         }
 
         if (Object.keys(updateData).length > 0) {
-            await supabase.from('welds').update(updateData).eq('id', selectedWeld.id)
+            await (supabase.from('welds') as any).update(updateData).eq('id', selectedWeld.id)
         }
 
         setSuccess(`✅ Đã ghi kết quả ${form.ndt_type} cho mối hàn ${selectedWeld.weld_id}!`)
