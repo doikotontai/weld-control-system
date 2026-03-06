@@ -66,10 +66,10 @@ export default async function RequestsPage() {
                             <tr>
                                 <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Dự án</th>
                                 <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Số Request</th>
-                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Loại Test</th>
-                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Trạng thái</th>
+                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Loại kiểm tra</th>
                                 <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Ngày Yêu cầu</th>
                                 <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Người tạo</th>
+                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Trạng thái</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -81,44 +81,60 @@ export default async function RequestsPage() {
                                 </tr>
                             ) : safeRequests.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>
-                                        Chưa có Yêu cầu kiểm tra nào trong Dự án này.
+                                    <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                                        <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📋</div>
+                                        <div style={{ fontWeight: 500 }}>Chưa có Yêu cầu kiểm tra nào trong Dự án này.</div>
+                                        <div style={{ fontSize: '0.8rem', marginTop: '4px' }}>Bấm &quot;Tạo Yêu cầu mới&quot; để bắt đầu.</div>
                                     </td>
                                 </tr>
                             ) : (
-                                safeRequests.map((req: any) => (
-                                    <tr key={req.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                        <td style={{ padding: '12px 16px', color: '#334155', fontWeight: 500 }}>
-                                            {req.projects?.code || 'N/A'}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', color: '#0f172a', fontWeight: 600 }}>
-                                            {req.request_no}
-                                        </td>
-                                        <td style={{ padding: '12px 16px' }}>
-                                            <span style={{
-                                                background: '#f1f5f9', color: '#475569',
-                                                padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600
-                                            }}>
-                                                {String(req.request_type).toUpperCase()}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '12px 16px' }}>
-                                            <span style={{
-                                                background: req.status === 'completed' ? '#dcfce7' : req.status === 'submitted' ? '#dbeafe' : '#fef3c7',
-                                                color: req.status === 'completed' ? '#166534' : req.status === 'submitted' ? '#1e40af' : '#92400e',
-                                                padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600
-                                            }}>
-                                                {req.status === 'completed' ? 'Hoàn thành' : req.status === 'submitted' ? 'Đã gửi' : 'Bản nháp'}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '12px 16px', color: '#64748b' }}>
-                                            {req.request_date ? format(new Date(req.request_date), 'dd/MM/yyyy') : 'N/A'}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', color: '#64748b' }}>
-                                            {req.profiles?.full_name || 'N/A'}
-                                        </td>
-                                    </tr>
-                                ))
+                                safeRequests.map((req: any) => {
+                                    const typeColors: Record<string, { bg: string; color: string }> = {
+                                        fitup: { bg: '#dbeafe', color: '#1e40af' },
+                                        visual: { bg: '#f3e8ff', color: '#7c3aed' },
+                                        backgouge: { bg: '#ffedd5', color: '#c2410c' },
+                                        lamcheck: { bg: '#ecfdf5', color: '#065f46' },
+                                        mpi: { bg: '#fef9c3', color: '#854d0e' },
+                                        final_visual: { bg: '#ede9fe', color: '#4c1d95' },
+                                    }
+                                    const tc = typeColors[req.request_type] || { bg: '#f1f5f9', color: '#475569' }
+                                    const typeLabel: Record<string, string> = {
+                                        fitup: 'Fit-Up', visual: 'Visual', backgouge: 'Backgouge',
+                                        lamcheck: 'Lamcheck', mpi: 'MPI/MT', final_visual: 'VS Final',
+                                    }
+                                    return (
+                                        <tr key={req.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                            <td style={{ padding: '12px 16px', color: '#334155', fontWeight: 500 }}>
+                                                {req.projects?.code || 'N/A'}
+                                            </td>
+                                            <td style={{ padding: '12px 16px' }}>
+                                                <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>
+                                                    {req.request_no}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '12px 16px' }}>
+                                                <span style={{ background: tc.bg, color: tc.color, padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700 }}>
+                                                    {typeLabel[req.request_type] || req.request_type}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '12px 16px', color: '#64748b' }}>
+                                                {req.request_date ? format(new Date(req.request_date), 'dd/MM/yyyy') : '—'}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', color: '#64748b' }}>
+                                                {req.profiles?.full_name || req.requested_by || '—'}
+                                            </td>
+                                            <td style={{ padding: '12px 16px' }}>
+                                                <span style={{
+                                                    background: req.status === 'completed' ? '#dcfce7' : req.status === 'submitted' ? '#dbeafe' : '#fef3c7',
+                                                    color: req.status === 'completed' ? '#166534' : req.status === 'submitted' ? '#1e40af' : '#92400e',
+                                                    padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600
+                                                }}>
+                                                    {req.status === 'completed' ? '✅ Hoàn thành' : req.status === 'submitted' ? '📤 Đã gửi' : '📝 Bản nháp'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    )
+                                })
                             )}
                         </tbody>
                     </table>
