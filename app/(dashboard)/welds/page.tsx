@@ -10,7 +10,7 @@ type SortDir = 'asc' | 'desc'
 interface ColSort { col: string; dir: SortDir }
 interface ColFilters { [col: string]: string }
 
-const LIMIT = 100
+const LIMIT_OPTIONS = [50, 100, 200, 500, 1000, 999999] // 999999 represents "All"
 
 // Sortable columns: field name → display header (must match DB column names)
 const COLUMNS: { key: string; label: string; minWidth?: number; align?: 'right' | 'center' }[] = [
@@ -105,6 +105,7 @@ export default function WeldsPage() {
     const [loading, setLoading] = useState(true)
     const [totalCount, setTotalCount] = useState(0)
     const [page, setPage] = useState(0)
+    const [limit, setLimit] = useState(50)
     const [sort, setSort] = useState<ColSort>({ col: 'excel_row_order', dir: 'asc' })
     const [colFilters, setColFilters] = useState<ColFilters>({})
     const [globalSearch, setGlobalSearch] = useState('')
@@ -128,7 +129,7 @@ export default function WeldsPage() {
             .select('*', { count: 'exact' })
             .eq('project_id', currentProjectId)
             .order(sort.col || 'excel_row_order', { ascending: sort.dir === 'asc', nullsFirst: sort.dir === 'asc' })
-            .range(page * LIMIT, (page + 1) * LIMIT - 1) as any
+            .range(page * limit, (page + 1) * limit - 1) as any
 
         // Global search
         if (globalSearch.trim()) {
@@ -149,7 +150,7 @@ export default function WeldsPage() {
         setWelds((data as Record<string, unknown>[]) || [])
         setTotalCount(count || 0)
         setLoading(false)
-    }, [colFilters, globalSearch, page, sort, supabase, currentProjectId])
+    }, [colFilters, globalSearch, page, limit, sort, supabase, currentProjectId])
 
     useEffect(() => {
         if (currentProjectId !== null) {
@@ -168,7 +169,7 @@ export default function WeldsPage() {
         setPage(0)
     }
 
-    const totalPages = Math.ceil(totalCount / LIMIT)
+    const totalPages = Math.ceil(totalCount / limit)
 
     const handleExport = async () => {
         const { utils, writeFile } = await import('xlsx')
@@ -214,8 +215,22 @@ export default function WeldsPage() {
                         ✕ Xóa lọc
                     </button>
                 )}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderLeft: '1px solid #e2e8f0', paddingLeft: '12px' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>Hiển thị:</span>
+                    <select
+                        value={limit}
+                        onChange={(e) => { setLimit(Number(e.target.value)); setPage(0); }}
+                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', outline: 'none' }}
+                    >
+                        {LIMIT_OPTIONS.map(opt => (
+                            <option key={opt} value={opt}>{opt === 999999 ? 'Tất cả' : opt}</option>
+                        ))}
+                    </select>
+                </div>
+
                 <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                    Hiển thị {Math.min(LIMIT, welds.length)}/{totalCount}
+                    Đang xem {Math.min(limit, welds.length)}/{totalCount}
                 </span>
             </div>
 
