@@ -49,7 +49,7 @@ export default function NewWeldPage() {
     // Load available projects
     useEffect(() => {
         async function fetchProjects() {
-            const { data } = await supabase.from('projects').select('id, code, name').eq('is_active', true)
+            const { data } = await supabase.from('projects').select('id, code, name')
             if (data) setProjects(data)
         }
         fetchProjects()

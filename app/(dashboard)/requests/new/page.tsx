@@ -27,7 +27,7 @@ export default async function NewRequestPage() {
     }
 
     // Lấy danh sách dự án
-    const { data: projects } = await supabase.from('projects').select('*').eq('is_active', true)
+    const { data: projects } = await supabase.from('projects').select('*')
 
     return (
         <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
