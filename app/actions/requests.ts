@@ -42,16 +42,35 @@ export async function createInspectionRequest(formData: FormData) {
 
         const projectId = formData.get('project_id')
         const requestType = formData.get('request_type')
-        const item = formData.get('item')
+        let item = String(formData.get('item') || '').trim()
         const taskNo = formData.get('task_no')
         const requestedBy = formData.get('requested_by')
         const inspectorCompany = formData.get('inspector_company')
         const requestDate = formData.get('request_date')
         const requestTime = formData.get('request_time')
         const remarks = formData.get('remarks')
+        const weldIdsJson = formData.get('weld_ids') as string | null
 
         if (!projectId || !requestType) {
             return { error: 'Vui lòng chọn Dự án và Loại yêu cầu.', success: false }
+        }
+
+        let weldIds: string[] = []
+        try {
+            if (weldIdsJson) weldIds = JSON.parse(weldIdsJson)
+        } catch (e) {
+            console.error('Lỗi parse weld_ids:', e)
+        }
+
+        // Tự động sinh tên Hạng mục (Item) dựa vào danh sách các mối hàn đã chọn nếu người dùng không nhập
+        if (weldIds.length > 0) {
+            const { data: weldsInfo } = await supabase.from('welds').select('weld_no').in('id', weldIds)
+            if (weldsInfo && weldsInfo.length > 0) {
+                const weldNosString = weldsInfo.map(w => w.weld_no).join(', ')
+                if (!item) {
+                    item = `DS Mối hàn: ${weldNosString}`
+                }
+            }
         }
 
         // Tạo số Request No tự động theo logic (VD: loại-timestamp)
@@ -80,7 +99,22 @@ export async function createInspectionRequest(formData: FormData) {
 
         if (error) {
             console.error('Error creating request:', error)
-            return { error: error.message || 'Có lỗi xảy ra', success: false }
+            return { error: error.message || 'Có lỗi xảy ra khi tạo Yêu cầu', success: false }
+        }
+
+        // Cập nhật mã Yêu cầu vào các Mối hàn tương ứng
+        if (weldIds.length > 0) {
+            let updateData: any = {}
+            if (requestType === 'fitup') updateData.fitup_request_no = requestNo
+            else if (requestType === 'visual' || requestType === 'final_visual') updateData.visual_request_no = requestNo
+            else if (requestType === 'backgouge') updateData.backgouge_request_no = requestNo
+
+            if (Object.keys(updateData).length > 0) {
+                const { error: updateWeldsError } = await supabase.from('welds').update(updateData).in('id', weldIds)
+                if (updateWeldsError) {
+                    console.error('Lỗi khi gắn mã Request vào các mối hàn:', updateWeldsError)
+                }
+            }
         }
 
         revalidatePath('/requests')
