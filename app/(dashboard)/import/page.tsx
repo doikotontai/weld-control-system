@@ -8,54 +8,89 @@ interface PreviewRow {
     weld_id: string
     drawing_no: string
     weld_no: string
+    joint_family: string
     joint_type: string
     ndt_requirements: string
-    wps_no: string
-    goc_code: string
+    position: string
     weld_length: number | null
     thickness: number | null
-    welders: string
+    thickness_lamcheck: number | null
+    wps_no: string
+    goc_code: string
+    fitup_inspector: string
+    fitup_date: string
     fitup_request_no: string
+    fitup_accepted_date: string
+    welders: string
+    visual_inspector: string
+    visual_date: string
+    visual_request_no: string
+    backgouge_date: string
+    backgouge_request_no: string
+    lamcheck_date: string
+    lamcheck_request_no: string
+    overall_status: string
+    ndt_overall_result: string
     mt_result: string
-    ut_result: string
     mt_report_no: string
+    ut_result: string
     ut_report_no: string
+    rt_result: string
+    rt_report_no: string
+    lamcheck_report_no: string
+    defect_length: number | null
+    repair_length: number | null
+    final_visual_date: string
+    final_visual_request_no: string
+    irn_date: string
+    irn_no: string
+    pwht_result: string
     stage: string
 }
 
-// Mapping cột Excel DATA INPUT sang database
-// Dựa trên phân tích file WELD CONTROL.xlsx
-const COLUMN_MAP = {
-    0: 'weld_id',          // Weld ID full
-    1: 'drawing_no',       // Drawing No.
-    2: 'weld_no',          // Weld No.
-    3: 'joint_type',       // Joint Type (X2, DB, DV...)
-    4: 'position',         // Position
-    5: 'ndt_requirements', // NDT Requirements
-    6: 'category',         // Category
-    7: 'weld_length',      // Length (mm)
-    8: 'thickness',        // Thickness (mm)
-    9: 'extra',            // Extra col
-    10: 'wps_no',          // WPS No.
-    11: 'goc_code',        // GOC Code
-    12: 'fitup_inspector', // FitUp Inspector
-    13: 'fitup_date',      // FitUp Date
-    14: 'fitup_request_no', // FitUp Request No
-    15: 'fitup_accepted',   // FitUp Accepted Date
-    16: 'welders',          // Welders
-    17: 'visual_inspector', // Visual Inspector
-    18: 'visual_date',      // Visual Date
-    19: 'visual_request_no', // Visual Request No
-    20: 'backgouge_date',   // Backgouge Date
-    21: 'backgouge_request_no', // Backgouge Request No
-    22: 'pwht_col',         // PWHT col
-    23: 'pwht_col2',        // PWHT result
-    24: 'fitup_result',     // Fitup result
-    25: 'visual_result',    // Visual result (FINISH/REJ/ACC)
-    26: 'mt_result',        // MT result (ACC/REJ)
-    27: 'mt_report_no',     // MT Report No
-    28: 'ut_result',        // UT result (ACC/REJ)
-    29: 'ut_report_no',     // UT Report No
+// Cột trong DATA INPUT (dựa trên phân tích thực tế file WELD CONTROL.xlsx)
+// ROW 1 headers + data rows từ ROW 3 onward
+const COLUMN_MAP: Record<number, string> = {
+    0: 'weld_id',               // Weld ID đầy đủ (e.g. 9001-2211-DS-0032-01-WM1)
+    1: 'drawing_no',            // Drawing No
+    2: 'weld_no',               // Weld No (số mối hàn trong bản vẽ)
+    3: 'joint_family',          // Weld Joints family (X1, X2, X3, DB, SB...)
+    4: 'joint_type',            // Weld Type (DB, DV, SB, SV...)
+    5: 'ndt_requirements',      // NDT Requirements (100%MT & UT)
+    6: 'position',              // OD/L Position (D=Diameter, L=Length)
+    7: 'weld_length',           // Length (mm)
+    8: 'thickness',             // Thickness (mm)
+    9: 'thickness_lamcheck',    // Thick Lamcheck (mm)
+    10: 'wps_no',                // WPS No.
+    11: 'goc_code',              // GOC System Code
+    12: 'fitup_inspector',       // Fit-Up QC Inspector name
+    13: 'fitup_date',            // Fit-Up Date
+    14: 'fitup_request_no',      // Fit-Up Request No (F-XXX)
+    15: 'fitup_accepted_date',   // Fit-Up Finish Date (accepted)
+    16: 'welders',               // Welders ID (BGT-0005;BGT-0015)
+    17: 'visual_inspector',      // Visual QC Inspector name
+    18: 'visual_date',           // Visual date
+    19: 'visual_request_no',     // Visual Request No (V-XXX)
+    20: 'backgouge_date',        // Back-Gouge date
+    21: 'backgouge_request_no',  // Back-Gouge Request No (BG-XXX)
+    22: 'lamcheck_date',         // Lamination Check date
+    23: 'lamcheck_request_no',   // Lamination Check Request No (UL-XXX)
+    24: 'overall_status',        // Overall Status (FINISH, REJ, ACC)
+    25: 'ndt_overall_result',    // NDT Overall Result
+    26: 'mt_result',             // MT/PT Result (ACC/REJ)
+    27: 'mt_report_no',          // MT Report No (MT-2211-ST-22-XXXX)
+    28: 'ut_result',             // UT/PAUT Result (ACC/REJ)
+    29: 'ut_report_no',          // UT Report No (UT-2211-ST-22-XXXX)
+    30: 'rt_result',             // RT Result
+    31: 'rt_report_no',          // RT Report No
+    32: 'lamcheck_report_no',    // Lamcheck Report No
+    33: 'defect_length',         // Length Defect (mm)
+    34: 'repair_length',         // Length Repaired (mm)
+    35: 'final_visual_date',     // Date Release Final Visual
+    36: 'final_visual_request_no', // RQ Final (FINAL-V-XXX or VS-XXX)
+    37: 'irn_date',              // Date Release Note
+    38: 'irn_no',                // Release Note / IRN No (IRN-2211-ST-22-XXXX)
+    39: 'pwht_result',           // PWHT status
 }
 
 function parseResult(val: unknown): string | null {
@@ -69,16 +104,30 @@ function parseResult(val: unknown): string | null {
     return s || null
 }
 
+function parseDate(val: unknown): string | null {
+    if (!val) return null
+    if (val instanceof Date) return val.toISOString().slice(0, 10)
+    // Try string like '30/10/2025' or '2025-10-30'
+    const s = String(val).trim()
+    // dd/mm/yyyy
+    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+    if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+    // yyyy-mm-dd or just stringify a passable ISO string
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+    return null
+}
+
 function parseStage(row: Record<string, unknown>): string {
     const mtResult = parseResult(row['mt_result'])
     const utResult = parseResult(row['ut_result'])
-    const visualResult = parseResult(row['visual_result'])
-    const fitupResult = parseResult(row['fitup_result'])
+    const overallStatus = String(row['overall_status'] || '').toUpperCase().trim()
 
     if (mtResult === 'ACC' && utResult === 'ACC') return 'completed'
     if (mtResult === 'REJ' || utResult === 'REJ') return 'mpi'
-    if (visualResult === 'ACC') return 'mpi'
-    if (fitupResult === 'ACC' || fitupResult === 'FINISH') return 'visual'
+    if (overallStatus === 'FINISH' || overallStatus === 'ACC') return 'mpi'
+    if (row['visual_date'] || row['visual_request_no']) return 'visual'
+    if (row['fitup_accepted_date'] || row['fitup_request_no']) return 'welding'
+    if (row['fitup_date'] || row['fitup_inspector']) return 'fitup'
     return 'fitup'
 }
 
@@ -147,21 +196,46 @@ export default function ImportPage() {
 
                         rows.push({
                             weld_id: weldId,
-                            drawing_no: String(row[1] || ''),
-                            weld_no: String(row[2] || ''),
-                            joint_type: String(row[4] || ''),
-                            ndt_requirements: String(row[5] || ''),
-                            wps_no: String(row[10] || ''),
-                            goc_code: String(row[11] || ''),
-                            weld_length: row[7] ? parseFloat(String(row[7])) : null,
-                            thickness: row[8] ? parseInt(String(row[8])) : null,
-                            welders: String(row[16] || ''),
-                            fitup_request_no: String(row[14] || ''),
-                            mt_result: parseResult(row[26]) || '',
-                            ut_result: parseResult(row[28]) || '',
-                            mt_report_no: String(row[27] || ''),
-                            ut_report_no: String(row[29] || ''),
-                            stage: parseStage({ mt_result: row[26], ut_result: row[28], visual_result: row[25], fitup_result: row[24] }),
+                            drawing_no: String(rowObj['drawing_no'] || ''),
+                            weld_no: String(rowObj['weld_no'] || ''),
+                            joint_family: String(rowObj['joint_family'] || ''),
+                            joint_type: String(rowObj['joint_type'] || ''),
+                            ndt_requirements: String(rowObj['ndt_requirements'] || ''),
+                            position: String(rowObj['position'] || ''),
+                            weld_length: rowObj['weld_length'] ? parseFloat(String(rowObj['weld_length'])) : null,
+                            thickness: rowObj['thickness'] ? parseInt(String(rowObj['thickness'])) : null,
+                            thickness_lamcheck: rowObj['thickness_lamcheck'] ? parseFloat(String(rowObj['thickness_lamcheck'])) : null,
+                            wps_no: String(rowObj['wps_no'] || ''),
+                            goc_code: String(rowObj['goc_code'] || ''),
+                            fitup_inspector: String(rowObj['fitup_inspector'] || ''),
+                            fitup_date: parseDate(rowObj['fitup_date']) || '',
+                            fitup_request_no: String(rowObj['fitup_request_no'] || ''),
+                            fitup_accepted_date: parseDate(rowObj['fitup_accepted_date']) || '',
+                            welders: String(rowObj['welders'] || ''),
+                            visual_inspector: String(rowObj['visual_inspector'] || ''),
+                            visual_date: parseDate(rowObj['visual_date']) || '',
+                            visual_request_no: String(rowObj['visual_request_no'] || ''),
+                            backgouge_date: parseDate(rowObj['backgouge_date']) || '',
+                            backgouge_request_no: String(rowObj['backgouge_request_no'] || ''),
+                            lamcheck_date: parseDate(rowObj['lamcheck_date']) || '',
+                            lamcheck_request_no: String(rowObj['lamcheck_request_no'] || ''),
+                            overall_status: String(rowObj['overall_status'] || ''),
+                            ndt_overall_result: String(rowObj['ndt_overall_result'] || ''),
+                            mt_result: parseResult(rowObj['mt_result']) || '',
+                            mt_report_no: String(rowObj['mt_report_no'] || ''),
+                            ut_result: parseResult(rowObj['ut_result']) || '',
+                            ut_report_no: String(rowObj['ut_report_no'] || ''),
+                            rt_result: parseResult(rowObj['rt_result']) || '',
+                            rt_report_no: String(rowObj['rt_report_no'] || ''),
+                            lamcheck_report_no: String(rowObj['lamcheck_report_no'] || ''),
+                            defect_length: rowObj['defect_length'] ? parseFloat(String(rowObj['defect_length'])) : null,
+                            repair_length: rowObj['repair_length'] ? parseFloat(String(rowObj['repair_length'])) : null,
+                            final_visual_date: parseDate(rowObj['final_visual_date']) || '',
+                            final_visual_request_no: String(rowObj['final_visual_request_no'] || ''),
+                            irn_date: parseDate(rowObj['irn_date']) || '',
+                            irn_no: String(rowObj['irn_no'] || ''),
+                            pwht_result: String(rowObj['pwht_result'] || ''),
+                            stage: parseStage(rowObj),
                         })
                     }
                 }
@@ -214,26 +288,42 @@ export default function ImportPage() {
                     const weldData = {
                         project_id: projectId,
                         weld_id: weldId,
-                        drawing_no: String(rowObj['drawing_no'] || ''),
-                        weld_no: String(rowObj['weld_no'] || ''),
-                        is_repair: weldId.includes('R') && /R\d/.test(weldId),
+                        drawing_no: String(rowObj['drawing_no'] || '') || null,
+                        weld_no: rowObj['weld_no'] ? parseInt(String(rowObj['weld_no'])) : null,
+                        is_repair: weldId.toUpperCase().includes('R') && /[A-Z]R\d/.test(weldId),
+                        joint_family: String(rowObj['joint_family'] || '') || null,
                         joint_type: String(rowObj['joint_type'] || '') || null,
                         ndt_requirements: String(rowObj['ndt_requirements'] || '') || null,
-                        wps_no: String(rowObj['wps_no'] || '') || null,
-                        goc_code: String(rowObj['goc_code'] || '') || null,
+                        position: String(rowObj['position'] || '') || null,
                         weld_length: rowObj['weld_length'] ? parseFloat(String(rowObj['weld_length'])) : null,
                         thickness: rowObj['thickness'] ? parseInt(String(rowObj['thickness'])) : null,
-                        welders: String(rowObj['welders'] || '') || null,
+                        thickness_lamcheck: rowObj['thickness_lamcheck'] ? parseFloat(String(rowObj['thickness_lamcheck'])) : null,
+                        wps_no: String(rowObj['wps_no'] || '') || null,
+                        goc_code: String(rowObj['goc_code'] || '') || null,
+                        fitup_inspector: String(rowObj['fitup_inspector'] || '') || null,
+                        fitup_date: parseDate(rowObj['fitup_date']),
                         fitup_request_no: String(rowObj['fitup_request_no'] || '') || null,
-                        fitup_date: rowObj['fitup_date'] instanceof Date ? rowObj['fitup_date'].toISOString().slice(0, 10) : null,
+                        fitup_accepted_date: parseDate(rowObj['fitup_accepted_date']),
+                        welders: String(rowObj['welders'] || '') || null,
+                        visual_inspector: String(rowObj['visual_inspector'] || '') || null,
+                        visual_date: parseDate(rowObj['visual_date']),
                         visual_request_no: String(rowObj['visual_request_no'] || '') || null,
-                        visual_date: rowObj['visual_date'] instanceof Date ? rowObj['visual_date'].toISOString().slice(0, 10) : null,
+                        backgouge_date: parseDate(rowObj['backgouge_date']),
                         backgouge_request_no: String(rowObj['backgouge_request_no'] || '') || null,
-                        backgouge_date: rowObj['backgouge_date'] instanceof Date ? rowObj['backgouge_date'].toISOString().slice(0, 10) : null,
+                        lamcheck_date: parseDate(rowObj['lamcheck_date']),
+                        lamcheck_request_no: String(rowObj['lamcheck_request_no'] || '') || null,
                         mt_result: mtResult,
                         ut_result: utResult,
                         mt_report_no: String(rowObj['mt_report_no'] || '') || null,
                         ut_report_no: String(rowObj['ut_report_no'] || '') || null,
+                        rt_result: parseResult(rowObj['rt_result']),
+                        rt_report_no: String(rowObj['rt_report_no'] || '') || null,
+                        lamcheck_report_no: String(rowObj['lamcheck_report_no'] || '') || null,
+                        defect_length: rowObj['defect_length'] ? parseFloat(String(rowObj['defect_length'])) : null,
+                        repair_length: rowObj['repair_length'] ? parseFloat(String(rowObj['repair_length'])) : null,
+                        irn_date: parseDate(rowObj['irn_date']),
+                        irn_no: String(rowObj['irn_no'] || '') || null,
+                        pwht_result: String(rowObj['pwht_result'] || '') || null,
                         stage: parseStage(rowObj),
                         final_status: (mtResult === 'ACC' && utResult === 'ACC') ? 'OK' : null,
                     }
@@ -332,44 +422,86 @@ export default function ImportPage() {
                 <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                     <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>2. Xem trước (Preview — 10 dòng đầu)</h3>
                     <div className="table-container">
-                        <table>
+                        <table style={{ fontSize: '0.73rem', minWidth: '1600px' }}>
                             <thead>
                                 <tr>
                                     <th>Weld ID</th>
-                                    <th>Bản vẽ</th>
-                                    <th>Mối #</th>
-                                    <th>Loại</th>
-                                    <th>Thợ hàn</th>
+                                    <th>B\u1ea3n v\u1ebd</th>
+                                    <th>M#</th>
+                                    <th>Joints</th>
+                                    <th>Type</th>
+                                    <th>NDT Req</th>
+                                    <th>GOC</th>
+                                    <th>WPS</th>
+                                    <th>D\u00e0i(mm)</th>
+                                    <th>D\u00e0y</th>
+                                    <th>Th\u1ee3 h\u00e0n</th>
+                                    <th>FU QC</th>
+                                    <th>FU Date</th>
+                                    <th>FU Req</th>
+                                    <th>VS QC</th>
+                                    <th>VS Date</th>
+                                    <th>VS Req</th>
+                                    <th>BG Date</th>
+                                    <th>BG Req</th>
                                     <th>MT</th>
+                                    <th>MT Report</th>
                                     <th>UT</th>
+                                    <th>UT Report</th>
+                                    <th>RT</th>
+                                    <th>IRN No</th>
+                                    <th>IRN Date</th>
                                     <th>Stage</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {preview.map((row, i) => (
                                     <tr key={i}>
-                                        <td style={{ fontSize: '0.75rem' }}>{row.weld_id}</td>
-                                        <td style={{ fontSize: '0.75rem', color: '#64748b' }}>{row.drawing_no}</td>
-                                        <td>{row.weld_no}</td>
-                                        <td>{row.joint_type}</td>
-                                        <td style={{ fontSize: '0.75rem' }}>{row.welders}</td>
+                                        <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{row.weld_id}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.drawing_no}</td>
+                                        <td style={{ textAlign: 'center' }}>{row.weld_no}</td>
+                                        <td style={{ fontWeight: 600 }}>{row.joint_family}</td>
+                                        <td style={{ fontWeight: 600 }}>{row.joint_type}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.ndt_requirements}</td>
+                                        <td><span style={{ padding: '1px 4px', background: '#f1f5f9', borderRadius: '3px' }}>{row.goc_code}</span></td>
+                                        <td style={{ color: '#6366f1' }}>{row.wps_no}</td>
+                                        <td style={{ textAlign: 'right' }}>{row.weld_length?.toLocaleString()}</td>
+                                        <td style={{ textAlign: 'right' }}>{row.thickness}</td>
+                                        <td style={{ whiteSpace: 'nowrap' }}>{row.welders}</td>
+                                        <td>{row.fitup_inspector}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.fitup_date}</td>
+                                        <td>{row.fitup_request_no}</td>
+                                        <td>{row.visual_inspector}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.visual_date}</td>
+                                        <td>{row.visual_request_no}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.backgouge_date}</td>
+                                        <td>{row.backgouge_request_no}</td>
                                         <td>
-                                            <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, background: row.mt_result === 'ACC' ? '#dcfce7' : row.mt_result === 'REJ' ? '#fee2e2' : '#f1f5f9', color: row.mt_result === 'ACC' ? '#166534' : row.mt_result === 'REJ' ? '#991b1b' : '#64748b' }}>
-                                                {row.mt_result || '—'}
+                                            <span style={{ padding: '1px 5px', borderRadius: '4px', fontWeight: 700, background: row.mt_result === 'ACC' ? '#dcfce7' : row.mt_result === 'REJ' ? '#fee2e2' : '#f1f5f9', color: row.mt_result === 'ACC' ? '#166534' : row.mt_result === 'REJ' ? '#991b1b' : '#64748b' }}>
+                                                {row.mt_result || '\u2014'}
                                             </span>
                                         </td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.mt_report_no}</td>
                                         <td>
-                                            <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, background: row.ut_result === 'ACC' ? '#dcfce7' : row.ut_result === 'REJ' ? '#fee2e2' : '#f1f5f9', color: row.ut_result === 'ACC' ? '#166534' : row.ut_result === 'REJ' ? '#991b1b' : '#64748b' }}>
-                                                {row.ut_result || '—'}
+                                            <span style={{ padding: '1px 5px', borderRadius: '4px', fontWeight: 700, background: row.ut_result === 'ACC' ? '#dcfce7' : row.ut_result === 'REJ' ? '#fee2e2' : '#f1f5f9', color: row.ut_result === 'ACC' ? '#166534' : row.ut_result === 'REJ' ? '#991b1b' : '#64748b' }}>
+                                                {row.ut_result || '\u2014'}
                                             </span>
                                         </td>
-                                        <td style={{ fontSize: '0.75rem' }}>{row.stage}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.ut_report_no}</td>
+                                        <td>
+                                            <span style={{ padding: '1px 5px', borderRadius: '4px', fontWeight: 700, background: row.rt_result === 'ACC' ? '#dcfce7' : row.rt_result === 'REJ' ? '#fee2e2' : '#f1f5f9', color: row.rt_result === 'ACC' ? '#166534' : row.rt_result === 'REJ' ? '#991b1b' : '#64748b' }}>
+                                                {row.rt_result || '\u2014'}
+                                            </span>
+                                        </td>
+                                        <td style={{ fontWeight: 600, color: '#0369a1', whiteSpace: 'nowrap' }}>{row.irn_no}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.irn_date}</td>
+                                        <td style={{ whiteSpace: 'nowrap' }}>{row.stage}</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                    <p style={{ color: '#64748b', fontSize: '0.8rem', marginTop: '8px' }}>* Hiển thị 10 dòng đầu. Toàn bộ dữ liệu sẽ được import khi bấm nút bên dưới.</p>
+                    <p style={{ color: '#64748b', fontSize: '0.8rem', marginTop: '8px' }}>* Hi\u1ec3n th\u1ecb 10 d\u00f2ng \u0111\u1ea7u. To\u00e0n b\u1ed9 d\u1eef li\u1ec7u s\u1ebd \u0111\u01b0\u1ee3c import khi b\u1ea5m n\u00fat b\u00ean d\u01b0\u1edbi.</p>
                 </div>
             )}
 
