@@ -2,9 +2,9 @@
 // components/Sidebar.tsx — Sidebar Navigation
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { UserRole, ROLE_LABELS } from '@/types'
+import { logoutWithSupabase } from '@/app/actions/auth'
 
 interface SidebarProps {
     userRole: UserRole
@@ -24,11 +24,9 @@ const navItems = [
 export default function Sidebar({ userRole, userName }: SidebarProps) {
     const pathname = usePathname()
     const router = useRouter()
-    const supabase = createClient()
 
     const handleLogout = async () => {
-        await supabase.auth.signOut()
-        document.cookie = 'weld-control-auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        await logoutWithSupabase()
         router.push('/login')
         router.refresh()
     }

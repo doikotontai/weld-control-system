@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { UserRole } from '@/types'
 
+import { cookies } from 'next/headers'
+
 export default async function DashboardLayout({
     children,
 }: {
@@ -12,9 +14,20 @@ export default async function DashboardLayout({
 }) {
     const supabase = await createClient()
 
-    // Lấy thông tin user hiện tại
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) redirect('/login')
+    // Đọc token trực tiếp từ cookie
+    const cookieStore = await cookies()
+    const accessToken = cookieStore.get('weld-control-auth')?.value
+
+    if (!accessToken) {
+        redirect('/login')
+    }
+
+    // Lấy thông tin user hiện tại bằng token
+    const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken)
+
+    if (userError || !user) {
+        redirect('/login')
+    }
 
     // Lấy profile (role, tên)
     const { data: profile } = await supabase

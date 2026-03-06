@@ -3,9 +3,16 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AdminClient from './AdminClient'
 
+import { cookies } from 'next/headers'
+
 export default async function AdminPage() {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+
+    const cookieStore = await cookies()
+    const accessToken = cookieStore.get('weld-control-auth')?.value
+    if (!accessToken) redirect('/login')
+
+    const { data: { user } } = await supabase.auth.getUser(accessToken)
     if (!user) redirect('/login')
 
     const { data: profile } = await supabase

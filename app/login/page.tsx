@@ -2,6 +2,7 @@
 // app/login/page.tsx — Trang đăng nhập với DEV MODE bypass
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { loginWithSupabase } from '@/app/actions/auth'
 
 // DEV MODE: Bypass Supabase khi DNS chưa propagate
 // Đặt DEV_MODE = false khi deploy lên Vercel
@@ -47,21 +48,17 @@ export default function LoginPage() {
             }
         }
 
-        // PRODUCTION MODE: Dùng Supabase thật
+        // PRODUCTION MODE: Dùng Server Action
         try {
-            const { createClient } = await import('@/lib/supabase/client')
-            const supabase = createClient()
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email: email.trim(),
-                password,
-            })
-            if (error) {
-                setError(`Lỗi đăng nhập: ${error.message}`)
-            } else if (data.session) {
-                // IMPORTANT: Since we use supabase-js directly, we MUST manually set a cookie
-                // so the Next.js Server Components (like layout.tsx) can read the session.
-                document.cookie = `weld-control-auth=${data.session.access_token}; path=/; max-age=${data.session.expires_in}; SameSite=Lax`
+            const formData = new FormData()
+            formData.append('email', email)
+            formData.append('password', password)
 
+            const result = await loginWithSupabase(formData)
+
+            if (result.error) {
+                setError(`Lỗi đăng nhập: ${result.error}`)
+            } else if (result.success) {
                 router.push('/dashboard')
                 router.refresh()
             }

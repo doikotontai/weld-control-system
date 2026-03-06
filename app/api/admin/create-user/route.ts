@@ -4,11 +4,18 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
+import { cookies } from 'next/headers'
+
 export async function POST(req: NextRequest) {
     try {
         // Check if current user is admin
         const supabase = await createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+
+        const cookieStore = await cookies()
+        const accessToken = cookieStore.get('weld-control-auth')?.value
+        if (!accessToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+        const { data: { user } } = await supabase.auth.getUser(accessToken)
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
