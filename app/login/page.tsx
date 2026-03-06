@@ -58,6 +58,10 @@ export default function LoginPage() {
             if (error) {
                 setError(`Lỗi đăng nhập: ${error.message}`)
             } else if (data.session) {
+                // IMPORTANT: Since we use supabase-js directly, we MUST manually set a cookie
+                // so the Next.js Server Components (like layout.tsx) can read the session.
+                document.cookie = `weld-control-auth=${data.session.access_token}; path=/; max-age=${data.session.expires_in}; SameSite=Lax`
+
                 router.push('/dashboard')
                 router.refresh()
             }

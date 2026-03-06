@@ -28,6 +28,7 @@ export default function Sidebar({ userRole, userName }: SidebarProps) {
 
     const handleLogout = async () => {
         await supabase.auth.signOut()
+        document.cookie = 'weld-control-auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         router.push('/login')
         router.refresh()
     }
