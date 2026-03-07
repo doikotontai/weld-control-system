@@ -138,123 +138,135 @@ export default function RequestPrintView({ request, welds }: { request: Request,
             {/* Printable A4 Container */}
             <div className="print-container" style={{ background: 'white', padding: '10mm', minHeight: '210mm', color: 'black', fontFamily: '"Times New Roman", Times, serif', fontSize: '11pt', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', borderRadius: '4px', overflowX: 'auto' }}>
 
-                {/* HEADERS */}
-                <table style={{ width: '100%', marginBottom: '10px', borderCollapse: 'collapse', border: '1px solid black' }}>
+                {/* UNIFIED EXCEL-LIKE GRID TABLE */}
+                <table className="weld-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '7.5pt', borderBottom: '1px solid black', border: '1px solid black' }}>
+                    <colgroup>
+                        <col style={{ width: '3%' }} />  {/* STT */}
+                        <col style={{ width: '15%' }} /> {/* Drawing */}
+                        <col style={{ width: '8%' }} />  {/* Weld No */}
+                        <col style={{ width: '8%' }} />  {/* Weld Type */}
+                        <col style={{ width: '15%' }} /> {/* Welder */}
+                        <col style={{ width: '13%' }} /> {/* WPS */}
+                        <col style={{ width: '11%' }} /> {/* Size */}
+                        <col style={{ width: '14%' }} /> {/* Req */}
+                        <col style={{ width: '8%' }} />  {/* GOC */}
+                        <col style={{ width: '5%' }} />  {/* Remarks */}
+                    </colgroup>
                     <tbody>
+                        {/* ROW 1: HEADER */}
                         <tr>
-                            <td style={{ width: '25%', border: '1px solid black', textAlign: 'center', verticalAlign: 'middle', padding: '10px' }}>
+                            <td colSpan={2} style={{ border: '1px solid black', textAlign: 'center', verticalAlign: 'middle', padding: '10px' }}>
                                 <div style={{ fontWeight: 'bold', fontSize: '18pt', color: '#ff0000' }}>VSP</div>
                                 <div style={{ fontSize: '9pt', fontWeight: 'bold' }}>VIETSOVPETRO</div>
                             </td>
-                            <td style={{ width: '50%', border: '1px solid black', textAlign: 'center', verticalAlign: 'middle' }}>
+                            <td colSpan={6} style={{ border: '1px solid black', textAlign: 'center', verticalAlign: 'middle' }}>
                                 <h2 style={{ margin: 0, fontSize: '14pt', fontWeight: 'bold' }}>REQUEST FOR INSPECTION</h2>
                                 <h3 style={{ margin: '8px 0 0 0', fontSize: '12pt', fontWeight: 'bold' }}>YÊU CẦU KIỂM TRA</h3>
                             </td>
-                            <td style={{ width: '25%', border: '1px solid black', textAlign: 'center', verticalAlign: 'middle', padding: '10px' }}>
+                            <td colSpan={2} style={{ border: '1px solid black', textAlign: 'center', verticalAlign: 'middle', padding: '10px' }}>
                                 <div style={{ fontWeight: 'bold', fontSize: '14pt', color: '#006400' }}>ZARUBEZHNEFT</div>
                                 <div style={{ fontSize: '9pt', color: '#006400', fontWeight: 'bold' }}>EP VIETNAM</div>
                             </td>
                         </tr>
-                    </tbody>
-                </table>
 
-                {/* INFO TABLE 1 */}
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10pt', border: '1px solid black', borderBottom: 'none' }}>
-                    <tbody>
+                        {/* ROW 2: PROJECT INFO */}
                         <tr>
-                            <td style={{ width: '70%', padding: '4px 8px', borderRight: '1px solid black' }}>
+                            <td colSpan={6} style={{ padding: '4px 8px', borderRight: '1px solid black', borderBottom: '1px solid black', textAlign: 'left', fontSize: '10pt' }}>
                                 PROJECT/Công trình: <strong>{(request.projects?.name || '').toUpperCase()}</strong>
                             </td>
-                            <td colSpan={2} style={{ padding: '4px 8px', verticalAlign: 'middle' }}>
+                            <td colSpan={3} style={{ padding: '4px 8px', verticalAlign: 'middle', borderBottom: '1px solid black', textAlign: 'left', fontSize: '10pt' }}>
                                 Request No: <br />
                                 Yêu cầu số:
                             </td>
-                            <td style={{ padding: '4px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                            <td colSpan={1} style={{ padding: '4px 8px', textAlign: 'center', verticalAlign: 'middle', borderBottom: '1px solid black', fontSize: '10pt' }}>
                                 <strong style={{ fontSize: '12pt' }}>{request.request_no}</strong>
                             </td>
                         </tr>
+
+                        {/* ROW 3: ITEM INFO */}
                         <tr>
-                            <td style={{ width: '70%', padding: '4px 8px', borderRight: '1px solid black', borderTop: '1px solid black' }}>
+                            <td colSpan={6} style={{ padding: '4px 8px', borderRight: '1px solid black', borderBottom: '1px solid black', textAlign: 'left', fontSize: '10pt' }}>
                                 ITEM/Hạng mục: <strong>{request.item}</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Task No./NVXS: <strong>{request.task_no}</strong>
                             </td>
-                            <td colSpan={3} style={{ borderTop: '1px solid black' }}></td>
+                            <td colSpan={4} style={{ borderBottom: '1px solid black' }}></td>
                         </tr>
+
+                        {/* ROW 4: REQUESTED BY & DATE */}
                         <tr>
-                            <td style={{ width: '70%', padding: '4px 8px', borderRight: '1px solid black', borderTop: '1px solid black' }}>
+                            <td colSpan={6} style={{ padding: '4px 8px', borderRight: '1px solid black', borderBottom: '1px solid black', textAlign: 'left', fontSize: '10pt' }}>
                                 REQUESTED BY/Đơn vị yêu cầu:<br />
                                 <div style={{ textAlign: 'center', fontWeight: 'bold', marginTop: '4px' }}>{(request.requested_by || '').toUpperCase()}</div>
                             </td>
-                            <td style={{ padding: '4px 8px', borderRight: '1px solid black', borderTop: '1px solid black', width: '10%' }}>
+                            <td colSpan={2} style={{ padding: '4px 8px', borderRight: '1px solid black', borderBottom: '1px solid black', textAlign: 'left', fontSize: '10pt' }}>
                                 Date Request:<br />
                                 Ngày yêu cầu:
                             </td>
-                            <td style={{ padding: '4px 8px', borderTop: '1px solid black', fontWeight: 'bold', textAlign: 'center', width: '10%' }}>
+                            <td colSpan={1} style={{ padding: '4px 8px', borderBottom: '1px solid black', fontWeight: 'bold', textAlign: 'center', fontSize: '10pt' }}>
                                 {request.request_time}
                             </td>
-                            <td style={{ padding: '4px 8px', borderTop: '1px solid black', fontWeight: 'bold', textAlign: 'center', width: '10%' }}>
+                            <td colSpan={1} style={{ padding: '4px 8px', borderBottom: '1px solid black', fontWeight: 'bold', textAlign: 'center', fontSize: '10pt' }}>
                                 {request.request_date ? format(new Date(request.request_date), 'dd/MM/yyyy') : ''}
                             </td>
                         </tr>
+
+                        {/* ROW 5: TO/INSPECTED BY */}
                         <tr>
-                            <td style={{ width: '70%', padding: '4px 8px', borderRight: '1px solid black', borderTop: '1px solid black' }}>
+                            <td colSpan={6} style={{ padding: '4px 8px', borderRight: '1px solid black', borderBottom: '1px solid black', textAlign: 'left', fontSize: '10pt' }}>
                                 TO/Gửi đến:<br />
                                 <div style={{ textAlign: 'center', fontWeight: 'bold', marginTop: '4px' }}>{(request.inspector_company || '').toUpperCase()}</div>
                             </td>
-                            <td style={{ padding: '4px 8px', borderRight: '1px solid black', borderTop: '1px solid black' }}>
+                            <td colSpan={2} style={{ padding: '4px 8px', borderRight: '1px solid black', borderBottom: '1px solid black', textAlign: 'left', fontSize: '10pt' }}>
                                 Date Inspection:<br />
                                 Kiểm tra lúc:
                             </td>
-                            <td style={{ padding: '4px 8px', borderTop: '1px solid black', fontWeight: 'bold', textAlign: 'center', color: 'red' }}>
+                            <td colSpan={1} style={{ padding: '4px 8px', borderBottom: '1px solid black', fontWeight: 'bold', textAlign: 'center', color: 'red', fontSize: '10pt' }}>
                                 10h30
                             </td>
-                            <td style={{ padding: '4px 8px', borderTop: '1px solid black', fontWeight: 'bold', textAlign: 'center', color: 'red' }}>
+                            <td colSpan={1} style={{ padding: '4px 8px', borderBottom: '1px solid black', fontWeight: 'bold', textAlign: 'center', color: 'red', fontSize: '10pt' }}>
                                 #N/A
                             </td>
                         </tr>
-                    </tbody>
-                </table>
 
-
-
-                {/* INFO TABLE 2: INSPECTION TYPE */}
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt', border: '1px solid black', borderTop: 'none' }}>
-                    <tbody>
+                        {/* ROW 6: INSPECTION REQUIRED TITLE */}
                         <tr>
-                            <td colSpan={6} style={{ padding: '2px 8px', borderTop: '1px solid black' }}>
+                            <td colSpan={10} style={{ padding: '2px 8px', borderBottom: '1px solid black', textAlign: 'left', fontSize: '9pt' }}>
                                 INSPECTION REQUIRED/Dạng kiểm tra yêu cầu:
                             </td>
                         </tr>
-                        <tr style={{ textAlign: 'center' }}>
-                            <td style={{ padding: '4px', width: '16%' }}>Fit Up<br />Mối ghép</td>
-                            <td style={{ padding: '4px', width: '16%' }}>Final Visual<br />Ngoại dạng</td>
-                            <td style={{ padding: '4px', width: '16%' }}>MT<br />Bột từ</td>
-                            <td style={{ padding: '4px', width: '16%' }}>PT<br />Thẩm thấu</td>
-                            <td style={{ padding: '4px', width: '16%' }}>UT<br />Siêu âm</td>
-                            <td style={{ padding: '4px', width: '10%' }}>RT<br />Chụp ảnh<br />phóng xạ</td>
-                            <td style={{ padding: '4px', width: '10%' }}>Other<br />Khác</td>
+
+                        {/* ROW 7: INSPECTION TYPES HEADER */}
+                        <tr style={{ textAlign: 'center', fontSize: '9pt' }}>
+                            <td colSpan={2} style={{ padding: '4px' }}>Fit Up<br />Mối ghép</td>
+                            <td colSpan={2} style={{ padding: '4px' }}>Final Visual<br />Ngoại dạng</td>
+                            <td colSpan={1} style={{ padding: '4px' }}>MT<br />Bột từ</td>
+                            <td colSpan={2} style={{ padding: '4px' }}>PT<br />Thẩm thấu</td>
+                            <td colSpan={1} style={{ padding: '4px' }}>UT<br />Siêu âm</td>
+                            <td colSpan={1} style={{ padding: '4px' }}>RT<br />Chụp ảnh<br />phóng xạ</td>
+                            <td colSpan={1} style={{ padding: '4px' }}>Other<br />Khác</td>
                         </tr>
-                        <tr style={{ textAlign: 'center' }}>
-                            <td style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'red', fontWeight: 'bold' }}>{request.request_type === 'fitup' ? '☑' : ''}</div></td>
-                            <td style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'red', fontWeight: 'bold' }}>{(request.request_type === 'visual' || request.request_type === 'final_visual') ? '☑' : ''}</div></td>
-                            <td style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'red', fontWeight: 'bold' }}>{request.request_type === 'mpi' ? '☑' : ''}</div></td>
-                            <td style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto' }}></div></td>
-                            <td style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'red', fontWeight: 'bold' }}>{request.request_type === 'mpi' ? '☑' : ''}</div></td>
-                            <td style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto' }}></div></td>
-                            <td style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'red', fontWeight: 'bold' }}>{(request.request_type !== 'fitup' && request.request_type !== 'visual' && request.request_type !== 'final_visual' && request.request_type !== 'mpi') ? '☑' : ''}</div></td>
+
+                        {/* ROW 8: INSPECTION TYPES CHECKBOXES */}
+                        <tr style={{ textAlign: 'center', fontSize: '9pt' }}>
+                            <td colSpan={2} style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'red', fontWeight: 'bold' }}>{request.request_type === 'fitup' ? '☑' : ''}</div></td>
+                            <td colSpan={2} style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'red', fontWeight: 'bold' }}>{(request.request_type === 'visual' || request.request_type === 'final_visual') ? '☑' : ''}</div></td>
+                            <td colSpan={1} style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'red', fontWeight: 'bold' }}>{request.request_type === 'mpi' ? '☑' : ''}</div></td>
+                            <td colSpan={2} style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto' }}></div></td>
+                            <td colSpan={1} style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'red', fontWeight: 'bold' }}>{request.request_type === 'mpi' ? '☑' : ''}</div></td>
+                            <td colSpan={1} style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto' }}></div></td>
+                            <td colSpan={1} style={{ paddingBottom: '8px' }}><div style={{ border: '1px solid black', width: '16px', height: '16px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'red', fontWeight: 'bold' }}>{(request.request_type !== 'fitup' && request.request_type !== 'visual' && request.request_type !== 'final_visual' && request.request_type !== 'mpi') ? '☑' : ''}</div></td>
                         </tr>
+
+                        {/* ROW 9: TICK EXPLANATION */}
                         <tr>
-                            <td colSpan={7} style={{ padding: '1px 8px', fontSize: '8pt' }}>
+                            <td colSpan={10} style={{ padding: '1px 8px', fontSize: '8pt', borderBottom: '1px solid black', textAlign: 'left' }}>
                                 Tick (☑) as applicable/Đánh dấu vào ô cần thiết
                             </td>
                         </tr>
-                    </tbody>
-                </table>
 
-                {/* WELDS DATA TABLE */}
-                <table className="weld-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '7.5pt', borderBottom: '1px solid black' }}>
-                    <thead>
+                        {/* WELDS DATA TABLE */}
+                        {/* ROW 10: WELDS HEADER */}
                         <tr>
-                            <td colSpan={10} style={{ textAlign: 'left', padding: '2px 8px', borderLeft: '1px solid black', borderRight: '1px solid black' }}>REQUIREMENTS/ Nội dung yêu cầu kiểm tra:</td>
+                            <td colSpan={10} style={{ textAlign: 'left', padding: '2px 8px', borderBottom: '1px solid black' }}>REQUIREMENTS/ Nội dung yêu cầu kiểm tra:</td>
                         </tr>
                         <tr style={{ background: '#f8fafc' }}>
                             <th style={{ border: '1px solid black', padding: '6px' }}>NN<br />STT</th>
@@ -266,10 +278,8 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                             <th style={{ border: '1px solid black', padding: '6px' }}>Weld Size (mm)<br />Kích thước</th>
                             <th style={{ border: '1px solid black', padding: '6px' }}>Inspection Required<br />Yêu cầu kiểm tra</th>
                             <th style={{ border: '1px solid black', padding: '6px' }}>GOC code</th>
-                            <th style={{ border: '1px solid black', padding: '6px', width: '100px' }}>Remarks<br />Finish Date</th>
+                            <th style={{ border: '1px solid black', padding: '6px' }}>Remarks<br />Finish Date</th>
                         </tr>
-                    </thead>
-                    <tbody>
                         {Array.from({ length: Math.max(15, welds.length) }).map((_, i) => {
                             const w = welds[i]
                             if (!w) return (
@@ -307,29 +317,24 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                                 </tr>
                             )
                         })}
-                    </tbody>
-                </table>
-
-                {/* REMARKS FOOTER */}
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '8pt', border: '1px solid black', borderTop: 'none' }}>
-                    <tbody>
+                        {/* REMARKS FOOTER (Still within main table) */}
                         <tr>
-                            <td colSpan={3} style={{ padding: '2px 4px' }}>
+                            <td colSpan={10} style={{ padding: '2px 4px', textAlign: 'left', borderTop: '1px solid black' }}>
                                 REMARKS/Ghi chú: F= Fillet, SB= Single Bevel, DB= Double Bevel, SV= Single V, DV= Double V, BW= Butt Weld, SW= Socket Weld.
                             </td>
                         </tr>
                         <tr>
-                            <td colSpan={3} style={{ padding: '2px 4px' }}>
+                            <td colSpan={10} style={{ padding: '2px 4px', textAlign: 'left' }}>
                                 (1): O x T - diameter x thickness/đường kính x chiều dày ; L x T - length x thickness/chiều dài x chiều dày
                             </td>
                         </tr>
                         <tr>
-                            <td colSpan={3} style={{ padding: '2px 4px', borderBottom: '1px solid black' }}>
+                            <td colSpan={10} style={{ padding: '2px 4px', borderBottom: '1px solid black', textAlign: 'left' }}>
                                 (2): GOC System code - Sub-System code
                             </td>
                         </tr>
-                        <tr style={{ verticalAlign: 'top' }}>
-                            <td style={{ padding: '4px', width: '33%', borderRight: '1px solid black' }}>
+                        <tr style={{ verticalAlign: 'top', fontSize: '8pt' }}>
+                            <td colSpan={4} style={{ padding: '4px', borderRight: '1px solid black', textAlign: 'left' }}>
                                 Requested By/ Người yêu cầu: <br />
                                 Name/H Tên:<br />
                                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', marginBottom: '16px', marginTop: '4px' }}>
@@ -338,7 +343,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                                 Sig./Chữ ký:<br /><br /><br /><br />
                                 Tel: #N/A<br /><br />
                             </td>
-                            <td style={{ padding: '4px', width: '33%', borderRight: '1px solid black' }}>
+                            <td colSpan={3} style={{ padding: '4px', borderRight: '1px solid black', textAlign: 'left' }}>
                                 QC Inspector/ Kiểm tra: <br />
                                 Name/H Tên:<br />
                                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', marginBottom: '16px', marginTop: '4px' }}>
@@ -347,7 +352,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                                 Sig./Chữ ký:<br /><br /><br /><br />
                                 Tel: #N/A<br /><br />
                             </td>
-                            <td style={{ padding: '4px', width: '33%' }}>
+                            <td colSpan={3} style={{ padding: '4px', textAlign: 'left' }}>
                                 NDT Technician<br />
                                 Kỹ thuật viên NDT: <br />
                                 Name/H Tên:<br />
