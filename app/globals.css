@@ -9,7 +9,11 @@
   --sidebar-active: #1e3a5f;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 body {
   font-family: 'Inter', sans-serif;
@@ -37,7 +41,7 @@ body {
 .table-container {
   overflow-x: auto;
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 table {
@@ -77,12 +81,15 @@ tr:hover td {
   text-transform: uppercase;
 }
 
-.badge-acc, .badge-pass, .badge-ok {
+.badge-acc,
+.badge-pass,
+.badge-ok {
   background: #dcfce7;
   color: #166534;
 }
 
-.badge-rej, .badge-reject {
+.badge-rej,
+.badge-reject {
   background: #fee2e2;
   color: #991b1b;
 }
@@ -107,14 +114,14 @@ tr:hover td {
   background: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   border-left: 4px solid;
   transition: transform 0.2s ease;
 }
 
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 /* Forms */
@@ -201,7 +208,9 @@ tr:hover td {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Page transitions */
@@ -210,18 +219,50 @@ tr:hover td {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .sidebar { display: none; }
-  .main-content { margin-left: 0 !important; }
+  .sidebar {
+    display: none;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+  }
 }
 
 /* Print styles */
 @media print {
-  .sidebar, .no-print { display: none; }
-  .main-content { margin: 0; }
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  .sidebar,
+  .no-print {
+    display: none !important;
+  }
+
+  .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  body {
+    background: white;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
