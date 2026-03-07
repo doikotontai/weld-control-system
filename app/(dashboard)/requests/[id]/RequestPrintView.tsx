@@ -43,8 +43,9 @@ export default function RequestPrintView({ request, welds }: { request: Request,
 
     const handleExportExcel = async () => {
         try {
-            // Fetch native template buffer from public/
-            const response = await fetch('/formxuatexcel.xlsx')
+            // Use absolute URL to fetch native template buffer from public/, fixing issues on Vercel
+            const origin = typeof window !== 'undefined' ? window.location.origin : ''
+            const response = await fetch(`${origin}/formxuatexcel.xlsx`)
             if (!response.ok) throw new Error("Could not find /formxuatexcel.xlsx")
             const arrayBuffer = await response.arrayBuffer()
 
@@ -326,9 +327,8 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', marginBottom: '16px', marginTop: '4px' }}>
                                     {request.requested_by.toUpperCase()}
                                 </div>
-                                Sig./Chữ ký:<br /><br />
+                                Sig./Chữ ký:<br /><br /><br /><br />
                                 Tel: #N/A<br /><br />
-                                <div style={{ textAlign: 'center' }}>#N/A</div>
                             </td>
                             <td style={{ padding: '4px', width: '33%', borderRight: '1px solid black' }}>
                                 QC Inspector/ Kiểm tra: <br />
@@ -336,18 +336,18 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', marginBottom: '16px', marginTop: '4px' }}>
                                     {request.requested_by.toUpperCase()}
                                 </div>
-                                Sig./Chữ ký:<br /><br />
+                                Sig./Chữ ký:<br /><br /><br /><br />
                                 Tel: #N/A<br /><br />
-                                <div style={{ textAlign: 'center' }}>#N/A</div>
                             </td>
                             <td style={{ padding: '4px', width: '33%' }}>
                                 NDT Technician<br />
                                 Kỹ thuật viên NDT: <br />
                                 Name/H Tên:<br />
                                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', marginBottom: '16px', marginTop: '4px' }}>
+                                    <br />
                                 </div>
                                 Sig./Chữ ký:<br /><br /><br /><br />
-                                <div style={{ textAlign: 'center' }}>#N/A</div>
+                                <div style={{ textAlign: 'center', color: 'transparent' }}>#N/A</div>
                             </td>
                         </tr>
                     </tbody>
@@ -367,10 +367,12 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                         background: white !important; 
                         margin: 0 !important; 
                         padding: 0 !important;
-                        min-width: 100%;
+                        min-width: 100% !important;
+                        max-width: 100% !important;
+                        overflow: hidden !important; /* prevent empty page */
                     }
-                    /* Hiding sidebar specifically and gracefully reset main layout */
-                    .dashboard-sidebar { 
+                    /* Hiding sidebar, nav, overlay and gracefully reset main layout */
+                    .dashboard-sidebar, .sidebar, nav, header, footer { 
                         display: none !important; 
                     }
                     .dashboard-layout-main {
