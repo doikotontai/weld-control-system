@@ -251,7 +251,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                 </table>
 
                 {/* WELDS DATA TABLE */}
-                <table className="weld-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '9pt', borderBottom: '1px solid black' }}>
+                <table className="weld-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '8pt', borderBottom: '1px solid black' }}>
                     <thead>
                         <tr>
                             <td colSpan={10} style={{ textAlign: 'left', padding: '2px 8px', borderLeft: '1px solid black', borderRight: '1px solid black' }}>REQUIREMENTS/ Nội dung yêu cầu kiểm tra:</td>
@@ -369,15 +369,14 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                 @media print {
                     @page { 
                         size: A4 portrait; 
-                        margin: 0mm !important; /* Force no margin to avoid Header/Footer pushing content to page 2 */
+                        margin: 8mm; 
                     }
                     body, html { 
                         background: white !important; 
                         margin: 0 !important; 
                         padding: 0 !important;
-                        min-width: 100% !important;
-                        max-width: 100% !important;
-                        overflow: hidden !important; 
+                        width: 100% !important;
+                        height: 100% !important;
                     }
                     /* Hiding sidebar, nav, overlay and gracefully reset main layout */
                     .dashboard-sidebar, .sidebar, nav, header, footer { 
@@ -395,19 +394,18 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                         display: none !important; 
                     }
                     .print-wrapper {
-                        padding: 5mm !important;
-                        margin: 0 auto !important;
-                        max-width: 210mm !important; 
+                        padding: 0 !important;
+                        margin: 0 !important;
                         width: 100% !important;
+                        max-width: 100% !important;
                     }
                     .print-container { 
                         box-shadow: none !important; 
-                        margin: 0 auto !important; 
+                        margin: 0 !important; 
                         padding: 0 !important; 
                         width: 100% !important;
                         max-width: 100% !important;
-                        transform-origin: top center;
-                        transform: scale(0.85); /* aggressively scale to guarantee fitting A4 */
+                        border: none !important;
                     }
                     /* Prevent page breaks inside rows */
                     table { page-break-inside: auto; width: 100% !important; }
