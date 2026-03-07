@@ -63,7 +63,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
             // Re-map request and weld data exactly into the template's placeholders
             ws.getCell('A3').value = `PROJECT/Công trình: ${(request.projects?.name || '').toUpperCase()}`
             ws.getCell('A4').value = `ITEM/Hạng mục:  ${request.item || ''}                Task No./NVXS: ${request.task_no || ''}`
-            ws.getCell('B8').value = `HANA NDT / ${request.inspector_company.toUpperCase()} / CA`
+            ws.getCell('B8').value = `HANA NDT / ${(request.inspector_company || '').toUpperCase()} / CA`
 
             ws.getCell('H3').value = request.request_no || ''
             ws.getCell('H5').value = request.request_date ? format(new Date(request.request_date), 'dd/MM/yyyy') : ''
@@ -82,7 +82,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
 
                 if (w) {
                     const welders = w.welders ? w.welders.split(';').join(', ') : ''
-                    let reqNotes = request.request_type === 'mpi' ? (w.ndt_requirements || '100% MT & UT') : request.request_type.toUpperCase()
+                    let reqNotes = request.request_type === 'mpi' ? (w.ndt_requirements || '100% MT & UT') : (request.request_type || '').toUpperCase()
                     if (request.request_type === 'fitup') reqNotes = 'FIT-UP'
                     else if (request.request_type === 'backgouge') reqNotes = 'BACKGOUGE'
 
@@ -161,7 +161,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                     <tbody>
                         <tr>
                             <td style={{ width: '70%', padding: '4px 8px', borderRight: '1px solid black' }}>
-                                PROJECT/Công trình: <strong>{request.projects?.name?.toUpperCase()}</strong>
+                                PROJECT/Công trình: <strong>{(request.projects?.name || '').toUpperCase()}</strong>
                             </td>
                             <td colSpan={2} style={{ padding: '4px 8px', verticalAlign: 'middle' }}>
                                 Request No: <br />
@@ -180,7 +180,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                         <tr>
                             <td style={{ width: '70%', padding: '4px 8px', borderRight: '1px solid black', borderTop: '1px solid black' }}>
                                 REQUESTED BY/Đơn vị yêu cầu:<br />
-                                <div style={{ textAlign: 'center', fontWeight: 'bold', marginTop: '4px' }}>{request.requested_by.toUpperCase()}</div>
+                                <div style={{ textAlign: 'center', fontWeight: 'bold', marginTop: '4px' }}>{(request.requested_by || '').toUpperCase()}</div>
                             </td>
                             <td style={{ padding: '4px 8px', borderRight: '1px solid black', borderTop: '1px solid black', width: '10%' }}>
                                 Date Request:<br />
@@ -196,7 +196,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                         <tr>
                             <td style={{ width: '70%', padding: '4px 8px', borderRight: '1px solid black', borderTop: '1px solid black' }}>
                                 TO/Gửi đến:<br />
-                                <div style={{ textAlign: 'center', fontWeight: 'bold', marginTop: '4px' }}>{request.inspector_company.toUpperCase()}</div>
+                                <div style={{ textAlign: 'center', fontWeight: 'bold', marginTop: '4px' }}>{(request.inspector_company || '').toUpperCase()}</div>
                             </td>
                             <td style={{ padding: '4px 8px', borderRight: '1px solid black', borderTop: '1px solid black' }}>
                                 Date Inspection:<br />
@@ -268,9 +268,25 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                         </tr>
                     </thead>
                     <tbody>
-                        {welds.map((w, i) => {
+                        {Array.from({ length: Math.max(15, welds.length) }).map((_, i) => {
+                            const w = welds[i]
+                            if (!w) return (
+                                <tr key={`empty-${i}`}>
+                                    <td style={{ textAlign: 'center', border: '1px solid black', padding: '6px' }}>{i + 1}</td>
+                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                </tr>
+                            )
+
                             const welders = w.welders ? w.welders.split(';').join(', ') : ''
-                            let reqNotes = request.request_type === 'mpi' ? (w.ndt_requirements || '100% MT & UT') : request.request_type.toUpperCase()
+                            let reqNotes = request.request_type === 'mpi' ? (w.ndt_requirements || '100% MT & UT') : (request.request_type || '').toUpperCase()
                             if (request.request_type === 'fitup') reqNotes = 'FIT-UP'
                             else if (request.request_type === 'backgouge') reqNotes = 'BACKGOUGE'
 
@@ -289,21 +305,6 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                                 </tr>
                             )
                         })}
-                        {/* Pad empty rows up to 15 to make it look like the Excel sheet format */}
-                        {Array.from({ length: Math.max(0, 15 - welds.length) }).map((_, i) => (
-                            <tr key={`empty-${i}`}>
-                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                            </tr>
-                        ))}
                     </tbody>
                 </table>
 
@@ -330,7 +331,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                                 Requested By/ Người yêu cầu: <br />
                                 Name/H Tên:<br />
                                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', marginBottom: '16px', marginTop: '4px' }}>
-                                    {request.requested_by.toUpperCase()}
+                                    {(request.requested_by || '').toUpperCase()}
                                 </div>
                                 Sig./Chữ ký:<br /><br /><br /><br />
                                 Tel: #N/A<br /><br />
@@ -339,7 +340,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                                 QC Inspector/ Kiểm tra: <br />
                                 Name/H Tên:<br />
                                 <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', marginBottom: '16px', marginTop: '4px' }}>
-                                    {request.requested_by.toUpperCase()}
+                                    {(request.requested_by || '').toUpperCase()}
                                 </div>
                                 Sig./Chữ ký:<br /><br /><br /><br />
                                 Tel: #N/A<br /><br />
@@ -403,6 +404,8 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                         padding: 0 5mm !important; 
                         width: 100% !important;
                         max-width: 100% !important;
+                        transform-origin: top left;
+                        transform: scale(0.97); /* slight shrink to ensure it completely avoids A4 vertical overflow */
                     }
                     /* Prevent page breaks inside rows */
                     table { page-break-inside: auto; width: 100% !important; }
