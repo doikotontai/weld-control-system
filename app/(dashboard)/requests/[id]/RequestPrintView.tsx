@@ -108,9 +108,10 @@ export default function RequestPrintView({ request, welds }: { request: Request,
 
             const buffer = await wb.xlsx.writeBuffer()
             saveAs(new Blob([buffer]), `${request.request_no}_INSPECTION.xlsx`)
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error exporting template:', err)
-            alert('Có lỗi khi tải template formxuatexcel.xlsx. Hãy chắc chắn template tồn tại trong public/.')
+            // Catch exact trace for user debugging
+            alert(`Lỗi xuất Excel: ${err?.message || err}. \nVui lòng chụp màn hình lỗi này gửi dev.`)
         }
     }
 
@@ -367,7 +368,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                 @media print {
                     @page { 
                         size: A4 portrait; 
-                        margin: 5mm; 
+                        margin: 0mm !important; /* Force no margin to avoid Header/Footer pushing content to page 2 */
                     }
                     body, html { 
                         background: white !important; 
@@ -375,7 +376,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                         padding: 0 !important;
                         min-width: 100% !important;
                         max-width: 100% !important;
-                        overflow: hidden !important; /* prevent empty page */
+                        overflow: hidden !important; 
                     }
                     /* Hiding sidebar, nav, overlay and gracefully reset main layout */
                     .dashboard-sidebar, .sidebar, nav, header, footer { 
@@ -393,19 +394,19 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                         display: none !important; 
                     }
                     .print-wrapper {
-                        padding: 0 !important;
+                        padding: 5mm !important;
                         margin: 0 auto !important;
-                        max-width: 210mm !important; /* A4 width */
+                        max-width: 210mm !important; 
                         width: 100% !important;
                     }
                     .print-container { 
                         box-shadow: none !important; 
                         margin: 0 auto !important; 
-                        padding: 0 5mm !important; 
+                        padding: 0 !important; 
                         width: 100% !important;
                         max-width: 100% !important;
-                        transform-origin: top left;
-                        transform: scale(0.97); /* slight shrink to ensure it completely avoids A4 vertical overflow */
+                        transform-origin: top center;
+                        transform: scale(0.85); /* aggressively scale to guarantee fitting A4 */
                     }
                     /* Prevent page breaks inside rows */
                     table { page-break-inside: auto; width: 100% !important; }
