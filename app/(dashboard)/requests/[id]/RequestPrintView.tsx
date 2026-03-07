@@ -61,7 +61,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
         ]
 
         // Page Setup
-        ws.pageSetup.orientation = 'landscape'
+        ws.pageSetup.orientation = 'portrait'
         ws.pageSetup.paperSize = 9 // A4
         ws.pageSetup.margins = { left: 0.25, right: 0.25, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 }
 
@@ -577,7 +577,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                 __html: `
                 @media print {
                     @page { 
-                        size: A4 landscape; 
+                        size: A4 portrait; 
                         margin: 5mm; 
                     }
                     body, html { 
