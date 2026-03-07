@@ -503,16 +503,16 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                         {/* Pad empty rows up to 15 to make it look like the Excel sheet format */}
                         {Array.from({ length: Math.max(0, 15 - welds.length) }).map((_, i) => (
                             <tr key={`empty-${i}`}>
-                                <td style={{ border: '1px solid black', padding: '10px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '10px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '10px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '10px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '10px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '10px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '10px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '10px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '10px' }}></td>
-                                <td style={{ border: '1px solid black', padding: '10px' }}></td>
+                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                <td style={{ border: '1px solid black', padding: '6px' }}></td>
                             </tr>
                         ))}
                     </tbody>
@@ -539,8 +539,8 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                         <tr style={{ verticalAlign: 'top' }}>
                             <td style={{ padding: '4px', width: '33%', borderRight: '1px solid black' }}>
                                 Requested By/ Người yêu cầu: <br />
-                                Name/H Tên:<br /><br />
-                                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', marginBottom: '30px' }}>
+                                Name/H Tên:<br />
+                                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', marginBottom: '16px', marginTop: '4px' }}>
                                     {request.requested_by.toUpperCase()}
                                 </div>
                                 Sig./Chữ ký:<br /><br />
@@ -549,8 +549,8 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                             </td>
                             <td style={{ padding: '4px', width: '33%', borderRight: '1px solid black' }}>
                                 QC Inspector/ Kiểm tra: <br />
-                                Name/H Tên:<br /><br />
-                                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', marginBottom: '30px' }}>
+                                Name/H Tên:<br />
+                                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', marginBottom: '16px', marginTop: '4px' }}>
                                     {request.requested_by.toUpperCase()}
                                 </div>
                                 Sig./Chữ ký:<br /><br />
@@ -560,8 +560,8 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                             <td style={{ padding: '4px', width: '33%' }}>
                                 NDT Technician<br />
                                 Kỹ thuật viên NDT: <br />
-                                Name/H Tên:<br /><br />
-                                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', marginBottom: '30px' }}>
+                                Name/H Tên:<br />
+                                <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', marginBottom: '16px', marginTop: '4px' }}>
                                 </div>
                                 Sig./Chữ ký:<br /><br /><br /><br />
                                 <div style={{ textAlign: 'center' }}>#N/A</div>
@@ -578,7 +578,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                 @media print {
                     @page { 
                         size: A4 landscape; 
-                        margin: 10mm; 
+                        margin: 5mm; 
                     }
                     body, html { 
                         background: white !important; 
