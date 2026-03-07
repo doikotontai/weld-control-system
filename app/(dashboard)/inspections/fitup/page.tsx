@@ -53,7 +53,7 @@ export default async function FitUpPage(props: { searchParams: Promise<{ [key: s
                     Vui lòng chọn Dự án ở menu bên trái.
                 </div>
             ) : (
-                <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'auto' }}>
+                <div className="table-container">
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                         <thead>
                             <tr>

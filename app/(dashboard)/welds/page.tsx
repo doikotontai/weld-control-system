@@ -238,7 +238,7 @@ export default function WeldsPage() {
             </div>
 
             {/* Table */}
-            <div style={{ background: 'white', borderRadius: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+            <div style={{ background: 'white', borderRadius: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '60px' }}>
                         <div className="spinner" style={{ margin: '0 auto 16px' }} />

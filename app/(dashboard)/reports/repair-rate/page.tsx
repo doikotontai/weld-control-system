@@ -75,8 +75,8 @@ export default async function RepairRatePage() {
             {!projectId ? (
                 <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui lòng chọn Dự án.</div>
             ) : (
-                <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div className="table-container">
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                         <thead style={{ background: '#f8fafc' }}>
                             <tr>
                                 {['Xếp hạng', 'Welder ID', 'Tổng Mối', 'Độ dài (mm)', 'Lỗi (mm)', 'Repair Rate', 'MT REJ', 'UT REJ'].map(h => (

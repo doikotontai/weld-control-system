@@ -75,7 +75,7 @@ export default async function DrawingsPage() {
                     Chưa có dữ liệu bản vẽ. Hãy import file Excel trước.
                 </div>
             ) : (
-                <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'auto' }}>
+                <div className="table-container">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr>
