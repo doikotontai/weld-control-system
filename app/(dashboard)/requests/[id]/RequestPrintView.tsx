@@ -43,10 +43,15 @@ export default function RequestPrintView({ request, welds }: { request: Request,
 
     const handleExportExcel = async () => {
         try {
-            // Use absolute URL to fetch native template buffer from public/, fixing issues on Vercel
-            const origin = typeof window !== 'undefined' ? window.location.origin : ''
-            const response = await fetch(`${origin}/formxuatexcel.xlsx`)
-            if (!response.ok) throw new Error("Could not find /formxuatexcel.xlsx")
+            // Log path to debug on Vercel
+            const templatePath = '/formxuatexcel.xlsx';
+            console.log("Fetching Excel template from:", templatePath);
+
+            const response = await fetch(templatePath, { cache: 'no-store' }); // Prevent stale cache
+            if (!response.ok) {
+                console.error("Fetch failed with status:", response.status, response.statusText);
+                throw new Error(`Could not find /formxuatexcel.xlsx (Status: ${response.status})`);
+            }
             const arrayBuffer = await response.arrayBuffer()
 
             const wb = new ExcelJS.Workbook()
@@ -386,20 +391,18 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                     .no-print { 
                         display: none !important; 
                     }
-                    /* Remove padding limits from wrapper and its parents if possible */
                     .print-wrapper {
                         padding: 0 !important;
-                        margin: 0 !important;
-                        max-width: none !important;
-                        width: 100vw !important;
+                        margin: 0 auto !important;
+                        max-width: 210mm !important; /* A4 width */
+                        width: 100% !important;
                     }
                     .print-container { 
                         box-shadow: none !important; 
-                        margin: 0 !important; 
-                        padding: 0 !important; 
-                        width: 100vw !important;
-                        max-width: none !important;
-                        zoom: 0.95; /* slight scale down to ensure it fits A4 bounds perfectly */
+                        margin: 0 auto !important; 
+                        padding: 0 5mm !important; 
+                        width: 100% !important;
+                        max-width: 100% !important;
                     }
                     /* Prevent page breaks inside rows */
                     table { page-break-inside: auto; width: 100% !important; }
