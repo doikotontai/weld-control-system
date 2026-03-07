@@ -186,52 +186,55 @@ export default function WeldsPage() {
 
     return (
         <div className="page-enter">
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+            {/* Header & Controls */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
                 <div>
                     <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>🔩 Quản lý Mối hàn</h1>
                     <p style={{ color: '#64748b', marginTop: '4px' }}>
                         {currentProjectId ? `${totalCount.toLocaleString()} mối hàn` : 'Chọn Dự án ở menu trái'}
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={handleExport} className="btn btn-secondary">📤 Export Excel</button>
-                    <Link href="/welds/new" className="btn btn-primary">➕ Tạo mới</Link>
+
+                {/* Toolbar */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', background: 'white', borderRadius: '10px', padding: '12px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                    {/* Primary Actions */}
+                    <Link href="/welds/new" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>➕ Tạo mới</Link>
+                    <button onClick={handleExport} className="btn btn-secondary" style={{ whiteSpace: 'nowrap' }}>📤 Export Excel</button>
+
+                    {/* Search */}
+                    <input
+                        type="text"
+                        className="form-input"
+                        placeholder="🔍 Tìm nhanh: Weld ID, DrawingNo, Welders..."
+                        value={globalSearch}
+                        style={{ flex: 1, minWidth: '220px' }}
+                        onChange={e => { setGlobalSearch(e.target.value); setPage(0) }}
+                    />
+
+                    {(globalSearch || Object.values(colFilters).some(v => v)) && (
+                        <button className="btn btn-secondary" onClick={() => { setGlobalSearch(''); setColFilters({}); setPage(0) }} style={{ whiteSpace: 'nowrap' }}>
+                            ✕ Xóa lọc
+                        </button>
+                    )}
+
+                    {/* Pagination Limit */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderLeft: '1px solid #e2e8f0', paddingLeft: '12px' }}>
+                        <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>Hiển thị:</span>
+                        <select
+                            value={limit}
+                            onChange={(e) => { setLimit(Number(e.target.value)); setPage(0); }}
+                            style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', outline: 'none', cursor: 'pointer' }}
+                        >
+                            {LIMIT_OPTIONS.map(opt => (
+                                <option key={opt} value={opt}>{opt === 999999 ? 'Tất cả' : opt}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                        Đang xem {Math.min(limit, welds.length)}/{totalCount}
+                    </span>
                 </div>
-            </div>
-
-            {/* Global Search + Clear */}
-            <div style={{ background: 'white', borderRadius: '10px', padding: '12px 16px', marginBottom: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <input
-                    type="text"
-                    className="form-input"
-                    placeholder="🔍 Tìm nhanh: Weld ID, DrawingNo, Welders..."
-                    value={globalSearch}
-                    style={{ flex: 1 }}
-                    onChange={e => { setGlobalSearch(e.target.value); setPage(0) }}
-                />
-                {(globalSearch || Object.values(colFilters).some(v => v)) && (
-                    <button className="btn btn-secondary" onClick={() => { setGlobalSearch(''); setColFilters({}); setPage(0) }}>
-                        ✕ Xóa lọc
-                    </button>
-                )}
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderLeft: '1px solid #e2e8f0', paddingLeft: '12px' }}>
-                    <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>Hiển thị:</span>
-                    <select
-                        value={limit}
-                        onChange={(e) => { setLimit(Number(e.target.value)); setPage(0); }}
-                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', outline: 'none' }}
-                    >
-                        {LIMIT_OPTIONS.map(opt => (
-                            <option key={opt} value={opt}>{opt === 999999 ? 'Tất cả' : opt}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                    Đang xem {Math.min(limit, welds.length)}/{totalCount}
-                </span>
             </div>
 
             {/* Table */}

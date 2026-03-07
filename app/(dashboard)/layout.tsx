@@ -62,9 +62,11 @@ export default async function DashboardLayout({
             <main className="dashboard-layout-main" style={{
                 marginLeft: '240px',
                 flex: 1,
+                minWidth: 0,
+                maxWidth: 'calc(100vw - 240px)',
                 minHeight: '100vh',
-                background: '#f1f5f9',
-                padding: '24px',
+                background: '#f8fafc',
+                padding: '24px 32px'
             }}>
                 {children}
             </main>
