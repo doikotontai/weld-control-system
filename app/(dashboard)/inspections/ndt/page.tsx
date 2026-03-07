@@ -15,29 +15,47 @@ function Result({ v }: { v: unknown }) {
     return <span style={{ padding: '2px 8px', borderRadius: '4px', fontWeight: 700, fontSize: '0.7rem', background: ok ? '#dcfce7' : rej ? '#fee2e2' : '#f1f5f9', color: ok ? '#166534' : rej ? '#991b1b' : '#64748b' }}>{val}</span>
 }
 
-export default async function NDTPage() {
+export default async function NDTPage(props: { searchParams: Promise<{ [key: string]: string | undefined }> }) {
     const supabase = await createClient()
     const cookieStore = await cookies()
     const projectId = cookieStore.get('weld-control-project-id')?.value || null
+
+    const searchParams = await props.searchParams
+    const page = parseInt(searchParams?.page || '0', 10)
+    const limit = 100
+    const offset = page * limit
 
     let welds: any[] = []
     let total = 0, mtAcc = 0, mtRej = 0, utAcc = 0, utRej = 0, rtAcc = 0, rtRej = 0
 
     if (projectId) {
+        // 1. Fetch Paginated Table Data
         const { data, count } = await (supabase.from('welds') as any)
             .select('id, weld_id, drawing_no, weld_no, joint_type, ndt_requirements, weld_length, mt_result, mt_report_no, ut_result, ut_report_no, rt_result, rt_report_no, pwht_result, irn_no, irn_date, defect_length, repair_length, welders, stage', { count: 'exact' })
             .eq('project_id', projectId)
             .or('mt_result.not.is.null,ut_result.not.is.null,rt_result.not.is.null')
             .order('excel_row_order', { ascending: true })
+            .range(offset, offset + limit - 1)
 
         welds = data || []
         total = count || 0
-        welds.forEach(w => {
-            if (w.mt_result === 'ACC') mtAcc++; if (w.mt_result === 'REJ') mtRej++
-            if (w.ut_result === 'ACC') utAcc++; if (w.ut_result === 'REJ') utRej++
-            if (w.rt_result === 'ACC') rtAcc++; if (w.rt_result === 'REJ') rtRej++
-        })
+
+        // 2. Fetch Lightweight Summary Stats for all pages
+        const { data: statsData } = await (supabase.from('welds') as any)
+            .select('mt_result, ut_result, rt_result')
+            .eq('project_id', projectId)
+            .or('mt_result.not.is.null,ut_result.not.is.null,rt_result.not.is.null')
+
+        if (statsData) {
+            statsData.forEach((w: any) => {
+                if (w.mt_result === 'ACC') mtAcc++; if (w.mt_result === 'REJ') mtRej++
+                if (w.ut_result === 'ACC') utAcc++; if (w.ut_result === 'REJ') utRej++
+                if (w.rt_result === 'ACC') rtAcc++; if (w.rt_result === 'REJ') rtRej++
+            })
+        }
     }
+
+    const totalPages = Math.ceil(total / limit)
 
     const thStyle = { padding: '8px 12px', fontWeight: 600, color: '#475569', textAlign: 'left' as const, fontSize: '0.75rem', textTransform: 'uppercase' as const, background: '#f8fafc', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' as const }
     const tdStyle = { padding: '8px 12px', fontSize: '0.8rem', borderBottom: '1px solid #f1f5f9', color: '#374151' }
@@ -121,6 +139,27 @@ export default async function NDTPage() {
                             ))}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div style={{ padding: '16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                        Trang {page + 1}/{totalPages} — Khớp {total} mối hàn
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        {page > 0 && (
+                            <Link href={`?page=${page - 1}`} className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+                                ‹ Trước
+                            </Link>
+                        )}
+                        {page < totalPages - 1 && (
+                            <Link href={`?page=${page + 1}`} className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+                                Sau ›
+                            </Link>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

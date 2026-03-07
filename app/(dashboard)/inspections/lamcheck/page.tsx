@@ -8,10 +8,15 @@ export const dynamic = 'force-dynamic'
 function fmt(v: unknown) { return v != null && v !== '' ? String(v).slice(0, 10) : '—' }
 function s(v: unknown) { return v != null && v !== '' ? String(v) : '—' }
 
-export default async function LamcheckPage() {
+export default async function LamcheckPage(props: { searchParams: Promise<{ [key: string]: string | undefined }> }) {
     const supabase = await createClient()
     const cookieStore = await cookies()
     const projectId = cookieStore.get('weld-control-project-id')?.value || null
+
+    const searchParams = await props.searchParams
+    const page = parseInt(searchParams?.page || '0', 10)
+    const limit = 100
+    const offset = page * limit
 
     let welds: any[] = []
     let total = 0
@@ -22,10 +27,13 @@ export default async function LamcheckPage() {
             .eq('project_id', projectId)
             .not('lamcheck_date', 'is', null)
             .order('excel_row_order', { ascending: true })
+            .range(offset, offset + limit - 1)
 
         welds = data || []
         total = count || 0
     }
+
+    const totalPages = Math.ceil(total / limit)
 
     const thStyle = { padding: '8px 12px', fontWeight: 600, color: '#475569', textAlign: 'left' as const, fontSize: '0.75rem', textTransform: 'uppercase' as const, background: '#f8fafc', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' as const }
     const tdStyle = { padding: '8px 12px', fontSize: '0.8rem', borderBottom: '1px solid #f1f5f9', color: '#374151' }
@@ -81,6 +89,27 @@ export default async function LamcheckPage() {
                             ))}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div style={{ padding: '16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                        Trang {page + 1}/{totalPages} — Khớp {total} mối hàn
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        {page > 0 && (
+                            <Link href={`?page=${page - 1}`} className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+                                ‹ Trước
+                            </Link>
+                        )}
+                        {page < totalPages - 1 && (
+                            <Link href={`?page=${page + 1}`} className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+                                Sau ›
+                            </Link>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
