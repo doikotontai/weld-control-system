@@ -251,7 +251,7 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                 </table>
 
                 {/* WELDS DATA TABLE */}
-                <table className="weld-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '8pt', borderBottom: '1px solid black' }}>
+                <table className="weld-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '7.5pt', borderBottom: '1px solid black' }}>
                     <thead>
                         <tr>
                             <td colSpan={10} style={{ textAlign: 'left', padding: '2px 8px', borderLeft: '1px solid black', borderRight: '1px solid black' }}>REQUIREMENTS/ Nội dung yêu cầu kiểm tra:</td>
@@ -274,16 +274,16 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                             const w = welds[i]
                             if (!w) return (
                                 <tr key={`empty-${i}`}>
-                                    <td style={{ textAlign: 'center', border: '1px solid black', padding: '6px' }}>{i + 1}</td>
-                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
-                                    <td style={{ border: '1px solid black', padding: '6px' }}></td>
+                                    <td style={{ textAlign: 'center', border: '1px solid black', padding: '3px' }}>{i + 1}</td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}></td>
                                 </tr>
                             )
 
@@ -294,16 +294,16 @@ export default function RequestPrintView({ request, welds }: { request: Request,
 
                             return (
                                 <tr key={w.id}>
-                                    <td style={{ border: '1px solid black', padding: '4px' }}>{i + 1}</td>
-                                    <td style={{ border: '1px solid black', padding: '4px' }}>{w.drawing_no}</td>
-                                    <td style={{ border: '1px solid black', padding: '4px', fontWeight: 'bold' }}>{String(w.weld_no)}</td>
-                                    <td style={{ border: '1px solid black', padding: '4px' }}>{w.joint_type}</td>
-                                    <td style={{ border: '1px solid black', padding: '4px' }}>{welders}</td>
-                                    <td style={{ border: '1px solid black', padding: '4px' }}>{w.wps_number || 'WPS-TNHA-S06'}</td>
-                                    <td style={{ border: '1px solid black', padding: '4px' }}>{w.weld_length ? `${w.weld_length}` : ''}</td>
-                                    <td style={{ border: '1px solid black', padding: '4px' }}>{reqNotes}</td>
-                                    <td style={{ border: '1px solid black', padding: '4px' }}>{w.goc_code}</td>
-                                    <td style={{ border: '1px solid black', padding: '4px' }}></td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}>{i + 1}</td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}>{w.drawing_no}</td>
+                                    <td style={{ border: '1px solid black', padding: '3px', fontWeight: 'bold' }}>{String(w.weld_no)}</td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}>{w.joint_type}</td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}>{welders}</td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}>{w.wps_number || 'WPS-TNHA-S06'}</td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}>{w.weld_length ? `${w.weld_length}` : ''}</td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}>{reqNotes}</td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}>{w.goc_code}</td>
+                                    <td style={{ border: '1px solid black', padding: '3px' }}></td>
                                 </tr>
                             )
                         })}
@@ -395,9 +395,9 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                     }
                     .print-wrapper {
                         padding: 0 !important;
-                        margin: 0 !important;
-                        width: 100% !important;
-                        max-width: 100% !important;
+                        margin: 0 auto !important;
+                        width: 195mm !important; /* 210mm A4 width minus 15mm total margin */
+                        max-width: 195mm !important;
                     }
                     .print-container { 
                         box-shadow: none !important; 
