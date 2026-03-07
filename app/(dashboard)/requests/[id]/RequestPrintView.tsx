@@ -391,18 +391,20 @@ export default function RequestPrintView({ request, welds }: { request: Request,
                         padding: 0 !important;
                         margin: 0 !important;
                         max-width: none !important;
-                        width: 100% !important;
+                        width: 100vw !important;
                     }
                     .print-container { 
                         box-shadow: none !important; 
                         margin: 0 !important; 
                         padding: 0 !important; 
-                        width: 100% !important;
+                        width: 100vw !important;
                         max-width: none !important;
+                        zoom: 0.95; /* slight scale down to ensure it fits A4 bounds perfectly */
                     }
                     /* Prevent page breaks inside rows */
-                    table { page-break-inside: auto; }
+                    table { page-break-inside: auto; width: 100% !important; }
                     tr { page-break-inside: avoid; page-break-after: auto; }
+                    td { padding-bottom: 2px !important; padding-top: 2px !important; }
                 }
             `}} />
         </div>
