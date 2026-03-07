@@ -72,9 +72,10 @@ export default function RequestPrintView({ request, welds }: { request: Request,
             ws.getCell('G7').value = '10h30'
 
             // Fill Weld Data (Starts from Row 17, max approx 50 ending at 66)
-            const MAX_ROWS = 50
+            // The template has exactly rows 17 to 69 for data (53 rows total). 
+            // We must clear ALL of them so no orphaned shared formula clones remain (e.g. G67).
             const startRow = 17
-
+            const MAX_ROWS = 53
             for (let i = 0; i < MAX_ROWS; i++) {
                 const w = welds[i]
                 const rowIndex = startRow + i
