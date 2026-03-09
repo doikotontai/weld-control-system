@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+﻿# Weld Control Online
 
-## Getting Started
+He thong quan ly tong hop QA/QC/Han/NDT duoc dung lai tu workbook `WELD CONTROL.xlsx`.
 
-First, run the development server:
+## Stack
+
+- Next.js App Router
+- React 19
+- Supabase (Auth + Postgres)
+- ExcelJS / XLSX cho import-export
+
+## Logic nghiep vu da khoa
+
+- `DATA INPUT` la weld master ledger.
+- `O` = Fit-Up request key.
+- `T` = request moi NDT va khach hang visual.
+- `V` = Backgouge request key.
+- `X` = Lamcheck request key.
+- `P` = ngay hoan thanh han.
+- `AJ/AK/AL/AM` = lop release note.
+- `REQUEST` la sheet request chuan; `MPI` khong duoc dung lam workflow chuan cua app.
+
+## Chay local
+
+1. Tao file `.env.local` tu `.env.local.example`.
+2. Dien du 3 bien moi truong Supabase.
+3. Cai dependencies:
+
+```bash
+npm install
+```
+
+4. Chay dev:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Hoac build production local:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run lint
+npm run build
+npm run start
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Bien moi truong bat buoc
 
-## Learn More
+Xem file `.env.local.example`:
 
-To learn more about Next.js, take a look at the following resources:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Khong co fallback key trong source. Thieu env app se fail som.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## SQL / migration can chay tren Supabase
 
-## Deploy on Vercel
+Neu database da ton tai va dang dung schema cu:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. backup database truoc
+2. chay `migration_add_weld_columns.sql`
+3. redeploy app
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Khong chay lai mu quang `schema.sql` tren database dang co du lieu.
+
+Neu muon tao database moi tu dau:
+
+1. `setup_database.sql`
+
+`schema.sql` chi dung nhu canonical reference schema.
+
+## Tai lieu trien khai
+
+Xem them `HUONG_DAN_TRIEN_KHAI.txt`.
+Huong dan cutover truc tiep: `HUONG_DAN_MIGRATION_DB_TRUC_TIEP.md`.
+
+## Kiem tra nhanh truoc deploy
+
+```bash
+npm run lint
+npm run build
+```

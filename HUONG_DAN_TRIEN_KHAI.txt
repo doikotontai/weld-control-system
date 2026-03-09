@@ -1,1 +1,79 @@
-HDSD
+﻿WELD CONTROL ONLINE - HUONG DAN TRIỂN KHAI
+=========================================
+
+1. MUC TIEU
+- Deploy ban preview/prod len Vercel.
+- Ket noi dung Supabase project.
+- Khong de thieu env va khong de app build len nhung runtime moi vo.
+
+2. BIEN MOI TRUONG BAT BUOC TREN VERCEL
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY
+- SUPABASE_SERVICE_ROLE_KEY
+
+Nguon lay:
+- Supabase Dashboard -> Project Settings -> API
+
+Ghi chu:
+- NEXT_PUBLIC_* duoc expose cho browser.
+- SERVICE_ROLE_KEY chi dung server-side, phai dat tren Vercel va khong commit vao repo.
+
+3. THU TU CHAY SQL TREN SUPABASE
+Neu la project moi:
+- Chay `setup_database.sql`
+
+Neu database da ton tai:
+- Backup database truoc.
+- Chay thang `migration_add_weld_columns.sql`.
+- Redeploy app ngay sau khi SQL xong.
+- Khong chay lai mu quang `schema.sql` neu da co bang/du lieu production.
+- Xem them `HUONG_DAN_MIGRATION_DB_TRUC_TIEP.md`.
+
+4. KIEM TRA SAU KHI CHAY SQL
+- Bang `welds` co day du cac cot app dang dung.
+- Login duoc.
+- Dashboard load duoc du lieu.
+- Import Excel khong bao loi schema.
+- Tao request / sua weld luu duoc.
+
+5. DEPLOY LEN VERCEL
+Preview:
+- Import repo vao Vercel hoac deploy bang CLI.
+- Framework: Next.js
+- Root Directory: `huongtt/weld-control` neu repo root cao hon.
+- Build Command: `npm run build`
+- Output: mac dinh cua Next.js
+
+Production:
+- Sau khi preview ok moi promote/production deploy.
+
+6. VERCEL SETTINGS CAN CHECK
+- Environment Variables: du 3 key Supabase cho Preview va Production.
+- Thuc te hien tai: Production + Development da duoc sync bang CLI; Preview nen them tay tren Vercel Dashboard neu muon dung link preview co login hoan chinh.
+- Node version: de Vercel tu nhan theo Next.js 16, neu can co the set Node 20.
+- Root Directory dung voi source app.
+
+7. SUPABASE SETTINGS CAN CHECK
+- Auth -> URL Configuration:
+  - Site URL = domain Vercel production
+  - Additional Redirect URLs = preview URL neu can login o preview
+  - Neu preview doi domain moi, them domain preview moi vao day
+- API keys dung project dang chay that.
+- SQL Editor da apply cac migration can thiet.
+
+8. NEU LOGIN TREN VERCEL BI LOI
+Kiem tra theo thu tu:
+- Sai NEXT_PUBLIC_SUPABASE_URL
+- Sai NEXT_PUBLIC_SUPABASE_ANON_KEY
+- Sai SUPABASE_SERVICE_ROLE_KEY
+- Chua them domain Vercel vao Supabase Auth URL config
+- Database chua co schema/migration moi
+
+9. CHECKLIST CHOT TRUOC KHI BAN GIAO
+- `npm run lint` pass
+- `npm run build` pass
+- Login duoc
+- Dashboard / Requests / Welds / Import / Admin mo duoc
+- Console browser khong co error runtime
+- Da backup hoac ghi nhan cac test data da tao tren Supabase
+

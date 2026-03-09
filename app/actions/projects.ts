@@ -4,6 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 
+function getErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : String(error)
+}
+
 async function getAdminSupabase() {
     const supabase = await createClient()
     const cookieStore = await cookies()
@@ -61,8 +65,8 @@ export async function createProject(formData: FormData) {
 
         revalidatePath('/admin')
         return { success: true }
-    } catch (e: any) {
-        return { error: e.message, success: false }
+    } catch (error: unknown) {
+        return { error: getErrorMessage(error), success: false }
     }
 }
 
@@ -84,7 +88,7 @@ export async function deleteProject(id: string) {
 
         revalidatePath('/admin')
         return { success: true }
-    } catch (e: any) {
-        return { error: e.message, success: false }
+    } catch (error: unknown) {
+        return { error: getErrorMessage(error), success: false }
     }
 }

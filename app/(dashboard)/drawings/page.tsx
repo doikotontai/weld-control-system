@@ -1,78 +1,113 @@
-// app/(dashboard)/drawings/page.tsx — list WMap sheet equivalent
-import { createClient } from '@/lib/supabase/server'
+﻿import Link from 'next/link'
 import { cookies } from 'next/headers'
+import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
-function s(v: unknown) { return v != null && v !== '' ? String(v) : '—' }
+function displayText(value: unknown) {
+    return value != null && value !== '' ? String(value) : '-'
+}
+
+interface DrawingSourceRow {
+    drawing_no: string | null
+    goc_code: string | null
+    fitup_date: string | null
+    visual_date: string | null
+    mt_result: string | null
+    ut_result: string | null
+    rt_result: string | null
+    release_note_no: string | null
+}
+
+interface DrawingSummaryRow {
+    drawing_no: string
+    total: number
+    fitup: number
+    visual: number
+    ndt: number
+    irn: number
+    goc_code: string
+}
+
+function ProgressCell({ done, total }: { done: number; total: number }) {
+    const percentage = total > 0 ? Math.round((done * 100) / total) : 0
+    const color = percentage === 100 ? '#166534' : percentage >= 50 ? '#0369a1' : '#92400e'
+
+    return (
+        <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color }}>{done}/{total}</span>
+                <span style={{ fontSize: '0.7rem', color }}>{percentage}%</span>
+            </div>
+            <div style={{ height: '5px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ width: `${percentage}%`, height: '100%', background: color, borderRadius: '3px' }} />
+            </div>
+        </div>
+    )
+}
 
 export default async function DrawingsPage() {
     const supabase = await createClient()
     const cookieStore = await cookies()
     const projectId = cookieStore.get('weld-control-project-id')?.value || null
 
-    // Group welds by drawing_no to get drawing stats
-    let drawings: { drawing_no: string; total: number; fitup: number; visual: number; ndt: number; irn: number; goc_code: string }[] = []
+    let drawings: DrawingSummaryRow[] = []
 
     if (projectId) {
-        const { data } = await (supabase.from('welds') as any)
-            .select('drawing_no, goc_code, fitup_date, visual_date, mt_result, ut_result, rt_result, irn_no')
+        const { data } = await supabase
+            .from('welds')
+            .select('drawing_no, goc_code, fitup_date, visual_date, mt_result, ut_result, rt_result, release_note_no')
             .eq('project_id', projectId)
             .order('drawing_no', { ascending: true })
 
         if (data) {
-            const map: Record<string, any> = {}
-            data.forEach((w: any) => {
-                const key = w.drawing_no || '(Chưa có Drawing)'
-                if (!map[key]) map[key] = { drawing_no: key, total: 0, fitup: 0, visual: 0, ndt: 0, irn: 0, goc_code: w.goc_code || '' }
-                map[key].total++
-                if (w.fitup_date) map[key].fitup++
-                if (w.visual_date) map[key].visual++
-                if (w.mt_result || w.ut_result || w.rt_result) map[key].ndt++
-                if (w.irn_no) map[key].irn++
+            const drawingMap: Record<string, DrawingSummaryRow> = {}
+
+            ;(data as DrawingSourceRow[]).forEach((row) => {
+                const drawingNo = row.drawing_no || '(Chua co drawing)'
+                if (!drawingMap[drawingNo]) {
+                    drawingMap[drawingNo] = {
+                        drawing_no: drawingNo,
+                        total: 0,
+                        fitup: 0,
+                        visual: 0,
+                        ndt: 0,
+                        irn: 0,
+                        goc_code: row.goc_code || '',
+                    }
+                }
+
+                drawingMap[drawingNo].total += 1
+                if (row.fitup_date) drawingMap[drawingNo].fitup += 1
+                if (row.visual_date) drawingMap[drawingNo].visual += 1
+                if (row.mt_result || row.ut_result || row.rt_result) drawingMap[drawingNo].ndt += 1
+                if (row.release_note_no) drawingMap[drawingNo].irn += 1
             })
-            drawings = Object.values(map).sort((a, b) => a.drawing_no.localeCompare(b.drawing_no))
+
+            drawings = Object.values(drawingMap).sort((left, right) => left.drawing_no.localeCompare(right.drawing_no))
         }
     }
 
     const totalDrawings = drawings.length
-    const totalWelds = drawings.reduce((s, d) => s + d.total, 0)
-
+    const totalWelds = drawings.reduce((sum, drawing) => sum + drawing.total, 0)
     const thStyle = { padding: '10px 14px', fontWeight: 600, color: '#475569', textAlign: 'left' as const, fontSize: '0.75rem', textTransform: 'uppercase' as const, background: '#f8fafc', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' as const }
     const tdStyle = { padding: '10px 14px', fontSize: '0.87rem', borderBottom: '1px solid #f1f5f9' }
-
-    function Pct({ done, total }: { done: number; total: number }) {
-        const pct = total > 0 ? Math.round(done * 100 / total) : 0
-        const color = pct === 100 ? '#166534' : pct >= 50 ? '#0369a1' : '#92400e'
-        const bg = pct === 100 ? '#dcfce7' : pct >= 50 ? '#dbeafe' : '#fef9c3'
-        return (
-            <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color }}>{done}/{total}</span>
-                    <span style={{ fontSize: '0.7rem', color }}>{pct}%</span>
-                </div>
-                <div style={{ height: '5px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '3px' }} />
-                </div>
-            </div>
-        )
-    }
 
     return (
         <div className="page-enter">
             <div style={{ marginBottom: '20px' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>🗺️ Bản vẽ (Drawing Map)</h1>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Báº£n váº½ (Drawing Map)</h1>
                 <p style={{ color: '#64748b', marginTop: '4px', fontSize: '0.875rem' }}>
-                    Tương ứng Sheet <strong>list WMap</strong> — {projectId ? `${totalDrawings} bản vẽ | ${totalWelds.toLocaleString()} mối hàn` : 'Chọn dự án để xem'}
+                    TÆ°Æ¡ng á»©ng sheet <strong>list WMap</strong> - {projectId ? `${totalDrawings} báº£n váº½ | ${totalWelds.toLocaleString()} má»‘i hÃ n` : 'Chá»n dá»± Ã¡n Ä‘á»ƒ xem'}
                 </p>
             </div>
 
             {!projectId ? (
-                <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui lòng chọn Dự án ở menu bên trái.</div>
+                <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui lÃ²ng chá»n dá»± Ã¡n á»Ÿ menu bÃªn trÃ¡i.</div>
             ) : drawings.length === 0 ? (
                 <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🗺️</div>
-                    Chưa có dữ liệu bản vẽ. Hãy import file Excel trước.
+                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>Map</div>
+                    ChÆ°a cÃ³ dá»¯ liá»‡u báº£n váº½. HÃ£y import file Excel trÆ°á»›c.
                 </div>
             ) : (
                 <div className="table-container">
@@ -86,26 +121,28 @@ export default async function DrawingsPage() {
                                 <th style={thStyle}>Fit-Up</th>
                                 <th style={thStyle}>Visual</th>
                                 <th style={thStyle}>NDT Done</th>
-                                <th style={thStyle}>IRN Done</th>
-                                <th style={thStyle}>Xem mối hàn</th>
+                                <th style={thStyle}>Release Note</th>
+                                <th style={thStyle}>Xem má»‘i hÃ n</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {drawings.map((d, i) => (
-                                <tr key={d.drawing_no} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
-                                    <td style={{ ...tdStyle, color: '#94a3b8', fontSize: '0.75rem' }}>{i + 1}</td>
-                                    <td style={{ ...tdStyle, fontWeight: 700, fontFamily: 'monospace', color: '#1e40af' }}>{s(d.drawing_no)}</td>
-                                    <td style={{ ...tdStyle, color: '#64748b' }}>{s(d.goc_code)}</td>
-                                    <td style={{ ...tdStyle, fontWeight: 700, textAlign: 'center' as const }}>{d.total}</td>
-                                    <td style={{ ...tdStyle, minWidth: '120px' }}><Pct done={d.fitup} total={d.total} /></td>
-                                    <td style={{ ...tdStyle, minWidth: '120px' }}><Pct done={d.visual} total={d.total} /></td>
-                                    <td style={{ ...tdStyle, minWidth: '120px' }}><Pct done={d.ndt} total={d.total} /></td>
-                                    <td style={{ ...tdStyle, minWidth: '120px' }}><Pct done={d.irn} total={d.total} /></td>
+                            {drawings.map((drawing, index) => (
+                                <tr key={drawing.drawing_no} style={{ background: index % 2 === 0 ? 'white' : '#fafafa' }}>
+                                    <td style={{ ...tdStyle, color: '#94a3b8', fontSize: '0.75rem' }}>{index + 1}</td>
+                                    <td style={{ ...tdStyle, fontWeight: 700, fontFamily: 'monospace', color: '#1e40af' }}>{displayText(drawing.drawing_no)}</td>
+                                    <td style={{ ...tdStyle, color: '#64748b' }}>{displayText(drawing.goc_code)}</td>
+                                    <td style={{ ...tdStyle, fontWeight: 700, textAlign: 'center' as const }}>{drawing.total}</td>
+                                    <td style={{ ...tdStyle, minWidth: '120px' }}><ProgressCell done={drawing.fitup} total={drawing.total} /></td>
+                                    <td style={{ ...tdStyle, minWidth: '120px' }}><ProgressCell done={drawing.visual} total={drawing.total} /></td>
+                                    <td style={{ ...tdStyle, minWidth: '120px' }}><ProgressCell done={drawing.ndt} total={drawing.total} /></td>
+                                    <td style={{ ...tdStyle, minWidth: '120px' }}><ProgressCell done={drawing.irn} total={drawing.total} /></td>
                                     <td style={tdStyle}>
-                                        <a href={`/welds?drawing=${encodeURIComponent(d.drawing_no)}`}
-                                            style={{ color: '#2563eb', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 500, padding: '4px 10px', background: '#eff6ff', borderRadius: '6px' }}>
-                                            Xem →
-                                        </a>
+                                        <Link
+                                            href={`/welds?drawing=${encodeURIComponent(drawing.drawing_no)}`}
+                                            style={{ color: '#2563eb', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 500, padding: '4px 10px', background: '#eff6ff', borderRadius: '6px' }}
+                                        >
+                                            {'Xem ->'}
+                                        </Link>
                                     </td>
                                 </tr>
                             ))}
@@ -116,3 +153,5 @@ export default async function DrawingsPage() {
         </div>
     )
 }
+
+

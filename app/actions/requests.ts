@@ -1,10 +1,9 @@
-'use server'
+﻿'use server'
 
 import { createClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 
-// Hàm lấy token từ cookie thay vì phụ thuộc vào thư viện mặc định
 async function getSupabaseWithAuth() {
     const supabase = await createClient()
     const cookieStore = await cookies()
@@ -14,7 +13,10 @@ async function getSupabaseWithAuth() {
         throw new Error('Not authenticated')
     }
 
-    const { data: { user } } = await supabase.auth.getUser(accessToken)
+    const {
+        data: { user },
+    } = await supabase.auth.getUser(accessToken)
+
     if (!user) {
         throw new Error('Not authenticated')
     }
@@ -26,7 +28,6 @@ export async function createInspectionRequest(formData: FormData) {
     try {
         const { supabase, user } = await getSupabaseWithAuth()
 
-        // Lấy profile để kiểm tra quyền
         const { data: profile } = await supabase
             .from('profiles')
             .select('role')
@@ -35,48 +36,61 @@ export async function createInspectionRequest(formData: FormData) {
 
         if (!profile || !['admin', 'dcc', 'qc'].includes(profile.role)) {
             return {
-                error: 'Bạn không có quyền tạo Yêu cầu kiểm tra. Vui lòng liên hệ Admin.',
-                success: false
+                error: 'Ban khong co quyen tao yeu cau kiem tra.',
+                success: false,
             }
         }
 
-        const projectId = formData.get('project_id')
-        const requestType = formData.get('request_type')
+        const projectId = String(formData.get('project_id') || '').trim()
+        const requestType = String(formData.get('request_type') || '').trim()
+        const requestNo = String(formData.get('request_no') || '').trim().toUpperCase()
         let item = String(formData.get('item') || '').trim()
-        const taskNo = formData.get('task_no')
-        const requestedBy = formData.get('requested_by')
-        const inspectorCompany = formData.get('inspector_company')
-        const requestDate = formData.get('request_date')
-        const requestTime = formData.get('request_time')
-        const remarks = formData.get('remarks')
+        const taskNo = String(formData.get('task_no') || '').trim() || null
+        const requestedBy = String(formData.get('requested_by') || '').trim() || null
+        const inspectorCompany = String(formData.get('inspector_company') || '').trim() || null
+        const requestDate = String(formData.get('request_date') || '').trim()
+        const requestTime = String(formData.get('request_time') || '').trim() || null
+        const remarks = String(formData.get('remarks') || '').trim() || null
         const weldIdsJson = formData.get('weld_ids') as string | null
 
-        if (!projectId || !requestType) {
-            return { error: 'Vui lòng chọn Dự án và Loại yêu cầu.', success: false }
+        if (!projectId || !requestType || !requestNo) {
+            return {
+                error: 'Vui long chon du an, loai request va nhap dung Request No.',
+                success: false,
+            }
         }
 
         let weldIds: string[] = []
         try {
             if (weldIdsJson) weldIds = JSON.parse(weldIdsJson)
-        } catch (e) {
-            console.error('Lỗi parse weld_ids:', e)
+        } catch (error) {
+            console.error('Failed to parse weld_ids', error)
         }
 
-        // Tự động sinh tên Hạng mục (Item) dựa vào danh sách các mối hàn đã chọn nếu người dùng không nhập
-        if (weldIds.length > 0) {
-            const { data: weldsInfo } = await supabase.from('welds').select('weld_no').in('id', weldIds)
-            if (weldsInfo && weldsInfo.length > 0) {
-                const weldNosString = weldsInfo.map(w => w.weld_no).join(', ')
-                if (!item) {
-                    item = `DS Mối hàn: ${weldNosString}`
-                }
+        if (weldIds.length > 0 && !item) {
+            const { data: weldsInfo } = await supabase
+                .from('welds')
+                .select('weld_no')
+                .in('id', weldIds)
+
+            if (weldsInfo?.length) {
+                item = `DS moi han: ${weldsInfo.map((w) => w.weld_no).join(', ')}`
             }
         }
 
-        // Tạo số Request No tự động theo logic (VD: loại-timestamp)
-        const timestamp = new Date().getTime().toString().slice(-6)
-        const typePrefix = String(requestType).toUpperCase().substring(0, 3)
-        const requestNo = `REQ-${typePrefix}-${timestamp}`
+        const { data: existingRequest } = await supabase
+            .from('inspection_requests')
+            .select('id')
+            .eq('project_id', projectId)
+            .eq('request_no', requestNo)
+            .maybeSingle()
+
+        if (existingRequest) {
+            return {
+                error: `Request No ${requestNo} da ton tai trong du an nay.`,
+                success: false,
+            }
+        }
 
         const { data, error } = await supabase
             .from('inspection_requests')
@@ -84,45 +98,53 @@ export async function createInspectionRequest(formData: FormData) {
                 project_id: projectId,
                 request_no: requestNo,
                 request_type: requestType,
-                item: item,
+                item: item || null,
                 task_no: taskNo,
                 requested_by: requestedBy,
                 inspector_company: inspectorCompany,
-                request_date: requestDate ? new Date(String(requestDate)).toISOString() : null,
+                request_date: requestDate ? new Date(requestDate).toISOString() : null,
                 request_time: requestTime,
-                remarks: remarks,
+                remarks,
                 status: 'submitted',
-                created_by: user.id
+                created_by: user.id,
             })
             .select()
             .single()
 
         if (error) {
             console.error('Error creating request:', error)
-            return { error: error.message || 'Có lỗi xảy ra khi tạo Yêu cầu', success: false }
+            return { error: error.message || 'Khong tao duoc request', success: false }
         }
 
-        // Cập nhật mã Yêu cầu vào các Mối hàn tương ứng
         if (weldIds.length > 0) {
-            let updateData: any = {}
+            const updateData: Record<string, string> = {}
             if (requestType === 'fitup') updateData.fitup_request_no = requestNo
             else if (requestType === 'backgouge') updateData.backgouge_request_no = requestNo
             else if (requestType === 'lamcheck') updateData.lamcheck_request_no = requestNo
-            else if (requestType === 'mpi') updateData.mt_report_no = requestNo
+            else if (requestType === 'request') updateData.inspection_request_no = requestNo
 
             if (Object.keys(updateData).length > 0) {
-                const { error: updateWeldsError } = await supabase.from('welds').update(updateData).in('id', weldIds)
+                const { error: updateWeldsError } = await supabase
+                    .from('welds')
+                    .update(updateData)
+                    .in('id', weldIds)
+
                 if (updateWeldsError) {
-                    console.error('Lỗi khi gắn mã Request vào các mối hàn:', updateWeldsError)
+                    console.error('Failed to attach request number to welds:', updateWeldsError)
                 }
             }
         }
 
         revalidatePath('/requests')
+        revalidatePath(`/requests/${data.id}`)
+
         return { success: true, request_id: data.id }
-    } catch (e: any) {
-        console.error('Sever action error:', e)
-        return { error: e.message || 'Lỗi hệ thống', success: false }
+    } catch (error) {
+        console.error('Server action error:', error)
+        return {
+            error: error instanceof Error ? error.message : 'Loi he thong',
+            success: false,
+        }
     }
 }
 
@@ -130,7 +152,6 @@ export async function updateRequestStatus(requestId: string, newStatus: string) 
     try {
         const { supabase, user } = await getSupabaseWithAuth()
 
-        // Kiểm tra quyền (Chỉ admin, qc mới được đổi status)
         const { data: profile } = await supabase
             .from('profiles')
             .select('role')
@@ -138,7 +159,7 @@ export async function updateRequestStatus(requestId: string, newStatus: string) 
             .single()
 
         if (!profile || !['admin', 'qc'].includes(profile.role)) {
-            return { error: 'Bạn không có quyền chuyển trạng thái.', success: false }
+            return { error: 'Ban khong co quyen chuyen trang thai.', success: false }
         }
 
         const { error } = await supabase
@@ -153,7 +174,10 @@ export async function updateRequestStatus(requestId: string, newStatus: string) 
         revalidatePath('/requests')
         revalidatePath(`/requests/${requestId}`)
         return { success: true }
-    } catch (e: any) {
-        return { error: e.message, success: false }
+    } catch (error) {
+        return {
+            error: error instanceof Error ? error.message : 'Loi he thong',
+            success: false,
+        }
     }
 }

@@ -1,8 +1,30 @@
 'use client'
 // app/(dashboard)/ndt/page.tsx — Nhập kết quả NDT
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { NDTType } from '@/types'
+
+interface NdtResultInsert {
+    weld_id: string
+    ndt_type: NDTType
+    result: string
+    report_no: string | null
+    test_date: string | null
+    technician: string | null
+    company: string | null
+    defect_length: number | null
+    remarks: string | null
+}
+
+interface NdtResultsTable {
+    insert(values: NdtResultInsert): Promise<{ error: { message: string } | null }>
+}
+
+interface WeldUpdateTable {
+    update(values: Record<string, string>): {
+        eq(column: 'id', value: string): Promise<{ error: { message: string } | null }>
+    }
+}
 
 export default function NDTPage() {
     const supabase = createClient()
@@ -24,18 +46,29 @@ export default function NDTPage() {
         remarks: '',
     })
 
-    // Search welds
-    const searchWelds = useCallback(async () => {
-        if (!weldSearch || weldSearch.length < 2) { setWeldOptions([]); return }
-        const { data } = await supabase
-            .from('welds')
-            .select('id, weld_id, drawing_no')
-            .or(`weld_id.ilike.%${weldSearch}%,weld_no.ilike.%${weldSearch}%`)
-            .limit(10)
-        setWeldOptions(data || [])
-    }, [weldSearch, supabase])
+    useEffect(() => {
+        if (!weldSearch || weldSearch.length < 2) {
+            return
+        }
 
-    useEffect(() => { searchWelds() }, [searchWelds])
+        let cancelled = false
+        const timeoutId = window.setTimeout(async () => {
+            const { data } = await supabase
+                .from('welds')
+                .select('id, weld_id, drawing_no')
+                .or(`weld_id.ilike.%${weldSearch}%,weld_no.ilike.%${weldSearch}%`)
+                .limit(10)
+
+            if (!cancelled) {
+                setWeldOptions(data || [])
+            }
+        }, 250)
+
+        return () => {
+            cancelled = true
+            window.clearTimeout(timeoutId)
+        }
+    }, [weldSearch, supabase])
 
     const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
@@ -45,7 +78,8 @@ export default function NDTPage() {
         setLoading(true); setError(''); setSuccess('')
 
         // Insert NDT result
-        const { error: insErr } = await supabase.from('ndt_results').insert({
+        const ndtResultsTable = supabase.from('ndt_results') as unknown as NdtResultsTable
+        const { error: insErr } = await ndtResultsTable.insert({
             weld_id: selectedWeld.id,
             ndt_type: form.ndt_type,
             result: form.result,
@@ -55,7 +89,7 @@ export default function NDTPage() {
             company: form.company || null,
             defect_length: form.defect_length ? parseFloat(form.defect_length) : null,
             remarks: form.remarks || null,
-        } as any)
+        })
 
         if (insErr) { setError(insErr.message); setLoading(false); return }
 
@@ -71,11 +105,11 @@ export default function NDTPage() {
         }
         if (form.ndt_type === 'VISUAL') {
             updateData.visual_result = form.result === 'PASS' || form.result === 'ACC' ? 'ACC' : 'REJ'
-            updateData.visual_request_no = form.report_no
         }
 
         if (Object.keys(updateData).length > 0) {
-            await (supabase.from('welds') as any).update(updateData).eq('id', selectedWeld.id)
+            const weldUpdateTable = supabase.from('welds') as unknown as WeldUpdateTable
+            await weldUpdateTable.update(updateData).eq('id', selectedWeld.id)
         }
 
         setSuccess(`✅ Đã ghi kết quả ${form.ndt_type} cho mối hàn ${selectedWeld.weld_id}!`)
@@ -101,7 +135,14 @@ export default function NDTPage() {
                         <input
                             className="form-input"
                             value={selectedWeld ? selectedWeld.weld_id : weldSearch}
-                            onChange={e => { setWeldSearch(e.target.value); setSelectedWeld(null) }}
+                            onChange={e => {
+                                const nextSearch = e.target.value
+                                setWeldSearch(nextSearch)
+                                setSelectedWeld(null)
+                                if (nextSearch.length < 2) {
+                                    setWeldOptions([])
+                                }
+                            }}
                             placeholder="Nhập Weld ID hoặc số mối hàn..."
                         />
                         {weldOptions.length > 0 && !selectedWeld && (

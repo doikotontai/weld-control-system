@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { createProject, deleteProject } from '@/app/actions/projects'
-import { format } from 'date-fns'
+import { formatDateTime } from '@/lib/formatters'
 
 interface Project {
     id: string
@@ -28,16 +28,16 @@ export default function ProjectManagement({ initialProjects }: { initialProjects
         const res = await createProject(formData)
 
         if (res.error) {
-            setMessage(`❌ ${res.error}`)
+            setMessage(`âŒ ${res.error}`)
         } else {
-            setMessage('✅ Tạo dự án thành công!')
+            setMessage('âœ… Táº¡o dá»± Ã¡n thÃ nh cÃ´ng!')
             e.currentTarget.reset()
         }
         setIsCreating(false)
     }
 
     async function handleDelete(id: string, code: string) {
-        const confirmDelete = window.confirm(`CẢNH BÁO NGUY HIỂM:\n\nBạn có chắc chắn muốn xóa dự án [${code}] không?\nToàn bộ dữ liệu Bản vẽ, Mối hàn, Yêu cầu kiểm tra, và Kết quả NDT thuộc dự án này có thể bị mất vĩnh viễn!\n\nHành động này không thể hoàn tác!`)
+        const confirmDelete = window.confirm(`Cáº¢NH BÃO NGUY HIá»‚M:\n\nBáº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a dá»± Ã¡n [${code}] khÃ´ng?\nToÃ n bá»™ dá»¯ liá»‡u Báº£n váº½, Má»‘i hÃ n, YÃªu cáº§u kiá»ƒm tra, vÃ  Káº¿t quáº£ NDT thuá»™c dá»± Ã¡n nÃ y cÃ³ thá»ƒ bá»‹ máº¥t vÄ©nh viá»…n!\n\nHÃ nh Ä‘á»™ng nÃ y khÃ´ng thá»ƒ hoÃ n tÃ¡c!`)
         if (!confirmDelete) return
 
         setIsDeleting(id)
@@ -45,10 +45,10 @@ export default function ProjectManagement({ initialProjects }: { initialProjects
 
         const res = await deleteProject(id)
         if (res.error) {
-            setMessage(`❌ Lỗi xóa: ${res.error}`)
-            alert(`Xóa thất bại: ${res.error}`)
+            setMessage(`âŒ Lá»—i xÃ³a: ${res.error}`)
+            alert(`XÃ³a tháº¥t báº¡i: ${res.error}`)
         } else {
-            setMessage(`✅ Đã xóa dự án ${code}!`)
+            setMessage(`âœ… ÄÃ£ xÃ³a dá»± Ã¡n ${code}!`)
         }
         setIsDeleting(null)
     }
@@ -56,71 +56,71 @@ export default function ProjectManagement({ initialProjects }: { initialProjects
     return (
         <div style={{ marginTop: '48px', borderTop: '2px dashed #cbd5e1', paddingTop: '48px' }}>
             <div style={{ marginBottom: '24px' }}>
-                <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>🏗 Quản lý Dự án</h1>
-                <p style={{ color: '#64748b', marginTop: '4px' }}>Thêm mới hoặc xóa dự án trên hệ thống</p>
+                <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>ðŸ— Quáº£n lÃ½ Dá»± Ã¡n</h1>
+                <p style={{ color: '#64748b', marginTop: '4px' }}>ThÃªm má»›i hoáº·c xÃ³a dá»± Ã¡n trÃªn há»‡ thá»‘ng</p>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
-                {/* Form Tạo Dự Án */}
+                {/* Form Táº¡o Dá»± Ãn */}
                 <div style={{ background: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', alignSelf: 'start' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '20px', color: '#16a34a' }}>➕ Thêm Dự án mới</h3>
+                    <h3 style={{ fontWeight: 600, marginBottom: '20px', color: '#16a34a' }}>âž• ThÃªm Dá»± Ã¡n má»›i</h3>
                     <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div>
-                            <label className="form-label">Mã Dự án *</label>
+                            <label className="form-label">MÃ£ Dá»± Ã¡n *</label>
                             <input name="code" className="form-input" required placeholder="VD: TNHA-PH2" />
                         </div>
                         <div>
-                            <label className="form-label">Tên Dự án *</label>
-                            <input name="name" className="form-input" required placeholder="Tên dự án đầy đủ" />
+                            <label className="form-label">TÃªn Dá»± Ã¡n *</label>
+                            <input name="name" className="form-input" required placeholder="TÃªn dá»± Ã¡n Ä‘áº§y Ä‘á»§" />
                         </div>
                         <div>
-                            <label className="form-label">Khách hàng (Client)</label>
+                            <label className="form-label">KhÃ¡ch hÃ ng (Client)</label>
                             <input name="client" className="form-input" placeholder="Vietsovpetro" />
                         </div>
                         <div>
-                            <label className="form-label">Nhà thầu (Contractor)</label>
+                            <label className="form-label">NhÃ  tháº§u (Contractor)</label>
                             <input name="contractor" className="form-input" placeholder="OCD" />
                         </div>
                         <div>
-                            <label className="form-label">Vị trí</label>
+                            <label className="form-label">Vá»‹ trÃ­</label>
                             <input name="location" className="form-input" placeholder="Block 12/11" />
                         </div>
 
                         {message && (
                             <div style={{
                                 padding: '10px',
-                                background: message.startsWith('✅') ? '#dcfce7' : '#fee2e2',
+                                background: message.startsWith('âœ…') ? '#dcfce7' : '#fee2e2',
                                 borderRadius: '6px', fontSize: '0.8rem',
-                                color: message.startsWith('✅') ? '#166534' : '#991b1b'
+                                color: message.startsWith('âœ…') ? '#166534' : '#991b1b'
                             }}>
                                 {message}
                             </div>
                         )}
 
                         <button type="submit" className="btn" style={{ background: '#16a34a', color: 'white', marginTop: '8px' }} disabled={isCreating}>
-                            {isCreating ? '⏳ Đang tạo...' : '🏗 Tạo Dự án'}
+                            {isCreating ? 'â³ Äang táº¡o...' : 'ðŸ— Táº¡o Dá»± Ã¡n'}
                         </button>
                     </form>
                 </div>
 
-                {/* Danh sách Dự Án */}
+                {/* Danh sÃ¡ch Dá»± Ãn */}
                 <div style={{ background: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>📋 Danh sách Dự án ({initialProjects.length})</h3>
+                    <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>ðŸ“‹ Danh sÃ¡ch Dá»± Ã¡n ({initialProjects.length})</h3>
                     <div className="table-container">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Mã DA</th>
-                                    <th>Tên Dự Án</th>
-                                    <th>Thông tin</th>
-                                    <th>Ngày tạo</th>
-                                    <th>Hành động</th>
+                                    <th>MÃ£ DA</th>
+                                    <th>TÃªn Dá»± Ãn</th>
+                                    <th>ThÃ´ng tin</th>
+                                    <th>NgÃ y táº¡o</th>
+                                    <th>HÃ nh Ä‘á»™ng</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {initialProjects.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>Chưa có dự án nào</td>
+                                        <td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>ChÆ°a cÃ³ dá»± Ã¡n nÃ o</td>
                                     </tr>
                                 ) : (
                                     initialProjects.map(proj => (
@@ -132,7 +132,7 @@ export default function ProjectManagement({ initialProjects }: { initialProjects
                                                 <div>T: {proj.contractor || 'N/A'}</div>
                                             </td>
                                             <td style={{ fontSize: '0.8rem' }}>
-                                                {format(new Date(proj.created_at), 'dd/MM/yyyy HH:mm')}
+                                                {formatDateTime(proj.created_at)}
                                             </td>
                                             <td>
                                                 <button
@@ -145,7 +145,7 @@ export default function ProjectManagement({ initialProjects }: { initialProjects
                                                         opacity: isDeleting === proj.id ? 0.5 : 1
                                                     }}
                                                 >
-                                                    {isDeleting === proj.id ? 'Đang xóa...' : '🗑 Xóa'}
+                                                    {isDeleting === proj.id ? 'Äang xÃ³a...' : 'ðŸ—‘ XÃ³a'}
                                                 </button>
                                             </td>
                                         </tr>
@@ -159,3 +159,4 @@ export default function ProjectManagement({ initialProjects }: { initialProjects
         </div>
     )
 }
+

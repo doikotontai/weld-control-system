@@ -1,18 +1,19 @@
-'use client'
-// app/(dashboard)/welds/page.tsx — Danh sách mối hàn với Sort + Filter theo từng cột
+﻿'use client'
+// app/(dashboard)/welds/page.tsx â€” Danh sÃ¡ch má»‘i hÃ n vá»›i Sort + Filter theo tá»«ng cá»™t
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { Weld, WeldStage, NDTResult, STAGE_LABELS } from '@/types'
+import { STAGE_LABELS } from '@/types'
+import { formatNumber } from '@/lib/formatters'
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type SortDir = 'asc' | 'desc'
 interface ColSort { col: string; dir: SortDir }
 interface ColFilters { [col: string]: string }
 
 const LIMIT_OPTIONS = [50, 100, 200, 500, 1000, 999999] // 999999 represents "All"
 
-// Sortable columns: field name → display header (must match DB column names)
+// Sortable columns: field name â†’ display header (must match DB column names)
 const COLUMNS: { key: string; label: string; minWidth?: number; align?: 'right' | 'center' }[] = [
     { key: 'excel_row_order', label: '#', minWidth: 48, align: 'center' },
     { key: 'weld_id', label: '& (Weld ID)', minWidth: 180 },
@@ -30,11 +31,11 @@ const COLUMNS: { key: string; label: string; minWidth?: number; align?: 'right' 
     { key: 'fitup_inspector', label: 'FU Inspector', minWidth: 100 },
     { key: 'fitup_date', label: 'FU Date', minWidth: 95 },
     { key: 'fitup_request_no', label: 'FU Request', minWidth: 95 },
-    { key: 'fitup_accepted_date', label: 'FU Finish', minWidth: 90 },
+    { key: 'weld_finish_date', label: 'Weld Finish', minWidth: 90 },
     { key: 'welders', label: "Welders' ID", minWidth: 110 },
     { key: 'visual_inspector', label: 'VS Inspector', minWidth: 100 },
     { key: 'visual_date', label: 'VS Date', minWidth: 95 },
-    { key: 'visual_request_no', label: 'VS Request', minWidth: 95 },
+    { key: 'inspection_request_no', label: 'NDT RQ', minWidth: 95 },
     { key: 'backgouge_date', label: 'BG Date', minWidth: 90 },
     { key: 'backgouge_request_no', label: 'BG Request', minWidth: 90 },
     { key: 'mt_result', label: 'MT Result', minWidth: 80, align: 'center' },
@@ -42,14 +43,14 @@ const COLUMNS: { key: string; label: string; minWidth?: number; align?: 'right' 
     { key: 'ut_result', label: 'UT Result', minWidth: 80, align: 'center' },
     { key: 'ut_report_no', label: 'UT Report', minWidth: 130 },
     { key: 'rt_result', label: 'RT Result', minWidth: 80, align: 'center' },
-    { key: 'irn_no', label: 'IRN No', minWidth: 150 },
-    { key: 'irn_date', label: 'IRN Date', minWidth: 90 },
+    { key: 'release_note_no', label: 'Release Note', minWidth: 150 },
+    { key: 'release_note_date', label: 'Release Date', minWidth: 90 },
     { key: 'stage', label: 'Stage', minWidth: 100 },
 ]
 
 // Result badge
 function ResultBadge({ result }: { result: string | null | undefined }) {
-    if (!result) return <span style={{ color: '#94a3b8' }}>—</span>
+    if (!result) return <span style={{ color: '#94a3b8' }}>â€”</span>
     const ok = result === 'ACC'
     const rej = result === 'REJ'
     return (
@@ -62,11 +63,21 @@ function ResultBadge({ result }: { result: string | null | undefined }) {
 }
 
 const STAGE_COLORS: Record<string, string> = {
-    FINAL: '#166534', IRN: '#0369a1', NDT: '#7c3aed', VISUAL: '#b45309',
-    BACKGOUGE: '#c2410c', FITUP: '#0891b2', PLANNED: '#94a3b8',
+    fitup: '#0891b2',
+    welding: '#92400e',
+    visual: '#b45309',
+    request: '#0ea5e9',
+    backgouge: '#c2410c',
+    lamcheck: '#065f46',
+    ndt: '#7c3aed',
+    release: '#166534',
+    cutoff: '#475569',
+    mw1: '#06b6d4',
+    completed: '#16a34a',
+    rejected: '#b91c1c',
 }
 function StageBadge({ stage }: { stage: string | null | undefined }) {
-    if (!stage) return <span style={{ color: '#94a3b8' }}>—</span>
+    if (!stage) return <span style={{ color: '#94a3b8' }}>â€”</span>
     const c = STAGE_COLORS[stage] || '#64748b'
     return <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, background: c + '18', color: c, whiteSpace: 'nowrap' }}>{stage}</span>
 }
@@ -76,29 +87,29 @@ function fmtDate(v: unknown): string {
     return String(v).slice(0, 10)
 }
 
-// ─── Cell renderer ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Cell renderer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderCell(col: string, weld: Record<string, unknown>) {
     const v = weld[col]
     switch (col) {
         case 'excel_row_order': return <span style={{ color: '#94a3b8', fontWeight: 600 }}>{v as number || ''}</span>
         case 'weld_id': return <Link href={`/welds/${weld.id}`} style={{ color: '#1d4ed8', textDecoration: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}>{v as string}</Link>
         case 'drawing_no': return <span style={{ color: '#64748b' }}>{v as string}</span>
-        case 'weld_no': return <span>{v as number}</span>
+        case 'weld_no': return <span>{String(v || '')}</span>
         case 'joint_family': return <span style={{ fontWeight: 600 }}>{v as string}</span>
         case 'joint_type': return <span style={{ fontWeight: 600 }}>{v as string}</span>
         case 'goc_code': return v ? <span style={{ padding: '1px 4px', background: '#f1f5f9', borderRadius: '3px' }}>{v as string}</span> : null
         case 'wps_no': return <span style={{ color: '#6366f1' }}>{v as string}</span>
-        case 'weld_length': return <span>{(v as number)?.toLocaleString()}</span>
+        case 'weld_length': return <span>{formatNumber(v as number | null | undefined)}</span>
         case 'mt_result': case 'ut_result': case 'rt_result': return <ResultBadge result={v as string} />
-        case 'irn_no': return <span style={{ fontWeight: 600, color: '#0369a1' }}>{v as string}</span>
+        case 'release_note_no': return <span style={{ fontWeight: 600, color: '#0369a1' }}>{v as string}</span>
         case 'stage': return <StageBadge stage={v as string} />
-        case 'fitup_date': case 'visual_date': case 'backgouge_date': case 'irn_date':
-        case 'fitup_accepted_date': return <span style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDate(v)}</span>
+        case 'fitup_date': case 'visual_date': case 'backgouge_date': case 'release_note_date':
+        case 'weld_finish_date': return <span style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDate(v)}</span>
         default: return <span style={{ whiteSpace: 'nowrap' }}>{v as string || ''}</span>
     }
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function WeldsPage() {
     const supabase = createClient()
     const [welds, setWelds] = useState<Record<string, unknown>[]>([])
@@ -129,7 +140,7 @@ export default function WeldsPage() {
             .select('*', { count: 'exact' })
             .eq('project_id', currentProjectId)
             .order(sort.col || 'excel_row_order', { ascending: sort.dir === 'asc', nullsFirst: sort.dir === 'asc' })
-            .range(page * limit, (page + 1) * limit - 1) as any
+            .range(page * limit, (page + 1) * limit - 1)
 
         // Global search
         if (globalSearch.trim()) {
@@ -180,8 +191,8 @@ export default function WeldsPage() {
     }
 
     const SortIcon = ({ col }: { col: string }) => {
-        if (sort.col !== col) return <span style={{ opacity: 0.3, marginLeft: '4px' }}>⇅</span>
-        return <span style={{ marginLeft: '4px', color: '#3b82f6' }}>{sort.dir === 'asc' ? '↑' : '↓'}</span>
+        if (sort.col !== col) return <span style={{ opacity: 0.3, marginLeft: '4px' }}>â‡…</span>
+        return <span style={{ marginLeft: '4px', color: '#3b82f6' }}>{sort.dir === 'asc' ? 'â†‘' : 'â†“'}</span>
     }
 
     return (
@@ -189,23 +200,23 @@ export default function WeldsPage() {
             {/* Header & Controls */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
                 <div>
-                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>🔩 Quản lý Mối hàn</h1>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>ðŸ”© Quáº£n lÃ½ Má»‘i hÃ n</h1>
                     <p style={{ color: '#64748b', marginTop: '4px' }}>
-                        {currentProjectId ? `${totalCount.toLocaleString()} mối hàn` : 'Chọn Dự án ở menu trái'}
+                        {currentProjectId ? `${formatNumber(totalCount)} má»‘i hÃ n` : 'Chá»n Dá»± Ã¡n á»Ÿ menu trÃ¡i'}
                     </p>
                 </div>
 
                 {/* Toolbar */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', background: 'white', borderRadius: '10px', padding: '12px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                     {/* Primary Actions */}
-                    <Link href="/welds/new" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>➕ Tạo mới</Link>
-                    <button onClick={handleExport} className="btn btn-secondary" style={{ whiteSpace: 'nowrap' }}>📤 Export Excel</button>
+                    <Link href="/welds/new" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>âž• Táº¡o má»›i</Link>
+                    <button onClick={handleExport} className="btn btn-secondary" style={{ whiteSpace: 'nowrap' }}>ðŸ“¤ Export Excel</button>
 
                     {/* Search */}
                     <input
                         type="text"
                         className="form-input"
-                        placeholder="🔍 Tìm nhanh: Weld ID, DrawingNo, Welders..."
+                        placeholder="ðŸ” TÃ¬m nhanh: Weld ID, DrawingNo, Welders..."
                         value={globalSearch}
                         style={{ flex: 1, minWidth: '220px' }}
                         onChange={e => { setGlobalSearch(e.target.value); setPage(0) }}
@@ -213,26 +224,26 @@ export default function WeldsPage() {
 
                     {(globalSearch || Object.values(colFilters).some(v => v)) && (
                         <button className="btn btn-secondary" onClick={() => { setGlobalSearch(''); setColFilters({}); setPage(0) }} style={{ whiteSpace: 'nowrap' }}>
-                            ✕ Xóa lọc
+                            âœ• XÃ³a lá»c
                         </button>
                     )}
 
                     {/* Pagination Limit */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderLeft: '1px solid #e2e8f0', paddingLeft: '12px' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>Hiển thị:</span>
+                        <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>Hiá»ƒn thá»‹:</span>
                         <select
                             value={limit}
                             onChange={(e) => { setLimit(Number(e.target.value)); setPage(0); }}
                             style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', outline: 'none', cursor: 'pointer' }}
                         >
                             {LIMIT_OPTIONS.map(opt => (
-                                <option key={opt} value={opt}>{opt === 999999 ? 'Tất cả' : opt}</option>
+                                <option key={opt} value={opt}>{opt === 999999 ? 'Táº¥t cáº£' : opt}</option>
                             ))}
                         </select>
                     </div>
 
                     <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                        Đang xem {Math.min(limit, welds.length)}/{totalCount}
+                        Äang xem {Math.min(limit, welds.length)}/{totalCount}
                     </span>
                 </div>
             </div>
@@ -242,7 +253,7 @@ export default function WeldsPage() {
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '60px' }}>
                         <div className="spinner" style={{ margin: '0 auto 16px' }} />
-                        <p style={{ color: '#64748b' }}>Đang tải...</p>
+                        <p style={{ color: '#64748b' }}>Äang táº£i...</p>
                     </div>
                 ) : (
                     <div className="table-container">
@@ -260,7 +271,7 @@ export default function WeldsPage() {
                                                 borderBottom: 'none', paddingBottom: '4px',
                                             }}
                                             onClick={() => handleSort(col.key)}
-                                            title={`Sắp xếp theo ${col.label}`}
+                                            title={`Sáº¯p xáº¿p theo ${col.label}`}
                                         >
                                             {col.label}<SortIcon col={col.key} />
                                         </th>
@@ -299,7 +310,7 @@ export default function WeldsPage() {
                                                         type="text"
                                                         value={colFilters[col.key] || ''}
                                                         onChange={e => setFilter(col.key, e.target.value)}
-                                                        placeholder="🔍"
+                                                        placeholder="ðŸ”"
                                                         style={{
                                                             width: '100%', fontSize: '0.7rem', border: '1px solid #e2e8f0',
                                                             borderRadius: '4px', padding: '2px 5px', boxSizing: 'border-box',
@@ -317,7 +328,7 @@ export default function WeldsPage() {
                                 {welds.length === 0 ? (
                                     <tr>
                                         <td colSpan={COLUMNS.length + 1} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-                                            {currentProjectId ? 'Không có dữ liệu phù hợp.' : 'Chọn Dự án ở menu trái.'}
+                                            {currentProjectId ? 'KhÃ´ng cÃ³ dá»¯ liá»‡u phÃ¹ há»£p.' : 'Chá»n Dá»± Ã¡n á»Ÿ menu trÃ¡i.'}
                                         </td>
                                     </tr>
                                 ) : welds.map((weld, idx) => (
@@ -328,7 +339,7 @@ export default function WeldsPage() {
                                             </td>
                                         ))}
                                         <td style={{ padding: '5px 8px' }}>
-                                            <Link href={`/welds/${weld.id}/edit`} style={{ color: '#3b82f6', textDecoration: 'none' }}>✏️</Link>
+                                            <Link href={`/welds/${weld.id}/edit`} style={{ color: '#3b82f6', textDecoration: 'none' }}>âœï¸</Link>
                                         </td>
                                     </tr>
                                 ))}
@@ -341,13 +352,13 @@ export default function WeldsPage() {
                 {totalPages > 1 && (
                     <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                            Trang {page + 1}/{totalPages} — {totalCount} mối hàn
+                            Trang {page + 1}/{totalPages} â€” {totalCount} má»‘i hÃ n
                         </span>
                         <div style={{ display: 'flex', gap: '6px' }}>
-                            <button className="btn btn-secondary" onClick={() => setPage(0)} disabled={page === 0}>«</button>
-                            <button className="btn btn-secondary" onClick={() => setPage(p => p - 1)} disabled={page === 0}>‹ Trước</button>
-                            <button className="btn btn-secondary" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1}>Sau ›</button>
-                            <button className="btn btn-secondary" onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1}>»</button>
+                            <button className="btn btn-secondary" onClick={() => setPage(0)} disabled={page === 0}>Â«</button>
+                            <button className="btn btn-secondary" onClick={() => setPage(p => p - 1)} disabled={page === 0}>â€¹ TrÆ°á»›c</button>
+                            <button className="btn btn-secondary" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1}>Sau â€º</button>
+                            <button className="btn btn-secondary" onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1}>Â»</button>
                         </div>
                     </div>
                 )}
@@ -355,3 +366,6 @@ export default function WeldsPage() {
         </div>
     )
 }
+
+
+

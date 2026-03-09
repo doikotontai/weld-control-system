@@ -1,17 +1,16 @@
-// types/index.ts
-// TypeScript type definitions cho Weld Control System
-
-export type UserRole = 'admin' | 'dcc' | 'qc' | 'inspector' | 'viewer'
+﻿export type UserRole = 'admin' | 'dcc' | 'qc' | 'inspector' | 'viewer'
 
 export type WeldStage =
     | 'fitup'
-    | 'backgouge'
-    | 'lamcheck'
     | 'welding'
     | 'visual'
-    | 'mpi'
-    | 'ut'
-    | 'pwht'
+    | 'request'
+    | 'backgouge'
+    | 'lamcheck'
+    | 'ndt'
+    | 'release'
+    | 'cutoff'
+    | 'mw1'
     | 'completed'
     | 'rejected'
 
@@ -19,11 +18,7 @@ export type NDTResult = 'ACC' | 'REJ' | 'N/A' | null
 export type FinalStatus = 'OK' | 'REPAIR' | 'REJECT' | null
 export type RequestStatus = 'draft' | 'submitted' | 'scheduled' | 'completed' | 'cancelled'
 export type NDTType = 'MT' | 'UT' | 'RT' | 'PT' | 'PWHT' | 'VISUAL' | 'FITUP' | 'BACKGOUGE' | 'LAMCHECK'
-export type RequestType = 'fitup' | 'backgouge' | 'lamcheck' | 'mpi' | 'visual' | 'final_visual'
-
-// ============================================================
-// DATABASE TYPES
-// ============================================================
+export type RequestType = 'fitup' | 'request' | 'backgouge' | 'lamcheck' | 'vs_final'
 
 export interface Profile {
     id: string
@@ -46,16 +41,15 @@ export interface Project {
     end_date: string | null
     is_active: boolean
     created_at: string
-    created_by: string | null
 }
 
 export interface Drawing {
     id: string
     project_id: string
-    drawing_no: string          // 9001-2211-DS-0032-01-WM
+    drawing_no: string
     description: string | null
-    part: string | null         // JACKET, TOPSIDE, ...
-    nde_percentage: string | null
+    part: string | null
+    nde_pct: string | null
     total_welds: number
     created_at: string
 }
@@ -64,79 +58,71 @@ export interface Weld {
     id: string
     project_id: string
     drawing_id: string | null
-
-    // Basic info
-    weld_id: string             // 9001-2211-DS-0032-01-WM1
-    weld_no: string             // 1, 17R1
-    drawing_no: string          // 9001-2211-DS-0032-01-WM
+    weld_id: string
+    weld_no: string
+    drawing_no: string
     is_repair: boolean
     repair_no: number
-
-    // Classification
-    joint_type: string | null   // DB, DV, SB, X2, X3, SV
+    joint_family: string | null
+    joint_type: string | null
     ndt_requirements: string | null
+    position: string | null
     wps_no: string | null
     goc_code: string | null
-
-    // Dimensions
     weld_length: number | null
     thickness: number | null
+    thickness_lamcheck: number | null
     weld_size: string | null
-
-    // Welders
-    welders: string | null      // BGT-0005;BGT-0015
-
-    // Fit-Up
-    fitup_request_no: string | null   // F-044
+    welders: string | null
+    fitup_request_no: string | null
     fitup_inspector: string | null
     fitup_date: string | null
-    fitup_accepted_date: string | null
-
-    // Backgouge
-    backgouge_request_no: string | null
-    backgouge_date: string | null
-
-    // Visual
-    visual_request_no: string | null
+    weld_finish_date: string | null
+    fitup_result: NDTResult
     visual_inspector: string | null
     visual_date: string | null
-
-    // NDT Results
-    fitup_result: NDTResult
+    inspection_request_no: string | null
     visual_result: NDTResult
+    backgouge_date: string | null
+    backgouge_request_no: string | null
+    lamcheck_date: string | null
+    lamcheck_request_no: string | null
+    lamcheck_report_no: string | null
+    overall_status: string | null
+    ndt_overall_result: string | null
     mt_result: NDTResult
-    ut_result: NDTResult
-    rt_result: NDTResult
-    pwht_result: NDTResult
-
-    // Report Numbers
     mt_report_no: string | null
+    ut_result: NDTResult
     ut_report_no: string | null
+    rt_result: NDTResult
     rt_report_no: string | null
-
-    // Repair
+    pwht_result: NDTResult
+    ndt_after_pwht: string | null
+    defect_length: number | null
     repair_length: number | null
-
-    // IRN
-    irn_no: string | null
-    irn_date: string | null
-
-    // Status
+    release_final_date: string | null
+    release_final_request_no: string | null
+    release_note_date: string | null
+    release_note_no: string | null
+    cut_off: string | null
+    note: string | null
+    contractor_issue: string | null
+    transmittal_no: string | null
+    mw1_no: string | null
     stage: WeldStage
     final_status: FinalStatus
     remarks: string | null
-
-    // Metadata
     created_at: string
     updated_at: string
     created_by: string | null
     updated_by: string | null
+    excel_row_order: number | null
 }
 
 export interface InspectionRequest {
     id: string
     project_id: string
-    request_no: string          // TNHA-JK-F-146
+    request_no: string
     request_type: RequestType
     item: string | null
     task_no: string | null
@@ -151,8 +137,6 @@ export interface InspectionRequest {
     created_at: string
     updated_at: string
     created_by: string | null
-    updated_by: string | null
-    // Joined
     items?: RequestItem[]
 }
 
@@ -199,12 +183,7 @@ export interface AuditLog {
     new_data: Record<string, unknown> | null
     changed_by: string | null
     changed_at: string
-    ip_address: string | null
 }
-
-// ============================================================
-// VIEW TYPES (từ database views)
-// ============================================================
 
 export interface WeldStats {
     project_id: string
@@ -227,10 +206,6 @@ export interface DrawingStats {
     repairs: number
     pending: number
 }
-
-// ============================================================
-// FORM TYPES
-// ============================================================
 
 export interface WeldFormData {
     weld_no: string
@@ -271,10 +246,6 @@ export interface NDTResultFormData {
     remarks: string
 }
 
-// ============================================================
-// FILTER/SEARCH TYPES
-// ============================================================
-
 export interface WeldFilters {
     search?: string
     drawing_no?: string
@@ -289,51 +260,50 @@ export interface WeldFilters {
     limit?: number
 }
 
-// ============================================================
-// STAGE LABELS (hiển thị tiếng Việt)
-// ============================================================
-
 export const STAGE_LABELS: Record<WeldStage, string> = {
     fitup: 'Fit-Up',
-    backgouge: 'Back Gouging',
-    lamcheck: 'Lamination Check',
     welding: 'Welding',
-    visual: 'Visual Final',
-    mpi: 'MPI/MT',
-    ut: 'UT',
-    pwht: 'PWHT',
-    completed: 'Hoàn thành',
-    rejected: 'Bị từ chối',
+    visual: 'Visual',
+    request: 'Request',
+    backgouge: 'Backgouge',
+    lamcheck: 'Lamcheck',
+    ndt: 'NDT',
+    release: 'Release',
+    cutoff: 'Cut-Off',
+    mw1: 'MW1',
+    completed: 'Hoan thanh',
+    rejected: 'Bi tu choi',
 }
 
 export const STAGE_COLORS: Record<WeldStage, string> = {
     fitup: 'bg-blue-100 text-blue-800',
-    backgouge: 'bg-purple-100 text-purple-800',
-    lamcheck: 'bg-indigo-100 text-indigo-800',
-    welding: 'bg-yellow-100 text-yellow-800',
-    visual: 'bg-orange-100 text-orange-800',
-    mpi: 'bg-pink-100 text-pink-800',
-    ut: 'bg-cyan-100 text-cyan-800',
-    pwht: 'bg-teal-100 text-teal-800',
+    welding: 'bg-amber-100 text-amber-800',
+    visual: 'bg-violet-100 text-violet-800',
+    request: 'bg-sky-100 text-sky-800',
+    backgouge: 'bg-orange-100 text-orange-800',
+    lamcheck: 'bg-emerald-100 text-emerald-800',
+    ndt: 'bg-pink-100 text-pink-800',
+    release: 'bg-green-100 text-green-800',
+    cutoff: 'bg-slate-200 text-slate-800',
+    mw1: 'bg-cyan-100 text-cyan-800',
     completed: 'bg-green-100 text-green-800',
     rejected: 'bg-red-100 text-red-800',
 }
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-    admin: 'Quản trị viên',
+    admin: 'Quan tri vien',
     dcc: 'DCC',
     qc: 'QC Engineer',
     inspector: 'Inspector',
-    viewer: 'Xem (Read-only)',
+    viewer: 'Xem',
 }
 
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
     fitup: 'Fit-Up',
-    backgouge: 'Back Gouging',
-    lamcheck: 'Lamination Check',
-    mpi: 'MPI / MT',
-    visual: 'Visual',
-    final_visual: 'Final Visual (100%MT & UT)',
+    request: 'REQUEST / NDT / KH Visual',
+    backgouge: 'Backgouge',
+    lamcheck: 'Lamcheck',
+    vs_final: 'VS Final',
 }
 
 export const NDT_RESULT_COLORS = {

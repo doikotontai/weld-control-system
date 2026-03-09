@@ -1,8 +1,10 @@
-'use client'
-// app/(dashboard)/import/page.tsx — Import Excel
-import { useState, useRef, useEffect } from 'react'
+﻿'use client'
+// app/(dashboard)/import/page.tsx â€” Import Excel
+import Link from 'next/link'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import * as XLSX from 'xlsx'
+import { formatNumber } from '@/lib/formatters'
 
 interface PreviewRow {
     weld_id: string
@@ -20,11 +22,11 @@ interface PreviewRow {
     fitup_inspector: string
     fitup_date: string
     fitup_request_no: string
-    fitup_accepted_date: string
+    weld_finish_date: string
     welders: string
     visual_inspector: string
     visual_date: string
-    visual_request_no: string
+    inspection_request_no: string
     backgouge_date: string
     backgouge_request_no: string
     lamcheck_date: string
@@ -40,20 +42,40 @@ interface PreviewRow {
     lamcheck_report_no: string
     defect_length: number | null
     repair_length: number | null
-    final_visual_date: string
-    final_visual_request_no: string
-    irn_date: string
-    irn_no: string
+    release_final_date: string
+    release_final_request_no: string
+    release_note_date: string
+    release_note_no: string
     pwht_result: string
+    ndt_after_pwht: string
+    cut_off: string
+    note: string
+    contractor_issue: string
+    transmittal_no: string
+    mw1_no: string
     stage: string
 }
 
-// Cột trong DATA INPUT (dựa trên phân tích thực tế file WELD CONTROL.xlsx)
-// ROW 1 headers + data rows từ ROW 3 onward
+type WeldUpsertValue = string | number | boolean | null
+
+interface WeldUpsertRow extends Record<string, WeldUpsertValue> {
+    project_id: string
+    weld_id: string
+    is_repair: boolean
+    stage: string
+    excel_row_order: number
+}
+
+interface WeldUpsertTable {
+    upsert(values: WeldUpsertRow[], options: { onConflict: string }): Promise<{ error: { message: string } | null }>
+}
+
+// Cá»™t trong DATA INPUT (dá»±a trÃªn phÃ¢n tÃ­ch thá»±c táº¿ file WELD CONTROL.xlsx)
+// ROW 1 headers + data rows tá»« ROW 3 onward
 const COLUMN_MAP: Record<number, string> = {
-    0: 'weld_id',               // Weld ID đầy đủ (e.g. 9001-2211-DS-0032-01-WM1)
+    0: 'weld_id',               // Weld ID Ä‘áº§y Ä‘á»§ (e.g. 9001-2211-DS-0032-01-WM1)
     1: 'drawing_no',            // Drawing No
-    2: 'weld_no',               // Weld No (số mối hàn trong bản vẽ)
+    2: 'weld_no',               // Weld No (sá»‘ má»‘i hÃ n trong báº£n váº½)
     3: 'joint_family',          // Weld Joints family (X1, X2, X3, DB, SB...)
     4: 'joint_type',            // Weld Type (DB, DV, SB, SV...)
     5: 'ndt_requirements',      // NDT Requirements (100%MT & UT)
@@ -66,11 +88,11 @@ const COLUMN_MAP: Record<number, string> = {
     12: 'fitup_inspector',       // Fit-Up QC Inspector name
     13: 'fitup_date',            // Fit-Up Date
     14: 'fitup_request_no',      // Fit-Up Request No (F-XXX)
-    15: 'fitup_accepted_date',   // Fit-Up Finish Date (accepted)
+    15: 'weld_finish_date',      // P - Weld finish date
     16: 'welders',               // Welders ID (BGT-0005;BGT-0015)
     17: 'visual_inspector',      // Visual QC Inspector name
     18: 'visual_date',           // Visual date
-    19: 'visual_request_no',     // Visual Request No (V-XXX)
+    19: 'inspection_request_no', // T - RQ moi NDT / khach hang visual
     20: 'backgouge_date',        // Back-Gouge date
     21: 'backgouge_request_no',  // Back-Gouge Request No (BG-XXX)
     22: 'lamcheck_date',         // Lamination Check date
@@ -86,11 +108,17 @@ const COLUMN_MAP: Record<number, string> = {
     32: 'lamcheck_report_no',    // Lamcheck Report No
     33: 'defect_length',         // Length Defect (mm)
     34: 'repair_length',         // Length Repaired (mm)
-    35: 'final_visual_date',     // Date Release Final Visual
-    36: 'final_visual_request_no', // RQ Final (FINAL-V-XXX or VS-XXX)
-    37: 'irn_date',              // Date Release Note
-    38: 'irn_no',                // Release Note / IRN No (IRN-2211-ST-22-XXXX)
-    39: 'pwht_result',           // PWHT status
+    35: 'release_final_date',         // AJ - Date release final
+    36: 'release_final_request_no',   // AK - RQ final
+    37: 'release_note_date',          // AL - Date release note
+    38: 'release_note_no',            // AM - Release note / IRN
+    39: 'pwht_result',                // AN - PWHT result
+    40: 'ndt_after_pwht',             // AO - NDT after PWHT
+    41: 'cut_off',                    // AP - Cut off / close-out marker
+    42: 'note',                       // AQ - Note
+    43: 'contractor_issue',           // AR - Nha thau hong
+    44: 'transmittal_no',             // AS - Transmittal / release package ref
+    45: 'mw1_no',                     // AT - MW1
 }
 
 function parseResult(val: unknown): string | null {
@@ -100,7 +128,7 @@ function parseResult(val: unknown): string | null {
     if (s === 'REJ' || s === 'REJECT' || s === 'REJECTED' || s === 'FAIL') return 'REJ'
     if (s === 'N/A' || s === 'NA' || s === 'NOT APPLICABLE') return 'N/A'
     if (s === 'FINISH' || s === 'FINISHED' || s === 'A' || s === 'OK') return 'ACC'
-    // Any other value → null (do NOT return raw string, it would violate DB CHECK constraint)
+    // Any other value â†’ null (do NOT return raw string, it would violate DB CHECK constraint)
     return null
 }
 
@@ -117,16 +145,30 @@ function parseDate(val: unknown): string | null {
     return null
 }
 
+function parseText(val: unknown): string | null {
+    if (val == null) return null
+    const text = String(val).trim()
+    return text || null
+}
+
 function parseStage(row: Record<string, unknown>): string {
     const mtResult = parseResult(row['mt_result'])
     const utResult = parseResult(row['ut_result'])
+    const rtResult = parseResult(row['rt_result'])
     const overallStatus = String(row['overall_status'] || '').toUpperCase().trim()
 
-    if (mtResult === 'ACC' && utResult === 'ACC') return 'completed'
-    if (mtResult === 'REJ' || utResult === 'REJ') return 'mpi'
-    if (overallStatus === 'FINISH' || overallStatus === 'ACC') return 'mpi'
-    if (row['visual_date'] || row['visual_request_no']) return 'visual'
-    if (row['fitup_accepted_date'] || row['fitup_request_no']) return 'welding'
+    if (overallStatus === 'DELETE') return 'rejected'
+    if (mtResult === 'REJ' || utResult === 'REJ' || rtResult === 'REJ' || overallStatus === 'REJ') return 'rejected'
+    if (row['mw1_no']) return 'mw1'
+    if (row['cut_off']) return 'cutoff'
+    if (row['release_note_no'] || row['release_final_request_no'] || row['release_final_date']) return 'release'
+    if (overallStatus === 'FINISH') return 'completed'
+    if (row['mt_report_no'] || row['ut_report_no'] || row['rt_report_no'] || row['ndt_after_pwht']) return 'ndt'
+    if (row['lamcheck_date'] || row['lamcheck_request_no']) return 'lamcheck'
+    if (row['backgouge_date'] || row['backgouge_request_no']) return 'backgouge'
+    if (row['inspection_request_no']) return 'request'
+    if (row['visual_date'] || row['visual_inspector']) return 'visual'
+    if (row['weld_finish_date'] || row['welders']) return 'welding'
     if (row['fitup_date'] || row['fitup_inspector']) return 'fitup'
     return 'fitup'
 }
@@ -142,22 +184,45 @@ export default function ImportPage() {
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
     const [currentProjectCode, setCurrentProjectCode] = useState<string>('')
 
-    // Read the globally selected project from cookie
     useEffect(() => {
-        if (typeof document !== 'undefined') {
-            const match = document.cookie.match(/(?:^|;)\s*weld-control-project-id=([^;]+)/)
-            const pid = match ? match[1] : null
-            setCurrentProjectId(pid)
-            if (pid) {
-                // Fetch project name to show in UI
-                supabase.from('projects').select('code, name').eq('id', pid).single()
-                    .then(({ data }) => {
-                        const p = data as { code: string; name: string } | null
-                        if (p) setCurrentProjectCode(`${p.code} \u2014 ${p.name}`)
-                    })
-            }
+        if (typeof document === 'undefined') {
+            return
+        }
+
+        const match = document.cookie.match(/(?:^|;)\s*weld-control-project-id=([^;]+)/)
+        const nextProjectId = match ? match[1] : null
+        const frame = window.requestAnimationFrame(() => {
+            setCurrentProjectId(nextProjectId)
+        })
+
+        return () => {
+            window.cancelAnimationFrame(frame)
         }
     }, [])
+
+    useEffect(() => {
+        if (!currentProjectId) {
+            return
+        }
+
+        let isMounted = true
+        supabase
+            .from('projects')
+            .select('code, name')
+            .eq('id', currentProjectId)
+            .single()
+            .then(({ data }) => {
+                if (!isMounted) return
+                const project = data as { code: string; name: string } | null
+                if (project) {
+                    setCurrentProjectCode(`${project.code} \u2014 ${project.name}`)
+                }
+            })
+
+        return () => {
+            isMounted = false
+        }
+    }, [currentProjectId, supabase])
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0]
@@ -175,7 +240,7 @@ export default function ImportPage() {
                 // Find DATA INPUT sheet
                 const sheetName = workbook.SheetNames.find(n => n.includes('DATA INPUT') || n.includes('DATA'))
                 if (!sheetName) {
-                    alert('Không tìm thấy sheet "DATA INPUT"! Vui lòng kiểm tra file Excel.')
+                    alert('Không tìm thấy sheet "DATA INPUT". Vui lòng kiểm tra file Excel.')
                     return
                 }
 
@@ -210,11 +275,11 @@ export default function ImportPage() {
                             fitup_inspector: String(rowObj['fitup_inspector'] || ''),
                             fitup_date: parseDate(rowObj['fitup_date']) || '',
                             fitup_request_no: String(rowObj['fitup_request_no'] || ''),
-                            fitup_accepted_date: parseDate(rowObj['fitup_accepted_date']) || '',
+                            weld_finish_date: parseDate(rowObj['weld_finish_date']) || '',
                             welders: String(rowObj['welders'] || ''),
                             visual_inspector: String(rowObj['visual_inspector'] || ''),
                             visual_date: parseDate(rowObj['visual_date']) || '',
-                            visual_request_no: String(rowObj['visual_request_no'] || ''),
+                            inspection_request_no: String(rowObj['inspection_request_no'] || ''),
                             backgouge_date: parseDate(rowObj['backgouge_date']) || '',
                             backgouge_request_no: String(rowObj['backgouge_request_no'] || ''),
                             lamcheck_date: parseDate(rowObj['lamcheck_date']) || '',
@@ -230,11 +295,17 @@ export default function ImportPage() {
                             lamcheck_report_no: String(rowObj['lamcheck_report_no'] || ''),
                             defect_length: rowObj['defect_length'] ? parseFloat(String(rowObj['defect_length'])) : null,
                             repair_length: rowObj['repair_length'] ? parseFloat(String(rowObj['repair_length'])) : null,
-                            final_visual_date: parseDate(rowObj['final_visual_date']) || '',
-                            final_visual_request_no: String(rowObj['final_visual_request_no'] || ''),
-                            irn_date: parseDate(rowObj['irn_date']) || '',
-                            irn_no: String(rowObj['irn_no'] || ''),
+                            release_final_date: parseDate(rowObj['release_final_date']) || '',
+                            release_final_request_no: String(rowObj['release_final_request_no'] || ''),
+                            release_note_date: parseDate(rowObj['release_note_date']) || '',
+                            release_note_no: String(rowObj['release_note_no'] || ''),
                             pwht_result: String(rowObj['pwht_result'] || ''),
+                            ndt_after_pwht: String(rowObj['ndt_after_pwht'] || ''),
+                            cut_off: String(rowObj['cut_off'] || ''),
+                            note: String(rowObj['note'] || ''),
+                            contractor_issue: String(rowObj['contractor_issue'] || ''),
+                            transmittal_no: String(rowObj['transmittal_no'] || ''),
+                            mw1_no: String(rowObj['mw1_no'] || ''),
                             stage: parseStage(rowObj),
                         })
                     }
@@ -264,13 +335,13 @@ export default function ImportPage() {
 
                 // Get project from cookie-based global context
                 const projectId = currentProjectId
-                if (!projectId) { alert('Bạn chưa chọn Dự án! Hãy chọn Dự án ở menu trái trước khi Import.'); setImporting(false); return }
+                if (!projectId) { alert('Bạn chưa chọn dự án. Hãy chọn dự án ở menu bên trái trước khi import.'); setImporting(false); return }
 
                 let successCount = 0
                 let errorCount = 0
                 const errors: string[] = []
                 const batchSize = 50
-                const dataRows: Record<string, unknown>[] = []
+                const dataRows: WeldUpsertRow[] = []
 
                 // Parse all rows
                 let dataRowIndex = 0
@@ -290,96 +361,85 @@ export default function ImportPage() {
 
                     const mtResult = parseResult(rowObj['mt_result'])
                     const utResult = parseResult(rowObj['ut_result'])
+                    const rtResult = parseResult(rowObj['rt_result'])
+                    const overallStatus = String(rowObj['overall_status'] || '').toUpperCase().trim()
+
+                    const weldNo = parseText(rowObj['weld_no'])
+                    const weldIdUpper = weldId.toUpperCase()
 
                     const weldData = {
                         project_id: projectId,
                         weld_id: weldId,
-                        drawing_no: String(rowObj['drawing_no'] || '') || null,
-                        weld_no: rowObj['weld_no'] ? parseInt(String(rowObj['weld_no'])) : null,
-                        is_repair: weldId.toUpperCase().includes('R') && /[A-Z]R\d/.test(weldId),
-                        joint_family: String(rowObj['joint_family'] || '') || null,
-                        joint_type: String(rowObj['joint_type'] || '') || null,
-                        ndt_requirements: String(rowObj['ndt_requirements'] || '') || null,
-                        position: String(rowObj['position'] || '') || null,
+                        drawing_no: parseText(rowObj['drawing_no']),
+                        weld_no: weldNo,
+                        is_repair: /R\d+$/.test(weldIdUpper) || /R\d+$/.test((weldNo || '').toUpperCase()),
+                        joint_family: parseText(rowObj['joint_family']),
+                        joint_type: parseText(rowObj['joint_type']),
+                        ndt_requirements: parseText(rowObj['ndt_requirements']),
+                        position: parseText(rowObj['position']),
                         weld_length: rowObj['weld_length'] ? parseFloat(String(rowObj['weld_length'])) : null,
                         thickness: rowObj['thickness'] ? parseInt(String(rowObj['thickness'])) : null,
                         thickness_lamcheck: rowObj['thickness_lamcheck'] ? parseFloat(String(rowObj['thickness_lamcheck'])) : null,
-                        wps_no: String(rowObj['wps_no'] || '') || null,
-                        goc_code: String(rowObj['goc_code'] || '') || null,
-                        fitup_inspector: String(rowObj['fitup_inspector'] || '') || null,
+                        wps_no: parseText(rowObj['wps_no']),
+                        goc_code: parseText(rowObj['goc_code']),
+                        fitup_inspector: parseText(rowObj['fitup_inspector']),
                         fitup_date: parseDate(rowObj['fitup_date']),
-                        fitup_request_no: String(rowObj['fitup_request_no'] || '') || null,
-                        fitup_accepted_date: parseDate(rowObj['fitup_accepted_date']),
-                        welders: String(rowObj['welders'] || '') || null,
-                        visual_inspector: String(rowObj['visual_inspector'] || '') || null,
+                        fitup_request_no: parseText(rowObj['fitup_request_no']),
+                        weld_finish_date: parseDate(rowObj['weld_finish_date']),
+                        welders: parseText(rowObj['welders']),
+                        visual_inspector: parseText(rowObj['visual_inspector']),
                         visual_date: parseDate(rowObj['visual_date']),
-                        visual_request_no: String(rowObj['visual_request_no'] || '') || null,
+                        inspection_request_no: parseText(rowObj['inspection_request_no']),
                         backgouge_date: parseDate(rowObj['backgouge_date']),
-                        backgouge_request_no: String(rowObj['backgouge_request_no'] || '') || null,
+                        backgouge_request_no: parseText(rowObj['backgouge_request_no']),
                         lamcheck_date: parseDate(rowObj['lamcheck_date']),
-                        lamcheck_request_no: String(rowObj['lamcheck_request_no'] || '') || null,
+                        lamcheck_request_no: parseText(rowObj['lamcheck_request_no']),
                         mt_result: mtResult,
                         ut_result: utResult,
-                        mt_report_no: String(rowObj['mt_report_no'] || '') || null,
-                        ut_report_no: String(rowObj['ut_report_no'] || '') || null,
+                        mt_report_no: parseText(rowObj['mt_report_no']),
+                        ut_report_no: parseText(rowObj['ut_report_no']),
                         rt_result: parseResult(rowObj['rt_result']),
-                        rt_report_no: String(rowObj['rt_report_no'] || '') || null,
-                        lamcheck_report_no: String(rowObj['lamcheck_report_no'] || '') || null,
+                        rt_report_no: parseText(rowObj['rt_report_no']),
+                        lamcheck_report_no: parseText(rowObj['lamcheck_report_no']),
                         defect_length: rowObj['defect_length'] ? parseFloat(String(rowObj['defect_length'])) : null,
                         repair_length: rowObj['repair_length'] ? parseFloat(String(rowObj['repair_length'])) : null,
-                        irn_date: parseDate(rowObj['irn_date']),
-                        irn_no: String(rowObj['irn_no'] || '') || null,
+                        release_final_date: parseDate(rowObj['release_final_date']),
+                        release_final_request_no: parseText(rowObj['release_final_request_no']),
+                        release_note_date: parseDate(rowObj['release_note_date']),
+                        release_note_no: parseText(rowObj['release_note_no']),
                         pwht_result: parseResult(rowObj['pwht_result']),
+                        ndt_after_pwht: parseText(rowObj['ndt_after_pwht']),
+                        cut_off: parseText(rowObj['cut_off']),
+                        note: parseText(rowObj['note']),
+                        contractor_issue: parseText(rowObj['contractor_issue']),
+                        transmittal_no: parseText(rowObj['transmittal_no']),
+                        mw1_no: parseText(rowObj['mw1_no']),
                         stage: parseStage(rowObj),
-                        final_status: (mtResult === 'ACC' && utResult === 'ACC') ? 'OK' : null,
+                        final_status: overallStatus === 'FINISH' || (mtResult === 'ACC' && utResult === 'ACC')
+                            ? 'OK'
+                            : (mtResult === 'REJ' || utResult === 'REJ' || rtResult === 'REJ')
+                                ? 'REJECT'
+                                : null,
                         excel_row_order: dataRowIndex,
                     }
                     dataRows.push(weldData)
                 }
-
-                // Import in batches — with fallback if column not in DB yet
                 const total = dataRows.length
-                // Track which columns are known to be missing in DB schema
-                const missingCols = new Set<string>()
 
-                const upsertBatch = async (batch: Record<string, unknown>[], attempt = 0): Promise<boolean> => {
-                    // Remove any columns already known to be missing
-                    const cleanBatch = batch.map(row => {
-                        const cleaned = { ...row }
-                        missingCols.forEach(col => delete cleaned[col])
-                        return cleaned
-                    })
-                    const { error } = await supabase
-                        .from('welds')
-                        .upsert(cleanBatch as any, { onConflict: 'project_id,weld_id' })
-
-                    if (error) {
-                        // If schema cache error → find missing column and retry without it
-                        const schemaMatch = error.message.match(/Could not find the '(\w+)' column/)
-                        if (schemaMatch && attempt < 10) {
-                            missingCols.add(schemaMatch[1])
-                            return upsertBatch(batch, attempt + 1)
-                        }
-                        errors.push(`Dòng ${total}: ${error.message}`)
-                        return false
-                    }
-                    return true
-                }
+                const weldUpsertTable = supabase.from('welds') as unknown as WeldUpsertTable
 
                 for (let i = 0; i < dataRows.length; i += batchSize) {
                     const batch = dataRows.slice(i, i + batchSize)
-                    const ok = await upsertBatch(batch)
-                    if (ok) {
-                        successCount += batch.length
-                    } else {
-                        errorCount += batch.length
-                    }
-                    setProgress(Math.round(((i + batch.length) / total) * 100))
-                }
+                    const { error } = await weldUpsertTable.upsert(batch, { onConflict: 'project_id,weld_id' })
 
-                // Warn if columns were auto-skipped due to missing migration
-                if (missingCols.size > 0) {
-                    errors.push(`⚠️ Các cột chưa có trong DB (cần chạy Migration SQL): ${[...missingCols].join(', ')}`)
+                    if (error) {
+                        errors.push(`Batch ${Math.floor(i / batchSize) + 1}: ${error.message}`)
+                        errorCount += batch.length
+                        break
+                    }
+
+                    successCount += batch.length
+                    setProgress(Math.round(((i + batch.length) / total) * 100))
                 }
 
                 setResult({ success: successCount, errors: errorCount, messages: errors.slice(0, 5) })
@@ -395,7 +455,7 @@ export default function ImportPage() {
         <div className="page-enter">
             <div style={{ marginBottom: '24px' }}>
                 <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>📥 Import từ Excel</h1>
-                <p style={{ color: '#64748b', marginTop: '4px' }}>Import dữ liệu từ sheet DATA INPUT của file WELD CONTROL.xlsx</p>
+                <p style={{ color: '#64748b', marginTop: '4px' }}>Import dữ liệu từ sheet DATA INPUT của file WELD CONTROL.xlsx.</p>
             </div>
 
             {/* Project Context Banner */}
@@ -403,15 +463,15 @@ export default function ImportPage() {
                 <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{ fontSize: '1.5rem' }}>⚠️</span>
                     <div>
-                        <div style={{ fontWeight: 600, color: '#b91c1c' }}>Chưa chọn Dự án!</div>
-                        <div style={{ color: '#dc2626', fontSize: '0.875rem' }}>Vui lòng chọn Dự án ở menu bên trái trước khi Import. Dữ liệu sẽ được gắn vào Dự án bạn chọn.</div>
+                        <div style={{ fontWeight: 600, color: '#b91c1c' }}>Chưa chọn dự án</div>
+                        <div style={{ color: '#dc2626', fontSize: '0.875rem' }}>Vui lòng chọn dự án ở menu bên trái trước khi import. Dữ liệu sẽ được gắn vào dự án đang chọn.</div>
                     </div>
                 </div>
             ) : (
                 <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: '8px', padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{ fontSize: '1.5rem' }}>✅</span>
                     <div>
-                        <div style={{ fontWeight: 600, color: '#166534' }}>Dự án được Import</div>
+                        <div style={{ fontWeight: 600, color: '#166534' }}>Dự án nhận dữ liệu import</div>
                         <div style={{ color: '#15803d', fontSize: '0.875rem' }}>{currentProjectCode || currentProjectId}</div>
                     </div>
                 </div>
@@ -423,10 +483,10 @@ export default function ImportPage() {
                 <ol style={{ color: '#1e40af', paddingLeft: '20px', lineHeight: '1.8' }}>
                     <li>Mở file <strong>WELD CONTROL.xlsx</strong></li>
                     <li>Vào sheet <strong>DATA INPUT</strong></li>
-                    <li>Chọn file Excel dưới đây (hệ thống tự đọc sheet DATA INPUT)</li>
-                    <li>Xem preview dữ liệu — kiểm tra các cột có đúng không</li>
+                    <li>Chọn file Excel bên dưới, hệ thống sẽ tự đọc sheet DATA INPUT</li>
+                    <li>Xem preview dữ liệu để kiểm tra cột và kiểu dữ liệu</li>
                     <li>Nhấn <strong>&quot;Import vào Database&quot;</strong> để nhập dữ liệu</li>
-                    <li>Nếu mối hàn đã tồn tại → hệ thống sẽ <strong>cập nhật</strong> (upsert)</li>
+                    <li>Nếu mối hàn đã tồn tại, hệ thống sẽ <strong>cập nhật</strong> theo cơ chế upsert</li>
                 </ol>
             </div>
 
@@ -445,7 +505,7 @@ export default function ImportPage() {
                     onClick={() => fileRef.current?.click()}
                 >
                     <div style={{ fontSize: '3rem', marginBottom: '8px' }}>📂</div>
-                    <p style={{ color: '#64748b', marginBottom: '4px' }}>Click để chọn file hoặc kéo thả vào đây</p>
+                    <p style={{ color: '#64748b', marginBottom: '4px' }}>Bấm để chọn file hoặc kéo thả vào đây</p>
                     <p style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Hỗ trợ: .xlsx, .xls</p>
                     {file && <p style={{ color: '#22c55e', marginTop: '8px', fontWeight: 600 }}>✅ Đã chọn: {file.name}</p>}
                 </div>
@@ -455,7 +515,7 @@ export default function ImportPage() {
             {/* Preview */}
             {preview.length > 0 && (
                 <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>2. Xem trước (Preview — 10 dòng đầu)</h3>
+                    <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>2. Xem trước (preview 10 dòng đầu)</h3>
                     <div className="table-container">
                         <table style={{ fontSize: '0.73rem', minWidth: '1800px' }}>
                             <thead>
@@ -475,11 +535,11 @@ export default function ImportPage() {
                                     <th>FU Inspector</th>
                                     <th>FU Date</th>
                                     <th>FU Request</th>
-                                    <th>FU Finish</th>
+                                    <th>Weld Finish</th>
                                     <th>Welders&apos; ID</th>
                                     <th>VS Inspector</th>
                                     <th>VS Date</th>
-                                    <th>VS Request</th>
+                                    <th>NDT RQ</th>
                                     <th>BG Date</th>
                                     <th>BG Request</th>
                                     <th>MT Result</th>
@@ -487,8 +547,8 @@ export default function ImportPage() {
                                     <th>UT Result</th>
                                     <th>UT Report</th>
                                     <th>RT Result</th>
-                                    <th>IRN No</th>
-                                    <th>IRN Date</th>
+                                    <th>Release Note</th>
+                                    <th>Release Date</th>
                                     <th>Stage</th>
                                 </tr>
                             </thead>
@@ -502,7 +562,7 @@ export default function ImportPage() {
                                         <td style={{ fontWeight: 600 }}>{row.joint_type}</td>
                                         <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.ndt_requirements}</td>
                                         <td style={{ textAlign: 'center' }}>{row.position}</td>
-                                        <td style={{ textAlign: 'right' }}>{row.weld_length?.toLocaleString()}</td>
+                                        <td style={{ textAlign: 'right' }}>{formatNumber(row.weld_length)}</td>
                                         <td style={{ textAlign: 'right' }}>{row.thickness}</td>
                                         <td style={{ textAlign: 'right', color: '#64748b' }}>{row.thickness_lamcheck}</td>
                                         <td style={{ color: '#6366f1' }}>{row.wps_no}</td>
@@ -510,11 +570,11 @@ export default function ImportPage() {
                                         <td>{row.fitup_inspector}</td>
                                         <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.fitup_date}</td>
                                         <td>{row.fitup_request_no}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.fitup_accepted_date}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.weld_finish_date}</td>
                                         <td style={{ whiteSpace: 'nowrap' }}>{row.welders}</td>
                                         <td>{row.visual_inspector}</td>
                                         <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.visual_date}</td>
-                                        <td>{row.visual_request_no}</td>
+                                        <td>{row.inspection_request_no}</td>
                                         <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.backgouge_date}</td>
                                         <td>{row.backgouge_request_no}</td>
                                         <td>
@@ -534,8 +594,8 @@ export default function ImportPage() {
                                                 {row.rt_result || '\u2014'}
                                             </span>
                                         </td>
-                                        <td style={{ fontWeight: 600, color: '#0369a1', whiteSpace: 'nowrap' }}>{row.irn_no}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.irn_date}</td>
+                                        <td style={{ fontWeight: 600, color: '#0369a1', whiteSpace: 'nowrap' }}>{row.release_note_no}</td>
+                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.release_note_date}</td>
                                         <td style={{ whiteSpace: 'nowrap' }}>{row.stage}</td>
                                     </tr>
                                 ))}
@@ -549,7 +609,7 @@ export default function ImportPage() {
             {/* Import Button */}
             {file && preview.length > 0 && (
                 <div style={{ background: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>3. Bắt đầu Import</h3>
+                    <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>3. Bắt đầu import</h3>
                     {importing && (
                         <div style={{ marginBottom: '16px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
@@ -575,7 +635,7 @@ export default function ImportPage() {
             {/* Result */}
             {result && (
                 <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginTop: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '12px' }}>Kết quả Import</h3>
+                    <h3 style={{ fontWeight: 600, marginBottom: '12px' }}>Kết quả import</h3>
                     <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                         <div style={{ padding: '16px 24px', background: '#dcfce7', borderRadius: '8px' }}>
                             <div style={{ fontSize: '2rem', fontWeight: 700, color: '#166534' }}>{result.success}</div>
@@ -593,12 +653,15 @@ export default function ImportPage() {
                         </div>
                     )}
                     {result.success > 0 && (
-                        <a href="/welds" className="btn btn-primary" style={{ marginTop: '12px', display: 'inline-flex' }}>
+                        <Link href="/welds" className="btn btn-primary" style={{ marginTop: '12px', display: 'inline-flex' }}>
                             Xem danh sách mối hàn →
-                        </a>
+                        </Link>
                     )}
                 </div>
             )}
         </div>
     )
 }
+
+
+
