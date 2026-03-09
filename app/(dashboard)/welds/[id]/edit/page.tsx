@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
@@ -7,9 +7,9 @@ import { createClient } from '@/lib/supabase/client'
 import { STAGE_LABELS } from '@/types'
 
 const NDT_OPTIONS = [
-    { value: '', label: '-- ChÆ°a cÃ³ --' },
-    { value: 'ACC', label: 'ACC (Cháº¥p nháº­n)' },
-    { value: 'REJ', label: 'REJ (Tá»« chá»‘i)' },
+    { value: '', label: '-- Chua co --' },
+    { value: 'ACC', label: 'ACC (Chap nhan)' },
+    { value: 'REJ', label: 'REJ (Tu choi)' },
     { value: 'N/A', label: 'N/A' },
 ]
 
@@ -92,7 +92,12 @@ function Label({ children, required }: { children: React.ReactNode; required?: b
     )
 }
 
-function Input(props: {
+function Input({
+    value,
+    onChange,
+    type,
+    placeholder,
+}: {
     value: string
     onChange: (value: string) => void
     type?: string
@@ -100,17 +105,21 @@ function Input(props: {
 }) {
     return (
         <input
-            type={props.type || 'text'}
+            type={type || 'text'}
             className="form-input"
-            value={props.value}
-            onChange={(event) => props.onChange(event.target.value)}
-            placeholder={props.placeholder}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder={placeholder}
             style={{ width: '100%', boxSizing: 'border-box' }}
         />
     )
 }
 
-function Select(props: {
+function Select({
+    value,
+    onChange,
+    children,
+}: {
     value: string
     onChange: (value: string) => void
     children: React.ReactNode
@@ -118,16 +127,24 @@ function Select(props: {
     return (
         <select
             className="form-input"
-            value={props.value}
-            onChange={(event) => props.onChange(event.target.value)}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
             style={{ width: '100%', boxSizing: 'border-box' }}
         >
-            {props.children}
+            {children}
         </select>
     )
 }
 
-function SectionCard({ emoji, title, children }: { emoji: string; title: string; children: React.ReactNode }) {
+function SectionCard({
+    icon,
+    title,
+    children,
+}: {
+    icon: string
+    title: string
+    children: React.ReactNode
+}) {
     return (
         <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
             <h3
@@ -142,7 +159,7 @@ function SectionCard({ emoji, title, children }: { emoji: string; title: string;
                     gap: '8px',
                 }}
             >
-                <span>{emoji}</span>
+                <span>{icon}</span>
                 <span>{title}</span>
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
@@ -222,13 +239,13 @@ export default function EditWeldPage() {
         async function load() {
             const { data, error: loadError } = await supabase.from('welds').select('*').eq('id', id).single()
             if (loadError || !data) {
-                setError('KhÃ´ng tÃ¬m tháº¥y má»‘i hÃ n.')
+                setError('Khong tim thay moi han.')
                 setLoading(false)
                 return
             }
 
             const weld = data as unknown as WeldRecord
-            const fmtDate = (value: unknown) => (value ? String(value).slice(0, 10) : '')
+            const formatDate = (value: unknown) => (value ? String(value).slice(0, 10) : '')
 
             setWeldDisplayId(String(weld.weld_id || ''))
             setForm({
@@ -245,14 +262,14 @@ export default function EditWeldPage() {
                 wps_no: String(weld.wps_no || ''),
                 goc_code: String(weld.goc_code || ''),
                 fitup_inspector: String(weld.fitup_inspector || ''),
-                fitup_date: fmtDate(weld.fitup_date),
+                fitup_date: formatDate(weld.fitup_date),
                 fitup_request_no: String(weld.fitup_request_no || ''),
-                weld_finish_date: fmtDate(weld.weld_finish_date),
+                weld_finish_date: formatDate(weld.weld_finish_date),
                 welders: String(weld.welders || ''),
                 visual_inspector: String(weld.visual_inspector || ''),
-                visual_date: fmtDate(weld.visual_date),
+                visual_date: formatDate(weld.visual_date),
                 inspection_request_no: String(weld.inspection_request_no || ''),
-                backgouge_date: fmtDate(weld.backgouge_date),
+                backgouge_date: formatDate(weld.backgouge_date),
                 backgouge_request_no: String(weld.backgouge_request_no || ''),
                 mt_result: String(weld.mt_result || ''),
                 mt_report_no: String(weld.mt_report_no || ''),
@@ -260,13 +277,13 @@ export default function EditWeldPage() {
                 ut_report_no: String(weld.ut_report_no || ''),
                 rt_result: String(weld.rt_result || ''),
                 rt_report_no: String(weld.rt_report_no || ''),
-                lamcheck_date: fmtDate(weld.lamcheck_date),
+                lamcheck_date: formatDate(weld.lamcheck_date),
                 lamcheck_request_no: String(weld.lamcheck_request_no || ''),
                 lamcheck_report_no: String(weld.lamcheck_report_no || ''),
-                release_final_date: fmtDate(weld.release_final_date),
+                release_final_date: formatDate(weld.release_final_date),
                 release_final_request_no: String(weld.release_final_request_no || ''),
                 release_note_no: String(weld.release_note_no || ''),
-                release_note_date: fmtDate(weld.release_note_date),
+                release_note_date: formatDate(weld.release_note_date),
                 pwht_result: String(weld.pwht_result || ''),
                 ndt_after_pwht: String(weld.ndt_after_pwht || ''),
                 defect_length: weld.defect_length != null ? String(weld.defect_length) : '',
@@ -344,9 +361,9 @@ export default function EditWeldPage() {
         const { error: updateError } = await weldTable.update(updateData).eq('id', id)
 
         if (updateError) {
-            setError(`Lá»—i lÆ°u: ${updateError.message}`)
+            setError(`Loi luu: ${updateError.message}`)
         } else {
-            setSuccess('âœ… ÄÃ£ lÆ°u thÃ nh cÃ´ng!')
+            setSuccess('Da luu thanh cong.')
             setTimeout(() => setSuccess(''), 3000)
         }
 
@@ -359,7 +376,7 @@ export default function EditWeldPage() {
         const { error: deleteError } = await weldTable.delete().eq('id', id)
 
         if (deleteError) {
-            setError(`Lá»—i xÃ³a: ${deleteError.message}`)
+            setError(`Loi xoa: ${deleteError.message}`)
             setDeleting(false)
             return
         }
@@ -371,7 +388,7 @@ export default function EditWeldPage() {
         return (
             <div style={{ textAlign: 'center', padding: '80px' }}>
                 <div className="spinner" style={{ margin: '0 auto 16px' }} />
-                <p style={{ color: '#64748b' }}>Äang táº£i...</p>
+                <p style={{ color: '#64748b' }}>Dang tai...</p>
             </div>
         )
     }
@@ -380,26 +397,30 @@ export default function EditWeldPage() {
         <div className="page-enter">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                 <div>
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>âœï¸ Sá»­a má»‘i hÃ n</h1>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Sua moi han</h1>
                     <p style={{ color: '#64748b', marginTop: '4px', fontFamily: 'monospace', fontSize: '0.95rem' }}>{weldDisplayId}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    <Link href="/welds" className="btn btn-secondary">â† Danh sÃ¡ch</Link>
+                    <Link href="/welds" className="btn btn-secondary">
+                        Danh sach
+                    </Link>
                     {!confirmDelete ? (
                         <button
                             className="btn"
                             onClick={() => setConfirmDelete(true)}
                             style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}
                         >
-                            ðŸ—‘ï¸ XÃ³a
+                            Xoa
                         </button>
                     ) : (
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.875rem' }}>XÃ¡c nháº­n xÃ³a?</span>
+                            <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.875rem' }}>Xac nhan xoa?</span>
                             <button className="btn" onClick={handleDelete} disabled={deleting} style={{ background: '#dc2626', color: 'white', border: 'none' }}>
-                                {deleting ? 'â³' : 'âœ“ XÃ³a'}
+                                {deleting ? 'Dang xoa...' : 'Xoa'}
                             </button>
-                            <button className="btn btn-secondary" onClick={() => setConfirmDelete(false)}>âœ• Há»§y</button>
+                            <button className="btn btn-secondary" onClick={() => setConfirmDelete(false)}>
+                                Huy
+                            </button>
                         </div>
                     )}
                 </div>
@@ -409,7 +430,7 @@ export default function EditWeldPage() {
             {success && <div style={{ padding: '12px 16px', background: '#dcfce7', border: '1px solid #86efac', borderRadius: '8px', color: '#166534', marginBottom: '16px' }}>{success}</div>}
 
             <form onSubmit={handleSave}>
-                <SectionCard emoji="ðŸ“‹" title="ThÃ´ng tin cÆ¡ báº£n">
+                <SectionCard icon="INFO" title="Thong tin co ban">
                     <div>
                         <Label>Weld ID</Label>
                         <Input value={form.weld_id} onChange={setField('weld_id')} placeholder="9001-2211-DS-0032-01-WM1" />
@@ -429,9 +450,11 @@ export default function EditWeldPage() {
                     <div>
                         <Label>Weld Type</Label>
                         <Select value={form.joint_type} onChange={setField('joint_type')}>
-                            <option value="">-- Chá»n --</option>
+                            <option value="">-- Chon --</option>
                             {['DB', 'DV', 'SB', 'SV', 'X1', 'X2', 'X3'].map((type) => (
-                                <option key={type} value={type}>{type}</option>
+                                <option key={type} value={type}>
+                                    {type}
+                                </option>
                             ))}
                         </Select>
                     </div>
@@ -469,10 +492,10 @@ export default function EditWeldPage() {
                     </div>
                 </SectionCard>
 
-                <SectionCard emoji="ðŸ”§" title="Fit-Up / Welding completion">
+                <SectionCard icon="FIT" title="Fit-Up / Welding completion">
                     <div>
                         <Label>FU Inspector</Label>
-                        <Input value={form.fitup_inspector} onChange={setField('fitup_inspector')} placeholder="Nguyá»…n VÄƒn A" />
+                        <Input value={form.fitup_inspector} onChange={setField('fitup_inspector')} placeholder="Nguyen Van A" />
                     </div>
                     <div>
                         <Label>FU Date</Label>
@@ -488,10 +511,10 @@ export default function EditWeldPage() {
                     </div>
                 </SectionCard>
 
-                <SectionCard emoji="ðŸ‘ï¸" title="Visual / Request / Backgouge">
+                <SectionCard icon="VIS" title="Visual / Request / Backgouge">
                     <div>
                         <Label>Visual Inspector</Label>
-                        <Input value={form.visual_inspector} onChange={setField('visual_inspector')} placeholder="Nguyá»…n VÄƒn A" />
+                        <Input value={form.visual_inspector} onChange={setField('visual_inspector')} placeholder="Nguyen Van A" />
                     </div>
                     <div>
                         <Label>Visual Date</Label>
@@ -511,7 +534,7 @@ export default function EditWeldPage() {
                     </div>
                 </SectionCard>
 
-                <SectionCard emoji="ðŸ”¬" title="Lamcheck / NDT results">
+                <SectionCard icon="NDT" title="Lamcheck / NDT results">
                     <div>
                         <Label>Lamcheck Date</Label>
                         <Input value={form.lamcheck_date} onChange={setField('lamcheck_date')} type="date" />
@@ -528,7 +551,9 @@ export default function EditWeldPage() {
                         <Label>MT Result</Label>
                         <Select value={form.mt_result} onChange={setField('mt_result')}>
                             {NDT_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
                             ))}
                         </Select>
                     </div>
@@ -540,7 +565,9 @@ export default function EditWeldPage() {
                         <Label>UT Result</Label>
                         <Select value={form.ut_result} onChange={setField('ut_result')}>
                             {NDT_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
                             ))}
                         </Select>
                     </div>
@@ -552,7 +579,9 @@ export default function EditWeldPage() {
                         <Label>RT Result</Label>
                         <Select value={form.rt_result} onChange={setField('rt_result')}>
                             {NDT_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
                             ))}
                         </Select>
                     </div>
@@ -564,7 +593,9 @@ export default function EditWeldPage() {
                         <Label>PWHT Result</Label>
                         <Select value={form.pwht_result} onChange={setField('pwht_result')}>
                             {NDT_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
                             ))}
                         </Select>
                     </div>
@@ -578,7 +609,7 @@ export default function EditWeldPage() {
                     </div>
                 </SectionCard>
 
-                <SectionCard emoji="âœ…" title="Release / Completion">
+                <SectionCard icon="REL" title="Release / Completion">
                     <div>
                         <Label>Release Final Date</Label>
                         <Input value={form.release_final_date} onChange={setField('release_final_date')} type="date" />
@@ -613,14 +644,16 @@ export default function EditWeldPage() {
                     </div>
                     <div>
                         <Label>Contractor Issue</Label>
-                        <Input value={form.contractor_issue} onChange={setField('contractor_issue')} placeholder="Nha thau hong" />
+                        <Input value={form.contractor_issue} onChange={setField('contractor_issue')} placeholder="Contractor issue" />
                     </div>
                     <div>
                         <Label>Stage</Label>
                         <Select value={form.stage} onChange={setField('stage')}>
-                            <option value="">-- Tá»± Ä‘á»™ng --</option>
+                            <option value="">-- Tu dong --</option>
                             {Object.entries(STAGE_LABELS).map(([key, label]) => (
-                                <option key={key} value={key}>{label}</option>
+                                <option key={key} value={key}>
+                                    {label}
+                                </option>
                             ))}
                         </Select>
                     </div>
@@ -640,7 +673,7 @@ export default function EditWeldPage() {
                             rows={3}
                             value={form.remarks}
                             onChange={(event) => setField('remarks')(event.target.value)}
-                            placeholder="Ghi chÃº thÃªm..."
+                            placeholder="Ghi chu them..."
                             style={{ resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
                         />
                     </div>
@@ -657,13 +690,14 @@ export default function EditWeldPage() {
                         gap: '12px',
                     }}
                 >
-                    <Link href="/welds" className="btn btn-secondary">Há»§y</Link>
+                    <Link href="/welds" className="btn btn-secondary">
+                        Huy
+                    </Link>
                     <button type="submit" className="btn btn-primary" disabled={saving}>
-                        {saving ? 'â³ Äang lÆ°u...' : 'ðŸ’¾ LÆ°u thay Ä‘á»•i'}
+                        {saving ? 'Dang luu...' : 'Luu thay doi'}
                     </button>
                 </div>
             </form>
         </div>
     )
 }
-

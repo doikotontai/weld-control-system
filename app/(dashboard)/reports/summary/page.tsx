@@ -179,27 +179,27 @@ export default async function SummaryReportPage() {
 
     return (
         <div className="page-enter">
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>BÃ¡o cÃ¡o tá»•ng há»£p</h1>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>Bao cao tong hop</h1>
             <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '0.875rem' }}>
-                TÆ°Æ¡ng á»©ng sheet <strong>RESULT + tota(lN)</strong> - toÃ n bá»™ sá»‘ liá»‡u tá»•ng quan dá»± Ã¡n
+                Tuong ung sheet <strong>RESULT + tota(lN)</strong> - toan bo so lieu tong quan du an
             </p>
 
             {!projectId ? (
-                <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui lÃ²ng chá»n dá»± Ã¡n á»Ÿ menu bÃªn trÃ¡i.</div>
+                <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui long chon du an o menu ben trai.</div>
             ) : (
                 <>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '24px' }}>
-                        <SummaryCard label="Tá»•ng má»‘i hÃ n" value={stats.total.toLocaleString()} />
-                        <SummaryCard label="Báº£n váº½" value={stats.byDrawing} color="#0369a1" background="#e0f2fe" />
-                        <SummaryCard label="Tá»•ng Ä‘á»™ dÃ i (mm)" value={stats.totalLength.toLocaleString()} color="#374151" background="#f8fafc" />
+                        <SummaryCard label="Tong moi han" value={stats.total.toLocaleString()} />
+                        <SummaryCard label="Ban ve" value={stats.byDrawing} color="#0369a1" background="#e0f2fe" />
+                        <SummaryCard label="Tong do dai (mm)" value={stats.totalLength.toLocaleString()} color="#374151" background="#f8fafc" />
                         <SummaryCard label="Release Note Done" value={stats.withIRN} sub={`${percentage(stats.withIRN, stats.total)}%`} color="#166534" background="#dcfce7" />
                         <SummaryCard label="Repair Rate" value={`${overallRepairRate}%`} color={Number(overallRepairRate) < 5 ? '#166534' : '#991b1b'} background={Number(overallRepairRate) < 5 ? '#dcfce7' : '#fee2e2'} />
-                        <SummaryCard label="Pháº£i sá»­a" value={stats.isRepair} color="#dc2626" background="#fee2e2" />
+                        <SummaryCard label="Phai sua" value={stats.isRepair} color="#dc2626" background="#fee2e2" />
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
                         <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                            <h3 style={{ fontWeight: 700, marginBottom: '16px', color: '#0f172a' }}>Tiáº¿n Ä‘á»™ tá»«ng giai Ä‘oáº¡n</h3>
+                            <h3 style={{ fontWeight: 700, marginBottom: '16px', color: '#0f172a' }}>Tien do tung giai doan</h3>
                             {[
                                 { label: 'Fit-Up', count: stats.withFitup },
                                 { label: 'Visual', count: stats.withVisual },
@@ -227,14 +227,14 @@ export default async function SummaryReportPage() {
                         </div>
 
                         <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                            <h3 style={{ fontWeight: 700, marginBottom: '16px', color: '#0f172a' }}>Káº¿t quáº£ NDT</h3>
+                            <h3 style={{ fontWeight: 700, marginBottom: '16px', color: '#0f172a' }}>Ket qua NDT</h3>
                             {[
                                 { type: 'MT', total: stats.withMT, acc: stats.mtAcc, rej: stats.mtRej },
                                 { type: 'UT', total: stats.withUT, acc: stats.utAcc, rej: stats.utRej },
                                 { type: 'RT', total: stats.withRT, acc: stats.rtAcc, rej: stats.rtRej },
                             ].map((item) => (
                                 <div key={item.type} style={{ marginBottom: '16px', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>
-                                    <div style={{ fontWeight: 700, marginBottom: '8px', color: '#0f172a' }}>{item.type} - {item.total} má»‘i</div>
+                                    <div style={{ fontWeight: 700, marginBottom: '8px', color: '#0f172a' }}>{item.type} - {item.total} moi</div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                                         <div style={{ textAlign: 'center', background: '#dcfce7', borderRadius: '6px', padding: '8px' }}>
                                             <div style={{ fontWeight: 700, fontSize: '1.2rem', color: '#166534' }}>{item.acc}</div>

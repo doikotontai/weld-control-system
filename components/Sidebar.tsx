@@ -34,40 +34,40 @@ type NavSection = {
 const navSections: NavSection[] = [
     {
         items: [
-            { href: '/dashboard', icon: 'ðŸ“Š', label: 'Dashboard', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
+            { href: '/dashboard', icon: 'D', label: 'Dashboard', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
         ],
     },
     {
-        section: 'KIá»‚M TRA',
+        section: 'KIEM TRA',
         items: [
-            { href: '/inspections/fitup', icon: 'ðŸ”©', label: 'Fit-Up', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
-            { href: '/inspections/visual', icon: 'ðŸ‘ï¸', label: 'Visual / Request', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
-            { href: '/inspections/backgouge', icon: 'âš™ï¸', label: 'Backgouge', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
-            { href: '/inspections/lamcheck', icon: 'ðŸ”', label: 'Lamcheck', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
-            { href: '/inspections/ndt', icon: 'ðŸ”¬', label: 'NDT Results', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
-            { href: '/requests', icon: 'ðŸ“‹', label: 'YÃªu cáº§u kiá»ƒm tra', roles: ['admin', 'dcc', 'qc'] },
+            { href: '/inspections/fitup', icon: 'F', label: 'Fit-Up', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
+            { href: '/inspections/visual', icon: 'V', label: 'Visual / Request', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
+            { href: '/inspections/backgouge', icon: 'B', label: 'Backgouge', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
+            { href: '/inspections/lamcheck', icon: 'L', label: 'Lamcheck', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
+            { href: '/inspections/ndt', icon: 'N', label: 'NDT Results', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
+            { href: '/requests', icon: 'R', label: 'Yeu cau kiem tra', roles: ['admin', 'dcc', 'qc'] },
         ],
     },
     {
-        section: 'Dá»® LIá»†U',
+        section: 'DU LIEU',
         items: [
-            { href: '/welds', icon: 'ðŸ”©', label: 'Táº¥t cáº£ má»‘i hÃ n', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
-            { href: '/drawings', icon: 'ðŸ—ºï¸', label: 'Báº£n váº½ / Drawings', roles: ['admin', 'dcc', 'qc', 'viewer'] },
+            { href: '/welds', icon: 'W', label: 'Tat ca moi han', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
+            { href: '/drawings', icon: 'DR', label: 'Ban ve / Drawings', roles: ['admin', 'dcc', 'qc', 'viewer'] },
         ],
     },
     {
-        section: 'BÃO CÃO',
+        section: 'BAO CAO',
         items: [
-            { href: '/reports/summary', icon: 'ðŸ“Š', label: 'Tá»•ng há»£p', roles: ['admin', 'dcc', 'qc', 'viewer'] },
-            { href: '/reports/welder-ndt', icon: 'ðŸ‘·', label: 'NDT by Thá»£ hÃ n', roles: ['admin', 'dcc', 'qc'] },
-            { href: '/reports/repair-rate', icon: 'ðŸ“ˆ', label: 'Repair Rate', roles: ['admin', 'dcc', 'qc'] },
+            { href: '/reports/summary', icon: 'S', label: 'Tong hop', roles: ['admin', 'dcc', 'qc', 'viewer'] },
+            { href: '/reports/welder-ndt', icon: 'WN', label: 'NDT by Welder', roles: ['admin', 'dcc', 'qc'] },
+            { href: '/reports/repair-rate', icon: 'RR', label: 'Repair Rate', roles: ['admin', 'dcc', 'qc'] },
         ],
     },
     {
-        section: 'QUáº¢N LÃ',
+        section: 'QUAN LY',
         items: [
-            { href: '/import', icon: 'ðŸ“¥', label: 'Import Excel', roles: ['admin', 'dcc'] },
-            { href: '/admin', icon: 'ðŸ› ï¸', label: 'Quáº£n trá»‹ há»‡ thá»‘ng', roles: ['admin'] },
+            { href: '/import', icon: 'I', label: 'Import Excel', roles: ['admin', 'dcc'] },
+            { href: '/admin', icon: 'A', label: 'Quan tri he thong', roles: ['admin'] },
         ],
     },
 ]
@@ -116,7 +116,7 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
                             fontSize: '16px',
                         }}
                     >
-                        ðŸ”§
+                        WC
                     </div>
                     <div>
                         <div style={{ color: 'white', fontWeight: 700, fontSize: '0.85rem' }}>Weld Control</div>
@@ -133,7 +133,7 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
                             letterSpacing: '0.05em',
                         }}
                     >
-                        Dá»° ÃN
+                        DU AN
                     </div>
                     <select
                         value={currentProjectId}
@@ -150,7 +150,7 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
                             cursor: 'pointer',
                         }}
                     >
-                        <option value="">-- Táº¥t cáº£ --</option>
+                        <option value="">-- Tat ca --</option>
                         {projects.map(project => (
                             <option key={project.id} value={project.id}>
                                 {project.code}
@@ -218,7 +218,7 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
 
             <div style={{ padding: '10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <div style={{ padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', marginBottom: '6px' }}>
-                    <div style={{ color: 'white', fontSize: '0.78rem', fontWeight: 500 }}>ðŸ‘¤ {userName}</div>
+                    <div style={{ color: 'white', fontSize: '0.78rem', fontWeight: 500 }}>User: {userName}</div>
                     <div
                         style={{
                             display: 'inline-block',
@@ -248,7 +248,7 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
                         fontWeight: 500,
                     }}
                 >
-                    ðŸšª ÄÄƒng xuáº¥t
+                    Dang xuat
                 </button>
             </div>
         </div>

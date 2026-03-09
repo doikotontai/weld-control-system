@@ -98,7 +98,7 @@ export default function NewWeldPage() {
         setError('')
 
         if (!form.project_id || !form.weld_no || !form.drawing_no) {
-            setError('Dá»± Ã¡n, sá»‘ má»‘i hÃ n vÃ  báº£n váº½ lÃ  báº¯t buá»™c.')
+            setError('Du an, so moi han va ban ve la bat buoc.')
             setLoading(false)
             return
         }
@@ -140,9 +140,9 @@ export default function NewWeldPage() {
         const { error: insertError } = await weldInsertTable.insert(insertData)
 
         if (insertError) {
-            setError(`Lá»—i: ${insertError.message}`)
+            setError(`Loi: ${insertError.message}`)
         } else {
-            setSuccess(`ÄÃ£ táº¡o má»‘i hÃ n ${weldId} thÃ nh cÃ´ng.`)
+            setSuccess(`Da tao moi han ${weldId} thanh cong.`)
             router.refresh()
             setTimeout(() => {
                 window.location.href = '/welds'
@@ -156,24 +156,24 @@ export default function NewWeldPage() {
         <div className="page-enter">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
-                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>Táº¡o má»‘i hÃ n má»›i</h1>
-                    <p style={{ color: '#64748b', marginTop: '4px' }}>Nháº­p thÃ´ng tin má»‘i hÃ n vÃ o há»‡ thá»‘ng</p>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>Tao moi han moi</h1>
+                    <p style={{ color: '#64748b', marginTop: '4px' }}>Nhap thong tin moi han vao he thong</p>
                 </div>
                 <Link href="/welds" className="btn btn-secondary">
-                    Quay láº¡i
+                    Quay lai
                 </Link>
             </div>
 
             <form onSubmit={handleSubmit}>
                 <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                     <h3 style={{ fontWeight: 600, marginBottom: '20px', paddingBottom: '10px', borderBottom: '1px solid #f1f5f9', color: '#1e40af' }}>
-                        ThÃ´ng tin cÆ¡ báº£n
+                        Thong tin co ban
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                         <div>
-                            <FormLabel>Dá»± Ã¡n *</FormLabel>
+                            <FormLabel>Du an *</FormLabel>
                             <select className="form-input" required value={form.project_id} onChange={event => setField('project_id', event.target.value)}>
-                                <option value="">-- Chá»n dá»± Ã¡n --</option>
+                                <option value="">-- Chon du an --</option>
                                 {projects.map(project => (
                                     <option key={project.id} value={project.id}>
                                         {project.code}
@@ -182,17 +182,17 @@ export default function NewWeldPage() {
                             </select>
                         </div>
                         <div>
-                            <FormLabel>Sá»‘ báº£n váº½ (Drawing No.) *</FormLabel>
+                            <FormLabel>So ban ve (Drawing No.) *</FormLabel>
                             <input className="form-input" value={form.drawing_no} onChange={event => setField('drawing_no', event.target.value)} placeholder="9001-2211-DS-0032-01-WM" required />
                         </div>
                         <div>
-                            <FormLabel>Sá»‘ má»‘i hÃ n (Weld No.) *</FormLabel>
+                            <FormLabel>So moi han (Weld No.) *</FormLabel>
                             <input className="form-input" value={form.weld_no} onChange={event => setField('weld_no', event.target.value)} placeholder="1, 17, 17R1" required />
                         </div>
                         <div>
-                            <FormLabel>Loáº¡i má»‘i hÃ n (Joint Type)</FormLabel>
+                            <FormLabel>Loai moi han (Joint Type)</FormLabel>
                             <select className="form-input" value={form.joint_type} onChange={event => setField('joint_type', event.target.value)}>
-                                <option value="">-- Chá»n --</option>
+                                <option value="">-- Chon --</option>
                                 <option value="DB">DB</option>
                                 <option value="DV">DV</option>
                                 <option value="SB">SB</option>
@@ -202,7 +202,7 @@ export default function NewWeldPage() {
                             </select>
                         </div>
                         <div>
-                            <FormLabel>YÃªu cáº§u NDT</FormLabel>
+                            <FormLabel>Yeu cau NDT</FormLabel>
                             <input className="form-input" value={form.ndt_requirements} onChange={event => setField('ndt_requirements', event.target.value)} placeholder="100%MT & UT" />
                         </div>
                         <div>
@@ -210,23 +210,23 @@ export default function NewWeldPage() {
                             <input className="form-input" value={form.wps_no} onChange={event => setField('wps_no', event.target.value)} placeholder="WPS-TNHA-S06" />
                         </div>
                         <div>
-                            <FormLabel>GOC Code (Khu vá»±c)</FormLabel>
+                            <FormLabel>GOC Code (Khu vuc)</FormLabel>
                             <input className="form-input" value={form.goc_code} onChange={event => setField('goc_code', event.target.value)} placeholder="ST-22" />
                         </div>
                         <div>
-                            <FormLabel>Chiá»u dÃ i (mm)</FormLabel>
+                            <FormLabel>Chieu dai (mm)</FormLabel>
                             <input className="form-input" type="number" value={form.weld_length} onChange={event => setField('weld_length', event.target.value)} placeholder="2392.68" />
                         </div>
                         <div>
-                            <FormLabel>Chiá»u dÃ y (mm)</FormLabel>
+                            <FormLabel>Chieu day (mm)</FormLabel>
                             <input className="form-input" type="number" value={form.thickness} onChange={event => setField('thickness', event.target.value)} placeholder="25" />
                         </div>
                         <div>
-                            <FormLabel>KÃ­ch thÆ°á»›c má»‘i hÃ n</FormLabel>
+                            <FormLabel>Kich thuoc moi han</FormLabel>
                             <input className="form-input" value={form.weld_size} onChange={event => setField('weld_size', event.target.value)} placeholder="OD762x15" />
                         </div>
                         <div style={{ gridColumn: '1 / -1' }}>
-                            <FormLabel>Thá»£ hÃ n (Welders) - phÃ¢n cÃ¡ch báº±ng dáº¥u cháº¥m pháº©y (;)</FormLabel>
+                            <FormLabel>Tho han (Welders) - phan cach bang dau cham phay (;)</FormLabel>
                             <input className="form-input" value={form.welders} onChange={event => setField('welders', event.target.value)} placeholder="BGT-0005;BGT-0015;GTC-12" />
                         </div>
                     </div>
@@ -234,23 +234,23 @@ export default function NewWeldPage() {
 
                 <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                     <h3 style={{ fontWeight: 600, marginBottom: '20px', paddingBottom: '10px', borderBottom: '1px solid #f1f5f9', color: '#1e40af' }}>
-                        Kiá»ƒm tra Fit-Up
+                        Kiem tra Fit-Up
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
                         <div>
-                            <FormLabel>Sá»‘ yÃªu cáº§u Fit-Up (F-xxx)</FormLabel>
+                            <FormLabel>So yeu cau Fit-Up (F-xxx)</FormLabel>
                             <input className="form-input" value={form.fitup_request_no} onChange={event => setField('fitup_request_no', event.target.value)} placeholder="F-044" />
                         </div>
                         <div>
-                            <FormLabel>NgÃ y kiá»ƒm tra Fit-Up</FormLabel>
+                            <FormLabel>Ngay kiem tra Fit-Up</FormLabel>
                             <input className="form-input" type="date" value={form.fitup_date} onChange={event => setField('fitup_date', event.target.value)} />
                         </div>
                         <div>
-                            <FormLabel>Sá»‘ yÃªu cáº§u Backgouge (BG-xxx)</FormLabel>
+                            <FormLabel>So yeu cau Backgouge (BG-xxx)</FormLabel>
                             <input className="form-input" value={form.backgouge_request_no} onChange={event => setField('backgouge_request_no', event.target.value)} placeholder="BG-043" />
                         </div>
                         <div>
-                            <FormLabel>NgÃ y Backgouge</FormLabel>
+                            <FormLabel>Ngay Backgouge</FormLabel>
                             <input className="form-input" type="date" value={form.backgouge_date} onChange={event => setField('backgouge_date', event.target.value)} />
                         </div>
                     </div>
@@ -258,41 +258,41 @@ export default function NewWeldPage() {
 
                 <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                     <h3 style={{ fontWeight: 600, marginBottom: '20px', paddingBottom: '10px', borderBottom: '1px solid #f1f5f9', color: '#1e40af' }}>
-                        Káº¿t quáº£ NDT / Visual
+                        Ket qua NDT / Visual
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
                         <div>
-                            <FormLabel>Sá»‘ request NDT / KH visual (V-xxx)</FormLabel>
+                            <FormLabel>So request NDT / KH visual (V-xxx)</FormLabel>
                             <input className="form-input" value={form.inspection_request_no} onChange={event => setField('inspection_request_no', event.target.value)} placeholder="V-065" />
                         </div>
                         <div>
-                            <FormLabel>NgÃ y Visual</FormLabel>
+                            <FormLabel>Ngay Visual</FormLabel>
                             <input className="form-input" type="date" value={form.visual_date} onChange={event => setField('visual_date', event.target.value)} />
                         </div>
                         <div>
-                            <FormLabel>Káº¿t quáº£ MT</FormLabel>
+                            <FormLabel>Ket qua MT</FormLabel>
                             <select className="form-input" value={form.mt_result} onChange={event => setField('mt_result', event.target.value)}>
-                                <option value="">-- ChÆ°a cÃ³ --</option>
-                                <option value="ACC">ACC (Cháº¥p nháº­n)</option>
-                                <option value="REJ">REJ (Tá»« chá»‘i)</option>
+                                <option value="">-- Chua co --</option>
+                                <option value="ACC">ACC (Chap nhan)</option>
+                                <option value="REJ">REJ (Tu choi)</option>
                                 <option value="N/A">N/A</option>
                             </select>
                         </div>
                         <div>
-                            <FormLabel>BÃ¡o cÃ¡o MT</FormLabel>
+                            <FormLabel>Bao cao MT</FormLabel>
                             <input className="form-input" value={form.mt_report_no} onChange={event => setField('mt_report_no', event.target.value)} placeholder="MT-2211-ST-22-0017" />
                         </div>
                         <div>
-                            <FormLabel>Káº¿t quáº£ UT</FormLabel>
+                            <FormLabel>Ket qua UT</FormLabel>
                             <select className="form-input" value={form.ut_result} onChange={event => setField('ut_result', event.target.value)}>
-                                <option value="">-- ChÆ°a cÃ³ --</option>
-                                <option value="ACC">ACC (Cháº¥p nháº­n)</option>
-                                <option value="REJ">REJ (Tá»« chá»‘i)</option>
+                                <option value="">-- Chua co --</option>
+                                <option value="ACC">ACC (Chap nhan)</option>
+                                <option value="REJ">REJ (Tu choi)</option>
                                 <option value="N/A">N/A</option>
                             </select>
                         </div>
                         <div>
-                            <FormLabel>BÃ¡o cÃ¡o UT</FormLabel>
+                            <FormLabel>Bao cao UT</FormLabel>
                             <input className="form-input" value={form.ut_report_no} onChange={event => setField('ut_report_no', event.target.value)} placeholder="UT-2211-ST-22-0033" />
                         </div>
                         <div>
@@ -300,7 +300,7 @@ export default function NewWeldPage() {
                             <input className="form-input" value={form.release_note_no} onChange={event => setField('release_note_no', event.target.value)} placeholder="IRN-2211-ST-22-0001" />
                         </div>
                         <div>
-                            <FormLabel>Stage hiá»‡n táº¡i</FormLabel>
+                            <FormLabel>Stage hien tai</FormLabel>
                             <select className="form-input" value={form.stage} onChange={event => setField('stage', event.target.value as WeldStage)}>
                                 {Object.entries(STAGE_LABELS).map(([value, label]) => (
                                     <option key={value} value={value}>
@@ -311,8 +311,8 @@ export default function NewWeldPage() {
                         </div>
                     </div>
                     <div style={{ marginTop: '16px' }}>
-                        <FormLabel>Ghi chÃº (Remarks)</FormLabel>
-                        <textarea className="form-input" rows={3} value={form.remarks} onChange={event => setField('remarks', event.target.value)} placeholder="Ghi chÃº thÃªm..." style={{ resize: 'vertical' }} />
+                        <FormLabel>Ghi chu (Remarks)</FormLabel>
+                        <textarea className="form-input" rows={3} value={form.remarks} onChange={event => setField('remarks', event.target.value)} placeholder="Ghi chu them..." style={{ resize: 'vertical' }} />
                     </div>
                 </div>
 
@@ -348,10 +348,10 @@ export default function NewWeldPage() {
 
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                     <Link href="/welds" className="btn btn-secondary">
-                        Há»§y
+                        Huy
                     </Link>
                     <button type="submit" className="btn btn-primary" disabled={loading}>
-                        {loading ? 'Äang lÆ°u...' : 'LÆ°u má»‘i hÃ n'}
+                        {loading ? 'Dang luu...' : 'Luu moi han'}
                     </button>
                 </div>
             </form>

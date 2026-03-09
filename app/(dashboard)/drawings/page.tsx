@@ -96,18 +96,18 @@ export default async function DrawingsPage() {
     return (
         <div className="page-enter">
             <div style={{ marginBottom: '20px' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Báº£n váº½ (Drawing Map)</h1>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Ban ve (Drawing Map)</h1>
                 <p style={{ color: '#64748b', marginTop: '4px', fontSize: '0.875rem' }}>
-                    TÆ°Æ¡ng á»©ng sheet <strong>list WMap</strong> - {projectId ? `${totalDrawings} báº£n váº½ | ${totalWelds.toLocaleString()} má»‘i hÃ n` : 'Chá»n dá»± Ã¡n Ä‘á»ƒ xem'}
+                    Tuong ung sheet <strong>list WMap</strong> - {projectId ? `${totalDrawings} ban ve | ${totalWelds.toLocaleString()} moi han` : 'Chon du an de xem'}
                 </p>
             </div>
 
             {!projectId ? (
-                <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui lÃ²ng chá»n dá»± Ã¡n á»Ÿ menu bÃªn trÃ¡i.</div>
+                <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui long chon du an o menu ben trai.</div>
             ) : drawings.length === 0 ? (
                 <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>
                     <div style={{ fontSize: '2rem', marginBottom: '8px' }}>Map</div>
-                    ChÆ°a cÃ³ dá»¯ liá»‡u báº£n váº½. HÃ£y import file Excel trÆ°á»›c.
+                    Chua co du lieu ban ve. Hay import file Excel truoc.
                 </div>
             ) : (
                 <div className="table-container">
@@ -122,7 +122,7 @@ export default async function DrawingsPage() {
                                 <th style={thStyle}>Visual</th>
                                 <th style={thStyle}>NDT Done</th>
                                 <th style={thStyle}>Release Note</th>
-                                <th style={thStyle}>Xem má»‘i hÃ n</th>
+                                <th style={thStyle}>Xem moi han</th>
                             </tr>
                         </thead>
                         <tbody>

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -70,23 +70,21 @@ function formatDate(value: unknown): string | null {
 }
 
 function Field({ label, value, highlight }: { label: string; value: string | null | undefined; highlight?: boolean }) {
-    const displayValue = value != null && value !== '' ? value : 'â€”'
+    const displayValue = value != null && value !== '' ? value : '-'
 
     return (
         <div style={{ padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
             <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
                 {label}
             </div>
-            <div style={{ fontSize: '0.9rem', fontWeight: highlight ? 700 : 400, color: highlight ? '#0f172a' : '#374151' }}>
-                {displayValue}
-            </div>
+            <div style={{ fontSize: '0.9rem', fontWeight: highlight ? 700 : 400, color: highlight ? '#0f172a' : '#374151' }}>{displayValue}</div>
         </div>
     )
 }
 
 function ResultBadge({ value }: { value: string | null | undefined }) {
     if (!value) {
-        return <span style={{ color: '#94a3b8' }}>â€”</span>
+        return <span style={{ color: '#94a3b8' }}>-</span>
     }
 
     const accepted = value === 'ACC'
@@ -119,7 +117,7 @@ export default function WeldDetailPage() {
         async function load() {
             const { data, error: queryError } = await supabase.from('welds').select('*').eq('id', id).single()
             if (queryError || !data) {
-                setError('KhÃ´ng tÃ¬m tháº¥y má»‘i hÃ n.')
+                setError('Khong tim thay moi han.')
                 setLoading(false)
                 return
             }
@@ -135,7 +133,7 @@ export default function WeldDetailPage() {
         return (
             <div style={{ textAlign: 'center', padding: '80px' }}>
                 <div className="spinner" style={{ margin: '0 auto 16px' }} />
-                <p style={{ color: '#64748b' }}>Äang táº£i...</p>
+                <p style={{ color: '#64748b' }}>Dang tai...</p>
             </div>
         )
     }
@@ -143,7 +141,7 @@ export default function WeldDetailPage() {
     if (error || !weld) {
         return (
             <div style={{ padding: '40px', color: '#dc2626' }}>
-                {error || 'KhÃ´ng tÃ¬m tháº¥y dá»¯ liá»‡u.'} <Link href="/welds">Quay láº¡i danh sÃ¡ch</Link>
+                {error || 'Khong tim thay du lieu.'} <Link href="/welds">Quay lai danh sach</Link>
             </div>
         )
     }
@@ -170,9 +168,7 @@ export default function WeldDetailPage() {
         <div className="page-enter">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                 <div>
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
-                        {displayText(weld.weld_id) || ''}
-                    </h1>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>{displayText(weld.weld_id) || ''}</h1>
                     <div style={{ marginTop: '6px', display: 'flex', gap: '10px', alignItems: 'center' }}>
                         {stage && (
                             <span style={{ padding: '3px 10px', borderRadius: '5px', fontWeight: 700, fontSize: '0.8rem', background: `${stageColor}22`, color: stageColor }}>
@@ -187,13 +183,13 @@ export default function WeldDetailPage() {
                     </div>
                 </div>
                 <Link href={`/welds/${id}/edit`} className="btn btn-primary">
-                    Chá»‰nh sá»­a
+                    Chinh sua
                 </Link>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
                 <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>ThÃ´ng tin cÆ¡ báº£n</h3>
+                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>Thong tin co ban</h3>
                     <Field label="Drawing No" value={displayText(weld.drawing_no)} />
                     <Field label="Weld No" value={displayText(weld.weld_no)} />
                     <Field label="Weld Joints" value={displayText(weld.joint_family)} />
@@ -222,7 +218,7 @@ export default function WeldDetailPage() {
                 </div>
 
                 <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>Káº¿t quáº£ NDT / Release</h3>
+                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>Ket qua NDT / Release</h3>
                     <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', flexWrap: 'wrap' }}>
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '4px' }}>MT</div>
@@ -266,13 +262,12 @@ export default function WeldDetailPage() {
 
             <div style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
                 <Link href="/welds" className="btn btn-secondary">
-                    Danh sÃ¡ch
+                    Danh sach
                 </Link>
                 <Link href={`/welds/${id}/edit`} className="btn btn-primary">
-                    Chá»‰nh sá»­a
+                    Chinh sua
                 </Link>
             </div>
         </div>
     )
 }
-

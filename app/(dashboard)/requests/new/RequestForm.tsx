@@ -36,7 +36,7 @@ const REQUEST_TYPE_LABELS: Record<string, string> = {
     fitup: 'Fit-Up',
     backgouge: 'Backgouge',
     lamcheck: 'Lamcheck',
-    request: 'NDT / KhÃ¡ch hÃ ng visual',
+    request: 'NDT / Khach hang visual',
 }
 
 const REQUEST_PREFIX: Record<string, string> = {
@@ -82,7 +82,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
 
     const lookupWelds = useCallback(async () => {
         if (!projectId || !requestType || !requestNo.trim()) {
-            setError('Vui lÃ²ng chá»n dá»± Ã¡n, loáº¡i yÃªu cáº§u vÃ  nháº­p sá»‘ request.')
+            setError('Vui long chon du an, loai yeu cau va nhap so request.')
             return
         }
 
@@ -103,7 +103,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
             .order('excel_row_order', { ascending: true })
 
         if (dbError) {
-            setError(`Lá»—i tra cá»©u: ${dbError.message}`)
+            setError(`Loi tra cuu: ${dbError.message}`)
         } else {
             setMatchedWelds((data || []) as Weld[])
         }
@@ -115,7 +115,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
         event.preventDefault()
 
         if (matchedWelds.length === 0) {
-            setError('KhÃ´ng cÃ³ má»‘i hÃ n nÃ o Ä‘Æ°á»£c chá»n. HÃ£y tra cá»©u trÆ°á»›c.')
+            setError('Khong co moi han nao duoc chon. Hay tra cuu truoc.')
             return
         }
 
@@ -155,10 +155,10 @@ export default function RequestForm({ projects, userName }: { projects: Project[
             )}
 
             <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                <h3 style={{ fontWeight: 700, marginBottom: '16px', color: '#1e40af', fontSize: '0.95rem' }}>BÆ°á»›c 1: Chá»n dá»± Ã¡n vÃ  loáº¡i yÃªu cáº§u</h3>
+                <h3 style={{ fontWeight: 700, marginBottom: '16px', color: '#1e40af', fontSize: '0.95rem' }}>Buoc 1: Chon du an va loai yeu cau</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div>
-                        <label style={labelStyle}>Dá»± Ã¡n *</label>
+                        <label style={labelStyle}>Du an *</label>
                         <select
                             name="project_id"
                             required
@@ -170,7 +170,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                             }}
                             style={inputStyle}
                         >
-                            <option value="">-- Chá»n dá»± Ã¡n --</option>
+                            <option value="">-- Chon du an --</option>
                             {projects.map((project) => (
                                 <option key={project.id} value={project.id}>
                                     {project.code} - {project.name}
@@ -179,7 +179,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                         </select>
                     </div>
                     <div>
-                        <label style={labelStyle}>Loáº¡i yÃªu cáº§u *</label>
+                        <label style={labelStyle}>Loai yeu cau *</label>
                         <select
                             name="request_type"
                             required
@@ -193,7 +193,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                             }}
                             style={inputStyle}
                         >
-                            <option value="">-- Chá»n loáº¡i --</option>
+                            <option value="">-- Chon loai --</option>
                             {Object.entries(REQUEST_TYPE_LABELS).map(([value, label]) => (
                                 <option key={value} value={value}>
                                     {label}
@@ -205,17 +205,17 @@ export default function RequestForm({ projects, userName }: { projects: Project[
             </div>
 
             <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                <h3 style={{ fontWeight: 700, marginBottom: '4px', color: '#1e40af', fontSize: '0.95rem' }}>BÆ°á»›c 2: Nháº­p sá»‘ request vÃ  tra cá»©u má»‘i hÃ n</h3>
+                <h3 style={{ fontWeight: 700, marginBottom: '4px', color: '#1e40af', fontSize: '0.95rem' }}>Buoc 2: Nhap so request va tra cuu moi han</h3>
                 <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '14px' }}>
-                    Nháº­p Ä‘Ãºng sá»‘ request Ä‘Ã£ Ä‘Æ°á»£c QC gÃ¡n trong weld master, vÃ­ dá»¥ <strong>V-191</strong>. Há»‡ thá»‘ng sáº½ dÃ² theo cá»™t tÆ°Æ¡ng á»©ng trong dá»¯ liá»‡u import tá»« Excel.
+                    Nhap dung so request da duoc QC gan trong weld master, vi du <strong>V-191</strong>. He thong se do theo cot tuong ung trong du lieu import tu Excel.
                 </p>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
                     <div style={{ flex: 1 }}>
                         <label style={labelStyle}>
-                            Sá»‘ request *
+                            So request *
                             {requestType && (
                                 <span style={{ color: '#94a3b8', fontWeight: 400, textTransform: 'none', marginLeft: '6px' }}>
-                                    (cá»™t DB: <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '3px' }}>{REQUEST_TYPE_COLUMN[requestType]}</code>)
+                                    (cot DB: <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '3px' }}>{REQUEST_TYPE_COLUMN[requestType]}</code>)
                                 </span>
                             )}
                         </label>
@@ -233,7 +233,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                                     void lookupWelds()
                                 }
                             }}
-                            placeholder={requestType ? `VD: ${REQUEST_PREFIX[requestType] || ''}191` : 'Chá»n loáº¡i yÃªu cáº§u trÆ°á»›c'}
+                            placeholder={requestType ? `VD: ${REQUEST_PREFIX[requestType] || ''}191` : 'Chon loai yeu cau truoc'}
                             style={{ ...inputStyle, fontSize: '1rem', fontWeight: 600 }}
                             disabled={!requestType || !projectId}
                         />
@@ -253,7 +253,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                             whiteSpace: 'nowrap' as const,
                         }}
                     >
-                        {loadingWelds ? 'Äang tÃ¬m...' : 'TÃ¬m má»‘i hÃ n'}
+                        {loadingWelds ? 'Dang tim...' : 'Tim moi han'}
                     </button>
                 </div>
 
@@ -261,16 +261,16 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                     <div style={{ marginTop: '16px' }}>
                         {matchedWelds.length === 0 ? (
                             <div style={{ padding: '20px', textAlign: 'center', background: '#fef9c3', borderRadius: '8px', color: '#854d0e', fontWeight: 500 }}>
-                                KhÃ´ng tÃ¬m tháº¥y má»‘i hÃ n nÃ o cÃ³ {REQUEST_TYPE_COLUMN[requestType]} = &quot;{requestNo}&quot;.
+                                Khong tim thay moi han nao co {REQUEST_TYPE_COLUMN[requestType]} = &quot;{requestNo}&quot;.
                                 <div style={{ fontSize: '0.8rem', marginTop: '4px', color: '#92400e' }}>
-                                    Kiá»ƒm tra láº¡i sá»‘ request hoáº·c báº£o Ä‘áº£m dá»¯ liá»‡u Ä‘Ã£ Ä‘Æ°á»£c import tá»« Excel.
+                                    Kiem tra lai so request hoac bao dam du lieu da duoc import tu Excel.
                                 </div>
                             </div>
                         ) : (
                             <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                                     <div style={{ fontWeight: 600, color: '#166534', background: '#dcfce7', padding: '6px 14px', borderRadius: '6px', fontSize: '0.875rem' }}>
-                                        TÃ¬m tháº¥y <strong>{matchedWelds.length}</strong> má»‘i hÃ n vá»›i request <strong>{requestNo}</strong>
+                                        Tim thay <strong>{matchedWelds.length}</strong> moi han voi request <strong>{requestNo}</strong>
                                     </div>
                                 </div>
                                 <div style={{ maxHeight: '400px', overflowY: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -365,18 +365,18 @@ export default function RequestForm({ projects, userName }: { projects: Project[
             </div>
 
             <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                <h3 style={{ fontWeight: 700, marginBottom: '16px', color: '#1e40af', fontSize: '0.95rem' }}>BÆ°á»›c 3: ThÃ´ng tin yÃªu cáº§u</h3>
+                <h3 style={{ fontWeight: 700, marginBottom: '16px', color: '#1e40af', fontSize: '0.95rem' }}>Buoc 3: Thong tin yeu cau</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
                     <div>
-                        <label style={labelStyle}>NgÃ y yÃªu cáº§u *</label>
+                        <label style={labelStyle}>Ngay yeu cau *</label>
                         <input type="date" name="request_date" required style={inputStyle} />
                     </div>
                     <div>
-                        <label style={labelStyle}>Giá» yÃªu cáº§u</label>
+                        <label style={labelStyle}>Gio yeu cau</label>
                         <input type="time" name="request_time" style={inputStyle} />
                     </div>
                     <div>
-                        <label style={labelStyle}>NgÆ°á»i táº¡o phiáº¿u</label>
+                        <label style={labelStyle}>Nguoi tao phieu</label>
                         <input
                             type="text"
                             name="requested_by"
@@ -386,12 +386,12 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                         />
                     </div>
                     <div>
-                        <label style={labelStyle}>ÄÆ¡n vá»‹ NDT / kiá»ƒm tra</label>
+                        <label style={labelStyle}>Don vi NDT / kiem tra</label>
                         <input type="text" name="inspector_company" placeholder="VD: Alpha NDT" style={inputStyle} />
                     </div>
                     <div style={{ gridColumn: '1 / -1' }}>
-                        <label style={labelStyle}>Ghi chÃº</label>
-                        <textarea name="remarks" rows={2} placeholder="Ghi chÃº thÃªm..." style={{ ...inputStyle, resize: 'vertical' }} />
+                        <label style={labelStyle}>Ghi chu</label>
+                        <textarea name="remarks" rows={2} placeholder="Ghi chu them..." style={{ ...inputStyle, resize: 'vertical' }} />
                     </div>
                 </div>
             </div>
@@ -410,7 +410,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                         cursor: 'pointer',
                     }}
                 >
-                    Há»§y
+                    Huy
                 </button>
                 <button
                     type="submit"
@@ -425,7 +425,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                         color: 'white',
                     }}
                 >
-                    {isSubmitting ? 'Äang lÆ°u...' : `Táº¡o yÃªu cáº§u (${matchedWelds.length} má»‘i hÃ n)`}
+                    {isSubmitting ? 'Dang luu...' : `Tao yeu cau (${matchedWelds.length} moi han)`}
                 </button>
             </div>
         </form>

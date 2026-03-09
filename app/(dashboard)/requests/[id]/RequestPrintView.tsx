@@ -97,7 +97,7 @@ export default function RequestPrintView({ request, welds }: { request: Request;
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error)
             console.error('Error exporting template:', error)
-            alert(`Lá»—i xuáº¥t Excel: ${message}`)
+            alert(`Loi xuat Excel: ${message}`)
         }
     }
 
@@ -105,14 +105,14 @@ export default function RequestPrintView({ request, welds }: { request: Request;
         <div className="print-wrapper" style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
             <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', background: 'white', padding: '16px 24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <Link href="/requests" style={{ color: '#475569', textDecoration: 'none', fontWeight: 600 }}>
-                    {'â† Quay láº¡i danh sÃ¡ch'}
+                    {'<- Quay lai danh sach'}
                 </Link>
                 <div style={{ display: 'flex', gap: '12px' }}>
                     <button onClick={handlePrint} style={{ padding: '10px 20px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>
-                        In / Xuáº¥t PDF
+                        In / Xuat PDF
                     </button>
                     <button onClick={handleExportExcel} style={{ padding: '10px 20px', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>
-                        Xuáº¥t Excel
+                        Xuat Excel
                     </button>
                 </div>
             </div>
