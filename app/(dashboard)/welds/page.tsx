@@ -36,6 +36,9 @@ interface SelectOption {
     label: string
 }
 
+type DynamicFilterKey = 'weld_no' | 'joint_family'
+type DynamicFilterOptions = Record<DynamicFilterKey, SelectOption[]>
+
 interface ResizeState {
     key: string
     startX: number
@@ -56,6 +59,21 @@ const LIMIT_OPTIONS = [50, 100, 200, 500, 1000, 999999]
 const ACTION_COLUMN_KEY = '__actions__'
 const ACTION_COLUMN_DEFAULT_WIDTH = 180
 const COLUMN_RESIZE_STORAGE_KEY = 'weld-management-column-widths-v1'
+const DEFAULT_FILTER_OPTION: SelectOption = { value: '', label: 'Tất cả' }
+const DYNAMIC_SELECT_FILTER_KEYS: DynamicFilterKey[] = ['weld_no', 'joint_family']
+const EXACT_MATCH_FILTER_COLUMNS = new Set([
+    'weld_no',
+    'joint_family',
+    'joint_type',
+    'ndt_overall_result',
+    'mt_result',
+    'ut_result',
+    'rt_result',
+    'pwht_result',
+    'overall_status',
+    'stage',
+    'final_status',
+])
 
 const RESULT_OPTIONS: SelectOption[] = [
     { value: '', label: '-- Chưa có --' },
@@ -194,6 +212,18 @@ function getDefaultColumnWidths(): ColumnWidths {
         },
         { [ACTION_COLUMN_KEY]: ACTION_COLUMN_DEFAULT_WIDTH }
     )
+}
+
+function buildDynamicFilterOptions(values: Iterable<string>): SelectOption[] {
+    const unique = Array.from(
+        new Set(
+            Array.from(values)
+                .map((value) => normalizeText(value))
+                .filter(Boolean)
+        )
+    ).sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }))
+
+    return [DEFAULT_FILTER_OPTION, ...unique.map((value) => ({ value, label: value }))]
 }
 
 function sanitizeColumnWidths(value: unknown) {
@@ -531,7 +561,7 @@ function renderReadOnlyCell(column: ColumnDef, weld: WeldRow, columnWidth: numbe
     }
 }
 
-function getFilterOptions(column: ColumnDef): SelectOption[] | null {
+function getFilterOptions(column: ColumnDef, dynamicFilterOptions: DynamicFilterOptions): SelectOption[] | null {
     if (column.key === 'overall_status') {
         return STATUS_OPTIONS
     }
@@ -556,6 +586,10 @@ function getFilterOptions(column: ColumnDef): SelectOption[] | null {
         return [{ value: '', label: 'Tất cả' }, ...JOINT_TYPE_OPTIONS.filter((option) => option.value)]
     }
 
+    if (column.key === 'weld_no' || column.key === 'joint_family') {
+        return dynamicFilterOptions[column.key]
+    }
+
     return null
 }
 
@@ -577,6 +611,10 @@ export default function WeldsPage() {
     const [draftRow, setDraftRow] = useState<DraftRow>({})
     const [rowSavingId, setRowSavingId] = useState<string | null>(null)
     const [tableMessage, setTableMessage] = useState<TableMessage>(null)
+    const [dynamicFilterOptions, setDynamicFilterOptions] = useState<DynamicFilterOptions>({
+        weld_no: [DEFAULT_FILTER_OPTION],
+        joint_family: [DEFAULT_FILTER_OPTION],
+    })
     const debounceRef = useRef<NodeJS.Timeout | null>(null)
     const resizeStateRef = useRef<ResizeState | null>(null)
     const [columnWidths, setColumnWidths] = useState<ColumnWidths>(() => getDefaultColumnWidths())
@@ -666,6 +704,69 @@ export default function WeldsPage() {
         }
     }, [drawingFilter])
 
+    useEffect(() => {
+        let cancelled = false
+
+        const loadDynamicFilterOptions = async () => {
+            if (!currentProjectId) {
+                setDynamicFilterOptions({
+                    weld_no: [DEFAULT_FILTER_OPTION],
+                    joint_family: [DEFAULT_FILTER_OPTION],
+                })
+                return
+            }
+
+            const valueSets: Record<DynamicFilterKey, Set<string>> = {
+                weld_no: new Set<string>(),
+                joint_family: new Set<string>(),
+            }
+            const pageSize = 1000
+
+            for (let pageIndex = 0; pageIndex < 20; pageIndex += 1) {
+                const from = pageIndex * pageSize
+                const to = from + pageSize - 1
+                const { data, error } = await supabase
+                    .from('welds')
+                    .select('weld_no,joint_family')
+                    .eq('project_id', currentProjectId)
+                    .range(from, to)
+
+                if (cancelled || error) {
+                    return
+                }
+
+                const rows = (data as Array<Record<DynamicFilterKey, string | null>>) || []
+                for (const row of rows) {
+                    for (const key of DYNAMIC_SELECT_FILTER_KEYS) {
+                        const value = normalizeText(row[key])
+                        if (value) {
+                            valueSets[key].add(value)
+                        }
+                    }
+                }
+
+                if (rows.length < pageSize) {
+                    break
+                }
+            }
+
+            if (cancelled) {
+                return
+            }
+
+            setDynamicFilterOptions({
+                weld_no: buildDynamicFilterOptions(valueSets.weld_no),
+                joint_family: buildDynamicFilterOptions(valueSets.joint_family),
+            })
+        }
+
+        void loadDynamicFilterOptions()
+
+        return () => {
+            cancelled = true
+        }
+    }, [currentProjectId, supabase])
+
     const fetchWelds = useCallback(async () => {
         if (!currentProjectId) {
             setWelds([])
@@ -696,7 +797,11 @@ export default function WeldsPage() {
             }
 
             const numericColumns = ['excel_row_order', 'weld_length', 'thickness', 'thickness_lamcheck', 'defect_length', 'repair_length']
-            query = numericColumns.includes(column) ? query.eq(column, trimmed) : query.ilike(column, `%${trimmed}%`)
+            query = numericColumns.includes(column)
+                ? query.eq(column, trimmed)
+                : EXACT_MATCH_FILTER_COLUMNS.has(column)
+                  ? query.eq(column, trimmed)
+                  : query.ilike(column, `%${trimmed}%`)
         }
 
         const { data, count } = await query
@@ -1062,7 +1167,7 @@ export default function WeldsPage() {
                                 </tr>
                                 <tr style={{ background: '#f8fafc' }}>
                                     {COLUMNS.map((column) => {
-                                        const filterOptions = getFilterOptions(column)
+                                        const filterOptions = getFilterOptions(column, dynamicFilterOptions)
                                         const columnWidth = getColumnWidth(column)
                                         return (
                                             <td
