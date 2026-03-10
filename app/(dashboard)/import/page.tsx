@@ -1,20 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import { ChangeEvent, useEffect, useRef, useState } from 'react'
+import { ChangeEvent, ReactNode, useEffect, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
+import SyncedTableFrame from '@/components/SyncedTableFrame'
 import { createClient } from '@/lib/supabase/client'
-import { formatNumber } from '@/lib/formatters'
 import {
     cloneLayoutWithColumns,
     detectWorkbookLayout,
     IMPORT_FIELD_DEFINITIONS,
+    ImportFieldKey,
     ImportLayoutConfig,
     ImportWorkbookSource,
     parseWorkbookData,
     PreviewRow,
     WeldUpsertRow,
 } from '@/lib/excel-import'
+import { formatNumber } from '@/lib/formatters'
 import { PROJECT_CHANGE_EVENT, readActiveProjectIdFromCookie } from '@/lib/project-selection'
 import { useRoleGuard } from '@/lib/use-role-guard'
 
@@ -28,17 +30,55 @@ interface WeldUpsertTable {
     upsert(values: WeldUpsertRow[], options: { onConflict: string }): Promise<{ error: { message: string } | null }>
 }
 
+type PreviewColumn = {
+    label: string
+    render: (row: PreviewRow) => ReactNode
+}
+
 const BATCH_SIZE = 50
+
+const PREVIEW_COLUMNS: PreviewColumn[] = [
+    { label: 'Weld ID', render: (row) => row.weld_id },
+    { label: 'Drawing', render: (row) => row.drawing_no },
+    { label: 'Weld No', render: (row) => row.weld_no },
+    { label: 'Nhóm mối hàn', render: (row) => row.joint_family || '—' },
+    { label: 'Loại / Cấu hình', render: (row) => row.joint_type || '—' },
+    { label: 'NDT', render: (row) => row.ndt_requirements || '—' },
+    { label: 'Position', render: (row) => row.position || '—' },
+    { label: 'Length', render: (row) => formatNumber(row.weld_length) || '—' },
+    { label: 'Thick', render: (row) => row.thickness ?? '—' },
+    { label: 'Thick LC', render: (row) => row.thickness_lamcheck ?? '—' },
+    { label: 'WPS', render: (row) => row.wps_no || '—' },
+    { label: 'GOC Code', render: (row) => row.goc_code || '—' },
+    { label: 'QC Fit-up', render: (row) => row.fitup_inspector || '—' },
+    { label: 'Fit-up Date', render: (row) => row.fitup_date || '—' },
+    { label: 'Fit-up RQ', render: (row) => row.fitup_request_no || '—' },
+    { label: 'Finish Date', render: (row) => row.weld_finish_date || '—' },
+    { label: 'Welders', render: (row) => row.welders || '—' },
+    { label: 'QC Visual', render: (row) => row.visual_inspector || '—' },
+    { label: 'Visual Date', render: (row) => row.visual_date || '—' },
+    { label: 'NDT/Visual RQ', render: (row) => row.inspection_request_no || '—' },
+    { label: 'BG Date', render: (row) => row.backgouge_date || '—' },
+    { label: 'BG Request', render: (row) => row.backgouge_request_no || '—' },
+    { label: 'LC Date', render: (row) => row.lamcheck_date || '—' },
+    { label: 'LC Request', render: (row) => row.lamcheck_request_no || '—' },
+    { label: 'MT', render: (row) => row.mt_result || '—' },
+    { label: 'MT Report', render: (row) => row.mt_report_no || '—' },
+    { label: 'UT', render: (row) => row.ut_result || '—' },
+    { label: 'UT Report', render: (row) => row.ut_report_no || '—' },
+    { label: 'RT', render: (row) => row.rt_result || '—' },
+    { label: 'RT Report', render: (row) => row.rt_report_no || '—' },
+    { label: 'Release Note', render: (row) => row.release_note_no || '—' },
+    { label: 'Release Date', render: (row) => row.release_note_date || '—' },
+    { label: 'Stage', render: (row) => row.stage || '—' },
+]
 
 function readWorkbookSource(fileData: ArrayBuffer, fileName: string): ImportWorkbookSource {
     const workbook = XLSX.read(new Uint8Array(fileData), { type: 'array', cellDates: true })
     const sheets: Record<string, unknown[][]> = {}
-
     for (const sheetName of workbook.SheetNames) {
-        const worksheet = workbook.Sheets[sheetName]
-        sheets[sheetName] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null }) as unknown[][]
+        sheets[sheetName] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: null }) as unknown[][]
     }
-
     return { fileName, sheets }
 }
 
@@ -46,10 +86,43 @@ function mappingCoverage(layout: ImportLayoutConfig) {
     return IMPORT_FIELD_DEFINITIONS.filter((field) => layout.fieldToColumn[field.key] != null).length
 }
 
+function findAssignedField(layout: ImportLayoutConfig, columnIndex: number): ImportFieldKey | '' {
+    return IMPORT_FIELD_DEFINITIONS.find((field) => layout.fieldToColumn[field.key] === columnIndex)?.key ?? ''
+}
+
+function assignFieldToColumn(layout: ImportLayoutConfig, columnIndex: number, fieldKey: ImportFieldKey | '') {
+    const nextMapping = { ...layout.fieldToColumn }
+    for (const field of IMPORT_FIELD_DEFINITIONS) {
+        if (nextMapping[field.key] === columnIndex) delete nextMapping[field.key]
+    }
+    if (fieldKey) {
+        delete nextMapping[fieldKey]
+        nextMapping[fieldKey] = columnIndex
+    }
+    return { ...layout, fieldToColumn: nextMapping }
+}
+
+function collectColumnSamples(source: ImportWorkbookSource | null, layout: ImportLayoutConfig | null) {
+    const samples = new Map<number, string>()
+    if (!source || !layout) return samples
+    const rows = source.sheets[layout.sheetName] || []
+    for (const column of layout.availableColumns) {
+        for (let rowIndex = Math.max(layout.dataStartRow - 1, 0); rowIndex < rows.length; rowIndex += 1) {
+            const text = String(rows[rowIndex]?.[column.index] ?? '').trim()
+            if (text) {
+                samples.set(column.index, text)
+                break
+            }
+        }
+        if (!samples.has(column.index)) samples.set(column.index, '')
+    }
+    return samples
+}
+
 export default function ImportPage() {
     const supabase = createClient()
     const fileRef = useRef<HTMLInputElement>(null)
-
+    const { checking: checkingRole } = useRoleGuard(['admin', 'dcc', 'qc'])
     const [file, setFile] = useState<File | null>(null)
     const [workbookSource, setWorkbookSource] = useState<ImportWorkbookSource | null>(null)
     const [layout, setLayout] = useState<ImportLayoutConfig | null>(null)
@@ -62,23 +135,19 @@ export default function ImportPage() {
     const [result, setResult] = useState<ImportResult | null>(null)
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
     const [currentProjectCode, setCurrentProjectCode] = useState('')
-    const { checking: checkingRole } = useRoleGuard(['admin', 'dcc', 'qc'])
+    const columnSamples = collectColumnSamples(workbookSource, layout)
+    const missingRequiredFields = layout ? IMPORT_FIELD_DEFINITIONS.filter((field) => field.required && layout.fieldToColumn[field.key] == null) : []
 
     useEffect(() => {
         if (typeof window === 'undefined') return
-
         const syncProject = () => {
-            const nextProjectId = readActiveProjectIdFromCookie()
-            setCurrentProjectId(nextProjectId)
-            if (!nextProjectId) {
-                setCurrentProjectCode('')
-            }
+            const projectId = readActiveProjectIdFromCookie()
+            setCurrentProjectId(projectId)
+            if (!projectId) setCurrentProjectCode('')
         }
-
         syncProject()
         window.addEventListener(PROJECT_CHANGE_EVENT, syncProject)
         window.addEventListener('focus', syncProject)
-
         return () => {
             window.removeEventListener(PROJECT_CHANGE_EVENT, syncProject)
             window.removeEventListener('focus', syncProject)
@@ -87,23 +156,14 @@ export default function ImportPage() {
 
     useEffect(() => {
         if (!currentProjectId) return
-
-        let isMounted = true
-        supabase
-            .from('projects')
-            .select('code, name')
-            .eq('id', currentProjectId)
-            .single()
-            .then(({ data }) => {
-                if (!isMounted) return
-                const project = data as { code: string; name: string } | null
-                if (project) {
-                    setCurrentProjectCode(`${project.code} — ${project.name}`)
-                }
-            })
-
+        let mounted = true
+        supabase.from('projects').select('code, name').eq('id', currentProjectId).single().then(({ data }) => {
+            if (!mounted) return
+            const project = data as { code: string; name: string } | null
+            if (project) setCurrentProjectCode(`${project.code} — ${project.name}`)
+        })
         return () => {
-            isMounted = false
+            mounted = false
         }
     }, [currentProjectId, supabase])
 
@@ -114,30 +174,27 @@ export default function ImportPage() {
             setParseIssues([])
             return
         }
-
         const parsed = parseWorkbookData(workbookSource, layout, currentProjectId)
         setPreview(parsed.preview)
         setPreparedRows(parsed.rows)
         setParseIssues(parsed.issues)
     }, [currentProjectId, layout, workbookSource])
 
-    if (checkingRole) {
-        return (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
-                Đang kiểm tra quyền truy cập...
-            </div>
-        )
+    const updateLayout = (updater: (current: ImportLayoutConfig) => ImportLayoutConfig) => {
+        setLayout((current) => {
+            if (!current || !workbookSource) return current
+            const next = updater(current)
+            return cloneLayoutWithColumns(next, workbookSource.sheets[next.sheetName] || [])
+        })
+        setResult(null)
     }
 
     const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
         const nextFile = event.target.files?.[0]
         if (!nextFile) return
-
         try {
-            const buffer = await nextFile.arrayBuffer()
-            const source = readWorkbookSource(buffer, nextFile.name)
+            const source = readWorkbookSource(await nextFile.arrayBuffer(), nextFile.name)
             const detectedLayout = detectWorkbookLayout(source)
-
             setFile(nextFile)
             setWorkbookSource(source)
             setLayout(detectedLayout)
@@ -145,424 +202,114 @@ export default function ImportPage() {
             setResult(null)
             setProgress(0)
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error)
-            alert(`Không đọc được file Excel: ${message}`)
+            alert(`Không đọc được file Excel: ${error instanceof Error ? error.message : String(error)}`)
         }
-    }
-
-    const handleSheetChange = (sheetName: string) => {
-        if (!workbookSource) return
-
-        const singleSheetSource: ImportWorkbookSource = {
-            fileName: workbookSource.fileName,
-            sheets: {
-                [sheetName]: workbookSource.sheets[sheetName] || [],
-            },
-        }
-
-        const detectedLayout = detectWorkbookLayout(singleSheetSource)
-        setLayout(detectedLayout)
-        setShowManualMapping(true)
-        setResult(null)
-    }
-
-    const updateLayout = (updater: (current: ImportLayoutConfig) => ImportLayoutConfig) => {
-        setLayout((current) => {
-            if (!current || !workbookSource) return current
-            const next = updater(current)
-            const rawData = workbookSource.sheets[next.sheetName] || []
-            return cloneLayoutWithColumns(next, rawData)
-        })
-        setResult(null)
     }
 
     const handleImport = async () => {
-        if (!file || !layout) return
-
-        if (!currentProjectId) {
-            alert('Bạn chưa chọn dự án. Hãy chọn dự án ở menu bên trái trước khi import.')
-            return
-        }
-
-        if (preparedRows.length === 0) {
-            alert('Không có dòng dữ liệu hợp lệ để import. Hãy kiểm tra lại mapping cột hoặc sheet dữ liệu.')
-            return
-        }
-
+        if (!layout || !currentProjectId || preparedRows.length === 0) return
         setImporting(true)
         setResult(null)
         setProgress(0)
-
         try {
             const weldTable = supabase.from('welds') as unknown as WeldUpsertTable
-            let successCount = 0
-            let errorCount = 0
+            let success = 0
+            let errors = 0
             const messages: string[] = []
-
             for (let index = 0; index < preparedRows.length; index += BATCH_SIZE) {
                 const batch = preparedRows.slice(index, index + BATCH_SIZE)
                 const { error } = await weldTable.upsert(batch, { onConflict: 'project_id,weld_id' })
-
                 if (error) {
                     messages.push(`Batch ${Math.floor(index / BATCH_SIZE) + 1}: ${error.message}`)
-                    errorCount += batch.length
+                    errors += batch.length
                     break
                 }
-
-                successCount += batch.length
+                success += batch.length
                 setProgress(Math.round(((index + batch.length) / preparedRows.length) * 100))
             }
-
-            setResult({ success: successCount, errors: errorCount, messages })
+            setResult({ success, errors, messages })
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error)
-            setResult({ success: 0, errors: preparedRows.length, messages: [message] })
+            setResult({ success: 0, errors: preparedRows.length, messages: [error instanceof Error ? error.message : String(error)] })
         } finally {
             setImporting(false)
         }
     }
 
+    if (checkingRole) return <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>Đang kiểm tra quyền truy cập...</div>
+
     return (
         <div className="page-enter">
-            <div style={{ marginBottom: '24px' }}>
+            <div style={{ marginBottom: 24 }}>
                 <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>Import từ Excel</h1>
-                <p style={{ color: '#64748b', marginTop: '4px' }}>
-                    Hệ thống sẽ tự nhận diện template import. Nếu file khác chuẩn, người dùng có thể map lại sheet, header và cột ngay tại đây.
-                </p>
+                <p style={{ color: '#64748b', marginTop: 4 }}>Người import có thể tự gán lại “cột Excel → chức năng hệ thống” nếu auto detect chưa đúng.</p>
             </div>
-
-            {!currentProjectId ? (
-                <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '1.5rem' }}>⚠️</span>
-                    <div>
-                        <div style={{ fontWeight: 600, color: '#b91c1c' }}>Chưa chọn dự án</div>
-                        <div style={{ color: '#dc2626', fontSize: '0.875rem' }}>
-                            Vui lòng chọn dự án ở menu bên trái trước khi import. Dữ liệu sẽ được gắn vào dự án đang chọn.
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: '8px', padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '1.5rem' }}>✅</span>
-                    <div>
-                        <div style={{ fontWeight: 600, color: '#166534' }}>Dự án nhận dữ liệu import</div>
-                        <div style={{ color: '#15803d', fontSize: '0.875rem' }}>{currentProjectCode || currentProjectId}</div>
-                    </div>
-                </div>
-            )}
-
-            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
-                <h3 style={{ color: '#1e40af', marginBottom: '12px', fontWeight: 600 }}>Hướng dẫn import</h3>
-                <ol style={{ color: '#1e40af', paddingLeft: '20px', lineHeight: '1.8' }}>
-                    <li>Chọn file Excel bất kỳ của dự án, ưu tiên sheet chứa dữ liệu gốc mối hàn.</li>
-                    <li>Hệ thống sẽ thử tự nhận diện template TNHA hoặc RC&amp;BK.</li>
-                    <li>Nếu nhận diện chưa chuẩn, mở phần <strong>mapping thủ công</strong> để chỉ cho hệ thống cột nào là nội dung nào.</li>
-                    <li>Kiểm tra preview 10 dòng đầu trước khi import thật.</li>
-                    <li>Import dùng cơ chế upsert theo <strong>project_id + weld_id</strong>, dữ liệu trùng sẽ được cập nhật.</li>
+            <div style={{ background: currentProjectId ? '#dcfce7' : '#fee2e2', border: `1px solid ${currentProjectId ? '#86efac' : '#fca5a5'}`, borderRadius: 8, padding: '16px 20px', marginBottom: 20 }}>
+                <div style={{ fontWeight: 600, color: currentProjectId ? '#166534' : '#b91c1c' }}>{currentProjectId ? 'Dự án nhận dữ liệu import' : 'Chưa chọn dự án'}</div>
+                <div style={{ color: currentProjectId ? '#15803d' : '#dc2626', fontSize: '0.875rem' }}>{currentProjectId ? currentProjectCode || currentProjectId : 'Vui lòng chọn dự án ở menu bên trái trước khi import.'}</div>
+            </div>
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: 20, marginBottom: 20 }}>
+                <h3 style={{ color: '#1e40af', marginBottom: 12, fontWeight: 600 }}>Hướng dẫn import</h3>
+                <ol style={{ color: '#1e40af', paddingLeft: 20, lineHeight: '1.8' }}>
+                    <li>Chọn file Excel của dự án, ưu tiên sheet chứa dữ liệu gốc mối hàn.</li>
+                    <li>Hệ thống sẽ thử nhận diện template TNHA hoặc RC&amp;BK.</li>
+                    <li>Nếu auto map chưa đúng, mở mapping thủ công để đổi từng cột Excel sang đúng chức năng.</li>
+                    <li>Preview và bảng mapping đều có thanh cuộn ngang để kiểm tra dễ hơn trên màn hình hẹp.</li>
                 </ol>
             </div>
-
-            <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>1. Chọn file Excel</h3>
-                <div
-                    style={{
-                        border: '2px dashed #e2e8f0',
-                        borderRadius: '10px',
-                        padding: '32px',
-                        textAlign: 'center',
-                        cursor: 'pointer',
-                        background: '#f8fafc',
-                    }}
-                    onClick={() => fileRef.current?.click()}
-                >
-                    <div style={{ fontSize: '3rem', marginBottom: '8px' }}>📂</div>
-                    <p style={{ color: '#64748b', marginBottom: '4px' }}>Bấm để chọn file hoặc kéo thả vào đây</p>
+            <div style={{ background: 'white', borderRadius: 12, padding: 24, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                <h3 style={{ fontWeight: 600, marginBottom: 16 }}>1. Chọn file Excel</h3>
+                <div style={{ border: '2px dashed #e2e8f0', borderRadius: 10, padding: 32, textAlign: 'center', cursor: 'pointer', background: '#f8fafc' }} onClick={() => fileRef.current?.click()}>
+                    <div style={{ fontSize: '3rem', marginBottom: 8 }}>📂</div>
+                    <p style={{ color: '#64748b', marginBottom: 4 }}>Bấm để chọn file hoặc kéo thả vào đây</p>
                     <p style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Hỗ trợ: .xlsx, .xls</p>
-                    {file && <p style={{ color: '#22c55e', marginTop: '8px', fontWeight: 600 }}>✅ Đã chọn: {file.name}</p>}
+                    {file && <p style={{ color: '#22c55e', marginTop: 8, fontWeight: 600 }}>Đã chọn: {file.name}</p>}
                 </div>
                 <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFileChange} style={{ display: 'none' }} />
             </div>
-
-            {workbookSource && layout && (
-                <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
-                        <div>
-                            <h3 style={{ fontWeight: 600, marginBottom: '6px' }}>2. Nhận diện template và mapping</h3>
-                            <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
-                                Template nhận diện: <strong>{layout.profileLabel}</strong> • Sheet: <strong>{layout.sheetName}</strong> • Độ tin cậy: <strong>{Math.round(layout.confidence * 100)}%</strong>
-                            </p>
-                            <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
-                                Đã map <strong>{mappingCoverage(layout)}</strong> / <strong>{IMPORT_FIELD_DEFINITIONS.length}</strong> trường.
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() => setShowManualMapping((current) => !current)}
-                        >
-                            {showManualMapping ? 'Ẩn mapping thủ công' : 'Mở mapping thủ công'}
-                        </button>
+            {workbookSource && layout && <div style={{ background: 'white', borderRadius: 12, padding: 24, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+                    <div>
+                        <h3 style={{ fontWeight: 600, marginBottom: 6 }}>2. Nhận diện template và mapping</h3>
+                        <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Template: <strong>{layout.profileLabel}</strong> • Sheet: <strong>{layout.sheetName}</strong> • Độ tin cậy: <strong>{Math.round(layout.confidence * 100)}%</strong></p>
+                        <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Đã map <strong>{mappingCoverage(layout)}</strong> / <strong>{IMPORT_FIELD_DEFINITIONS.length}</strong> trường.</p>
                     </div>
-
-                    {(layout.issues.length > 0 || parseIssues.length > 0) && (
-                        <div style={{ marginBottom: '16px', padding: '12px 14px', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '10px' }}>
-                            <div style={{ fontWeight: 600, color: '#92400e', marginBottom: '6px' }}>Lưu ý nhận diện</div>
-                            {[...layout.issues, ...parseIssues].map((issue, index) => (
-                                <div key={`${issue}-${index}`} style={{ color: '#92400e', fontSize: '0.875rem' }}>
-                                    • {issue}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: showManualMapping ? '16px' : 0 }}>
-                        <label style={{ display: 'grid', gap: '6px' }}>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Sheet dữ liệu</span>
-                            <select
-                                value={layout.sheetName}
-                                onChange={(event) => handleSheetChange(event.target.value)}
-                                style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 12px' }}
-                            >
-                                {Object.keys(workbookSource.sheets).map((sheetName) => (
-                                    <option key={sheetName} value={sheetName}>
-                                        {sheetName}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                        <label style={{ display: 'grid', gap: '6px' }}>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Hàng header chính</span>
-                            <input
-                                type="number"
-                                min={1}
-                                value={layout.headerRow}
-                                onChange={(event) =>
-                                    updateLayout((current) => ({
-                                        ...current,
-                                        headerRow: Math.max(1, Number(event.target.value) || 1),
-                                    }))
-                                }
-                                style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 12px' }}
-                            />
-                        </label>
-                        <label style={{ display: 'grid', gap: '6px' }}>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Hàng sub-header</span>
-                            <input
-                                type="number"
-                                min={0}
-                                value={layout.subHeaderRow ?? 0}
-                                onChange={(event) =>
-                                    updateLayout((current) => ({
-                                        ...current,
-                                        subHeaderRow: Number(event.target.value) > 0 ? Number(event.target.value) : null,
-                                    }))
-                                }
-                                style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 12px' }}
-                            />
-                        </label>
-                        <label style={{ display: 'grid', gap: '6px' }}>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Bắt đầu dữ liệu từ hàng</span>
-                            <input
-                                type="number"
-                                min={1}
-                                value={layout.dataStartRow}
-                                onChange={(event) =>
-                                    updateLayout((current) => ({
-                                        ...current,
-                                        dataStartRow: Math.max(1, Number(event.target.value) || 1),
-                                    }))
-                                }
-                                style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 12px' }}
-                            />
-                        </label>
-                    </div>
-
-                    {showManualMapping && (
-                        <details open style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', background: '#f8fafc' }}>
-                            <summary style={{ cursor: 'pointer', fontWeight: 700, color: '#0f172a', marginBottom: '10px' }}>
-                                Mapping cột thủ công
-                            </summary>
-                            <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '16px' }}>
-                                Dùng khi file không theo đúng template đã biết. Cột có dấu * là cột bắt buộc để import.
-                            </p>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
-                                {IMPORT_FIELD_DEFINITIONS.map((field) => (
-                                    <label key={field.key} style={{ display: 'grid', gap: '6px' }}>
-                                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>
-                                            {field.label}
-                                            {field.required ? ' *' : ''}
-                                        </span>
-                                        <select
-                                            value={layout.fieldToColumn[field.key] ?? -1}
-                                            onChange={(event) =>
-                                                updateLayout((current) => ({
-                                                    ...current,
-                                                    fieldToColumn: {
-                                                        ...current.fieldToColumn,
-                                                        [field.key]: Number(event.target.value) >= 0 ? Number(event.target.value) : undefined,
-                                                    },
-                                                }))
-                                            }
-                                            style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px 12px' }}
-                                        >
-                                            <option value={-1}>— Không map —</option>
-                                            {layout.availableColumns.map((column) => (
-                                                <option key={`${field.key}-${column.index}`} value={column.index}>
-                                                    {column.excelColumn} — {column.combinedLabel}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </label>
-                                ))}
-                            </div>
-                        </details>
-                    )}
+                    <button type="button" className="btn btn-secondary" onClick={() => setShowManualMapping((value) => !value)}>{showManualMapping ? 'Ẩn mapping thủ công' : 'Mở mapping thủ công'}</button>
                 </div>
-            )}
-
-            {preview.length > 0 && (
-                <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
-                        <h3 style={{ fontWeight: 600 }}>3. Preview 10 dòng đầu</h3>
-                        <div style={{ color: '#64748b', fontSize: '0.875rem' }}>
-                            Nhận diện được <strong>{preparedRows.length}</strong> dòng dữ liệu hợp lệ
-                        </div>
-                    </div>
-                    <div className="table-container">
-                        <table style={{ fontSize: '0.73rem', minWidth: '1800px' }}>
-                            <thead>
-                                <tr>
-                                    <th>Weld ID</th>
-                                    <th>Drawing</th>
-                                    <th>Weld No</th>
-                                    <th>Nhóm mối hàn</th>
-                                    <th>Loại / Cấu hình</th>
-                                    <th>NDT</th>
-                                    <th>Position</th>
-                                    <th>Length</th>
-                                    <th>Thick</th>
-                                    <th>Thick LC</th>
-                                    <th>WPS</th>
-                                    <th>GOC Code</th>
-                                    <th>QC Fit-up</th>
-                                    <th>Fit-up Date</th>
-                                    <th>Fit-up RQ</th>
-                                    <th>Finish Date</th>
-                                    <th>Welders</th>
-                                    <th>QC Visual</th>
-                                    <th>Visual Date</th>
-                                    <th>NDT/Visual RQ</th>
-                                    <th>BG Date</th>
-                                    <th>BG Request</th>
-                                    <th>MT</th>
-                                    <th>MT Report</th>
-                                    <th>UT</th>
-                                    <th>UT Report</th>
-                                    <th>RT</th>
-                                    <th>Release Note</th>
-                                    <th>Release Date</th>
-                                    <th>Stage</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {preview.map((row, index) => (
-                                    <tr key={`${row.weld_id}-${index}`}>
-                                        <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{row.weld_id}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.drawing_no}</td>
-                                        <td style={{ textAlign: 'center' }}>{row.weld_no}</td>
-                                        <td style={{ fontWeight: 600 }}>{row.joint_family}</td>
-                                        <td style={{ fontWeight: 600 }}>{row.joint_type}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.ndt_requirements}</td>
-                                        <td style={{ textAlign: 'center' }}>{row.position}</td>
-                                        <td style={{ textAlign: 'right' }}>{formatNumber(row.weld_length)}</td>
-                                        <td style={{ textAlign: 'right' }}>{row.thickness}</td>
-                                        <td style={{ textAlign: 'right', color: '#64748b' }}>{row.thickness_lamcheck}</td>
-                                        <td style={{ color: '#6366f1' }}>{row.wps_no}</td>
-                                        <td><span style={{ padding: '1px 4px', background: '#f1f5f9', borderRadius: '3px' }}>{row.goc_code || '—'}</span></td>
-                                        <td>{row.fitup_inspector || '—'}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.fitup_date || '—'}</td>
-                                        <td>{row.fitup_request_no || '—'}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.weld_finish_date || '—'}</td>
-                                        <td style={{ whiteSpace: 'nowrap' }}>{row.welders || '—'}</td>
-                                        <td>{row.visual_inspector || '—'}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.visual_date || '—'}</td>
-                                        <td>{row.inspection_request_no || '—'}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.backgouge_date || '—'}</td>
-                                        <td>{row.backgouge_request_no || '—'}</td>
-                                        <td>{row.mt_result || '—'}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.mt_report_no || '—'}</td>
-                                        <td>{row.ut_result || '—'}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.ut_report_no || '—'}</td>
-                                        <td>{row.rt_result || '—'}</td>
-                                        <td style={{ fontWeight: 600, color: '#0369a1', whiteSpace: 'nowrap' }}>{row.release_note_no || '—'}</td>
-                                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{row.release_note_date || '—'}</td>
-                                        <td style={{ whiteSpace: 'nowrap' }}>{row.stage}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                    <p style={{ color: '#64748b', fontSize: '0.8rem', marginTop: '8px' }}>
-                        Preview chỉ hiển thị 10 dòng đầu. Toàn bộ dữ liệu hợp lệ sẽ được import khi bấm nút bên dưới.
-                    </p>
+                {([...layout.issues, ...parseIssues]).length > 0 && <div style={{ marginBottom: 16, padding: '12px 14px', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 10 }}>{[...layout.issues, ...parseIssues].map((issue, index) => <div key={`${issue}-${index}`} style={{ color: '#92400e', fontSize: '0.875rem' }}>• {issue}</div>)}</div>}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: showManualMapping ? 16 : 0 }}>
+                    <label style={{ display: 'grid', gap: 6 }}><span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Sheet dữ liệu</span><select value={layout.sheetName} onChange={(event) => { const sheetName = event.target.value; const next = detectWorkbookLayout({ fileName: workbookSource.fileName, sheets: { [sheetName]: workbookSource.sheets[sheetName] || [] } }); setLayout(next); setShowManualMapping(true); setResult(null) }} style={{ border: '1px solid #cbd5e1', borderRadius: 8, padding: '10px 12px' }}>{Object.keys(workbookSource.sheets).map((sheetName) => <option key={sheetName} value={sheetName}>{sheetName}</option>)}</select></label>
+                    <label style={{ display: 'grid', gap: 6 }}><span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Hàng header chính</span><input type="number" min={1} value={layout.headerRow} onChange={(event) => updateLayout((current) => ({ ...current, headerRow: Math.max(1, Number(event.target.value) || 1) }))} style={{ border: '1px solid #cbd5e1', borderRadius: 8, padding: '10px 12px' }} /></label>
+                    <label style={{ display: 'grid', gap: 6 }}><span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Hàng sub-header</span><input type="number" min={0} value={layout.subHeaderRow ?? 0} onChange={(event) => updateLayout((current) => ({ ...current, subHeaderRow: Number(event.target.value) > 0 ? Number(event.target.value) : null }))} style={{ border: '1px solid #cbd5e1', borderRadius: 8, padding: '10px 12px' }} /></label>
+                    <label style={{ display: 'grid', gap: 6 }}><span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Bắt đầu dữ liệu từ hàng</span><input type="number" min={1} value={layout.dataStartRow} onChange={(event) => updateLayout((current) => ({ ...current, dataStartRow: Math.max(1, Number(event.target.value) || 1) }))} style={{ border: '1px solid #cbd5e1', borderRadius: 8, padding: '10px 12px' }} /></label>
                 </div>
-            )}
-
-            {file && layout && (
-                <div style={{ background: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>4. Bắt đầu import</h3>
-                    {importing && (
-                        <div style={{ marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span style={{ fontSize: '0.875rem', color: '#374151' }}>Đang import...</span>
-                                <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{progress}%</span>
-                            </div>
-                            <div style={{ height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                                <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(90deg, #3b82f6, #1d4ed8)', transition: 'width 0.3s' }} />
-                            </div>
-                        </div>
-                    )}
-                    <button
-                        onClick={handleImport}
-                        disabled={importing || preparedRows.length === 0 || !currentProjectId}
-                        className="btn btn-primary"
-                        style={{ fontSize: '1rem', padding: '12px 32px' }}
-                    >
-                        {importing ? `Đang import (${progress}%)...` : 'Import vào Database'}
-                    </button>
+                {showManualMapping && <details open style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, background: '#f8fafc' }}>
+                    <summary style={{ cursor: 'pointer', fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>Mapping cột thủ công</summary>
+                    {missingRequiredFields.length > 0 && <div style={{ marginBottom: 16, padding: '10px 12px', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 10, color: '#92400e', fontSize: '0.875rem' }}>Còn thiếu các cột bắt buộc: <strong>{missingRequiredFields.map((field) => field.label).join(', ')}</strong></div>}
+                    <SyncedTableFrame><table style={{ minWidth: '1500px', fontSize: '0.82rem' }}><thead><tr><th>Cột Excel</th><th>Header chính</th><th>Sub-header</th><th>Mẫu giá trị</th><th>Gán chức năng</th></tr></thead><tbody>{layout.availableColumns.map((column) => <tr key={column.index}><td style={{ fontWeight: 700 }}>{column.excelColumn}</td><td>{column.topLabel || '—'}</td><td>{column.subLabel || '—'}</td><td title={columnSamples.get(column.index) || ''}>{columnSamples.get(column.index) || '—'}</td><td><select value={findAssignedField(layout, column.index)} onChange={(event) => updateLayout((current) => assignFieldToColumn(current, column.index, (event.target.value || '') as ImportFieldKey | ''))} style={{ width: '100%', border: '1px solid #cbd5e1', borderRadius: 8, padding: '10px 12px', background: 'white' }}><option value="">— Không gán chức năng —</option>{IMPORT_FIELD_DEFINITIONS.map((field) => <option key={`${column.index}-${field.key}`} value={field.key}>{field.label}{field.required ? ' *' : ''}</option>)}</select></td></tr>)}</tbody></table></SyncedTableFrame>
+                </details>}
+            </div>}
+            {preview.length > 0 && <div style={{ background: 'white', borderRadius: 12, padding: 24, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+                    <h3 style={{ fontWeight: 600 }}>3. Preview 10 dòng đầu</h3>
+                    <div style={{ color: '#64748b', fontSize: '0.875rem' }}>Nhận diện được <strong>{preparedRows.length}</strong> dòng dữ liệu hợp lệ</div>
                 </div>
-            )}
-
-            {result && (
-                <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginTop: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '12px' }}>Kết quả import</h3>
-                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                        <div style={{ padding: '16px 24px', background: '#dcfce7', borderRadius: '8px' }}>
-                            <div style={{ fontSize: '2rem', fontWeight: 700, color: '#166534' }}>{result.success}</div>
-                            <div style={{ color: '#166534', fontSize: '0.875rem' }}>Thành công</div>
-                        </div>
-                        <div style={{ padding: '16px 24px', background: '#fee2e2', borderRadius: '8px' }}>
-                            <div style={{ fontSize: '2rem', fontWeight: 700, color: '#991b1b' }}>{result.errors}</div>
-                            <div style={{ color: '#991b1b', fontSize: '0.875rem' }}>Lỗi</div>
-                        </div>
-                    </div>
-                    {result.messages.length > 0 && (
-                        <div style={{ marginTop: '12px', padding: '12px', background: '#fef9c3', borderRadius: '8px' }}>
-                            <p style={{ fontWeight: 600, marginBottom: '4px' }}>Chi tiết lỗi:</p>
-                            {result.messages.map((message, index) => (
-                                <p key={`${message}-${index}`} style={{ fontSize: '0.8rem', color: '#92400e' }}>
-                                    {message}
-                                </p>
-                            ))}
-                        </div>
-                    )}
-                    {result.success > 0 && (
-                        <Link href="/welds" className="btn btn-primary" style={{ marginTop: '12px', display: 'inline-flex' }}>
-                            Xem danh sách mối hàn →
-                        </Link>
-                    )}
+                <SyncedTableFrame><table style={{ fontSize: '0.73rem', minWidth: '2200px' }}><thead><tr>{PREVIEW_COLUMNS.map((column) => <th key={column.label}>{column.label}</th>)}</tr></thead><tbody>{preview.map((row, rowIndex) => <tr key={`${row.weld_id}-${rowIndex}`}>{PREVIEW_COLUMNS.map((column) => <td key={`${row.weld_id}-${column.label}`}>{column.render(row)}</td>)}</tr>)}</tbody></table></SyncedTableFrame>
+                <p style={{ color: '#64748b', fontSize: '0.8rem', marginTop: 8 }}>Preview chỉ hiển thị 10 dòng đầu. Toàn bộ dữ liệu hợp lệ sẽ được import khi bấm nút bên dưới.</p>
+            </div>}
+            {file && layout && <div style={{ background: 'white', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                <h3 style={{ fontWeight: 600, marginBottom: 16 }}>4. Bắt đầu import</h3>
+                {importing && <div style={{ marginBottom: 16, color: '#374151', fontSize: '0.875rem' }}>Đang import... {progress}%</div>}
+                <button onClick={handleImport} disabled={importing || preparedRows.length === 0 || !currentProjectId} className="btn btn-primary" style={{ fontSize: '1rem', padding: '12px 32px' }}>{importing ? `Đang import (${progress}%)...` : 'Import vào Database'}</button>
+            </div>}
+            {result && <div style={{ background: 'white', borderRadius: 12, padding: 24, marginTop: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                <h3 style={{ fontWeight: 600, marginBottom: 12 }}>Kết quả import</h3>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                    <div style={{ padding: '16px 24px', background: '#dcfce7', borderRadius: 8 }}><div style={{ fontSize: '2rem', fontWeight: 700, color: '#166534' }}>{result.success}</div><div style={{ color: '#166534', fontSize: '0.875rem' }}>Thành công</div></div>
+                    <div style={{ padding: '16px 24px', background: '#fee2e2', borderRadius: 8 }}><div style={{ fontSize: '2rem', fontWeight: 700, color: '#991b1b' }}>{result.errors}</div><div style={{ color: '#991b1b', fontSize: '0.875rem' }}>Lỗi</div></div>
                 </div>
-            )}
+                {result.messages.length > 0 && <div style={{ marginTop: 12, padding: 12, background: '#fef9c3', borderRadius: 8 }}>{result.messages.map((message, index) => <p key={`${message}-${index}`} style={{ fontSize: '0.8rem', color: '#92400e' }}>{message}</p>)}</div>}
+                {result.success > 0 && <Link href="/welds" className="btn btn-primary" style={{ marginTop: 12, display: 'inline-flex' }}>Xem danh sách mối hàn →</Link>}
+            </div>}
         </div>
     )
 }
