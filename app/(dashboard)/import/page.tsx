@@ -1,5 +1,5 @@
-﻿'use client'
-// app/(dashboard)/import/page.tsx � Import Excel
+'use client'
+// app/(dashboard)/import/page.tsx � Import Excel
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -76,9 +76,9 @@ interface WeldUpsertTable {
 // C�"t trong DATA INPUT (dựa trên phân tích thực tế file WELD CONTROL.xlsx)
 // ROW 1 headers + data rows từ ROW 3 onward
 const COLUMN_MAP: Record<number, string> = {
-    0: 'weld_id',               // Weld ID �ầy �ủ (e.g. 9001-2211-DS-0032-01-WM1)
+    0: 'weld_id',               // Weld ID �ầy �ủ (e.g. 9001-2211-DS-0032-01-WM1)
     1: 'drawing_no',            // Drawing No
-    2: 'weld_no',               // Weld No (s� m�i hàn trong bản vẽ)
+    2: 'weld_no',               // Weld No (s� m�i hàn trong bản vẽ)
     3: 'joint_family',          // Weld Joints family (X1, X2, X3, DB, SB...)
     4: 'joint_type',            // Weld Type (DB, DV, SB, SV...)
     5: 'ndt_requirements',      // NDT Requirements (100%MT & UT)
@@ -131,7 +131,7 @@ function parseResult(val: unknown): string | null {
     if (s === 'REJ' || s === 'REJECT' || s === 'REJECTED' || s === 'FAIL') return 'REJ'
     if (s === 'N/A' || s === 'NA' || s === 'NOT APPLICABLE') return 'N/A'
     if (s === 'FINISH' || s === 'FINISHED' || s === 'A' || s === 'OK') return 'ACC'
-    // Any other value â†’ null (do NOT return raw string, it would violate DB CHECK constraint)
+    // Any other value → null (do NOT return raw string, it would violate DB CHECK constraint)
     return null
 }
 
@@ -262,6 +262,10 @@ export default function ImportPage() {
                             ndtRequirements: parseText(rowObj['ndt_requirements']),
                             ndtOverallResult: parseText(rowObj['ndt_overall_result']),
                             overallStatusRaw: parseText(rowObj['overall_status']),
+                            mtResult: parseText(rowObj['mt_result']),
+                            utResult: parseText(rowObj['ut_result']),
+                            rtResult: parseText(rowObj['rt_result']),
+                            pwhtResult: parseText(rowObj['pwht_result']),
                             inspectionRequestNo: parseText(rowObj['inspection_request_no']),
                             backgougeDate: parseDate(rowObj['backgouge_date']),
                             backgougeRequestNo: parseText(rowObj['backgouge_request_no']),
@@ -386,6 +390,10 @@ export default function ImportPage() {
                         ndtRequirements: parseText(rowObj['ndt_requirements']),
                         ndtOverallResult: parseText(rowObj['ndt_overall_result']),
                         overallStatusRaw: parseText(rowObj['overall_status']),
+                        mtResult: mtResult,
+                        utResult: utResult,
+                        rtResult: parseResult(rowObj['rt_result']),
+                        pwhtResult: parseResult(rowObj['pwht_result']),
                         inspectionRequestNo: parseText(rowObj['inspection_request_no']),
                         backgougeDate: parseDate(rowObj['backgouge_date']),
                         backgougeRequestNo: parseText(rowObj['backgouge_request_no']),

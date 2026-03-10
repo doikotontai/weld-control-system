@@ -1,25 +1,24 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import SyncedTableFrame from '@/components/SyncedTableFrame'
 import { createClient } from '@/lib/supabase/client'
 import { formatNumber } from '@/lib/formatters'
 import { PROJECT_CHANGE_EVENT, readActiveProjectIdFromCookie } from '@/lib/project-selection'
+import { deriveWeldWorkflow } from '@/lib/weld-workflow'
 import { STAGE_LABELS } from '@/types'
 import { useRoleGuard } from '@/lib/use-role-guard'
 
 type SortDir = 'asc' | 'desc'
 type Align = 'right' | 'center'
+type ColFilters = Record<string, string>
+type WeldRow = Record<string, unknown>
 
 interface ColSort {
     col: string
     dir: SortDir
-}
-
-interface ColFilters {
-    [col: string]: string
 }
 
 const LIMIT_OPTIONS = [50, 100, 200, 500, 1000, 999999]
@@ -41,14 +40,14 @@ const COLUMNS: { key: string; label: string; minWidth?: number; align?: Align }[
     { key: 'fitup_inspector', label: 'QC Fit-Up', minWidth: 100 },
     { key: 'fitup_date', label: 'Ngày FU', minWidth: 95 },
     { key: 'fitup_request_no', label: 'Request FU', minWidth: 95 },
-    { key: 'weld_finish_date', label: 'Hoàn thành hàn', minWidth: 105 },
+    { key: 'weld_finish_date', label: 'Hoàn thành hàn', minWidth: 110 },
     { key: 'welders', label: "Welders' ID", minWidth: 130 },
     { key: 'visual_inspector', label: 'QC Visual', minWidth: 100 },
     { key: 'visual_date', label: 'Ngày Visual', minWidth: 95 },
     { key: 'inspection_request_no', label: 'RQ NDT', minWidth: 95 },
     { key: 'backgouge_date', label: 'Ngày BG', minWidth: 95 },
     { key: 'backgouge_request_no', label: 'Request BG', minWidth: 95 },
-    { key: 'overall_status', label: 'Status (Y)', minWidth: 120 },
+    { key: 'overall_status', label: 'Status (Y)', minWidth: 130 },
     { key: 'ndt_overall_result', label: 'NDT tổng (Z)', minWidth: 90, align: 'center' },
     { key: 'mt_result', label: 'KQ MT', minWidth: 80, align: 'center' },
     { key: 'mt_report_no', label: 'Báo cáo MT', minWidth: 130 },
@@ -75,10 +74,45 @@ const STAGE_COLORS: Record<string, string> = {
     rejected: '#b91c1c',
 }
 
+function normalizeDate(value: unknown) {
+    return value ? String(value).slice(0, 10) : ''
+}
+
+function getDisplayWorkflow(weld: WeldRow) {
+    return deriveWeldWorkflow({
+        weldNo: String(weld.weld_no || ''),
+        fitupDate: normalizeDate(weld.fitup_date),
+        visualDate: normalizeDate(weld.visual_date),
+        ndtRequirements: String(weld.ndt_requirements || ''),
+        ndtOverallResult: String(weld.ndt_overall_result || ''),
+        overallStatusRaw: String(weld.overall_status || ''),
+        mtResult: String(weld.mt_result || ''),
+        utResult: String(weld.ut_result || ''),
+        rtResult: String(weld.rt_result || ''),
+        pwhtResult: String(weld.pwht_result || ''),
+        inspectionRequestNo: String(weld.inspection_request_no || ''),
+        backgougeDate: normalizeDate(weld.backgouge_date),
+        backgougeRequestNo: String(weld.backgouge_request_no || ''),
+        lamcheckDate: normalizeDate(weld.lamcheck_date),
+        lamcheckRequestNo: String(weld.lamcheck_request_no || ''),
+        lamcheckReportNo: String(weld.lamcheck_report_no || ''),
+        releaseFinalDate: normalizeDate(weld.release_final_date),
+        releaseFinalRequestNo: String(weld.release_final_request_no || ''),
+        releaseNoteDate: normalizeDate(weld.release_note_date),
+        releaseNoteNo: String(weld.release_note_no || ''),
+        cutOff: String(weld.cut_off || ''),
+        mw1No: String(weld.mw1_no || ''),
+    })
+}
+
 function ResultBadge({ result }: { result: string | null | undefined }) {
-    if (!result) return <span style={{ color: '#94a3b8' }}>-</span>
+    if (!result) {
+        return <span style={{ color: '#94a3b8' }}>-</span>
+    }
+
     const ok = result === 'ACC'
     const rej = result === 'REJ'
+
     return (
         <span
             style={{
@@ -97,7 +131,10 @@ function ResultBadge({ result }: { result: string | null | undefined }) {
 }
 
 function StageBadge({ stage }: { stage: string | null | undefined }) {
-    if (!stage) return <span style={{ color: '#94a3b8' }}>-</span>
+    if (!stage) {
+        return <span style={{ color: '#94a3b8' }}>-</span>
+    }
+
     const color = STAGE_COLORS[stage] || '#64748b'
     return (
         <span
@@ -117,7 +154,9 @@ function StageBadge({ stage }: { stage: string | null | undefined }) {
 }
 
 function StatusBadge({ status }: { status: string | null | undefined }) {
-    if (!status) return <span style={{ color: '#94a3b8' }}>-</span>
+    if (!status) {
+        return <span style={{ color: '#94a3b8' }}>-</span>
+    }
 
     const color =
         status === 'FINISH'
@@ -143,12 +182,16 @@ function StatusBadge({ status }: { status: string | null | undefined }) {
     )
 }
 
-function formatDate(value: unknown) {
-    return value ? String(value).slice(0, 10) : ''
-}
-
-function renderCell(col: string, weld: Record<string, unknown>) {
-    const value = weld[col]
+function renderCell(col: string, weld: WeldRow) {
+    const workflow = getDisplayWorkflow(weld)
+    const value =
+        col === 'overall_status'
+            ? workflow.overallStatus
+            : col === 'ndt_overall_result'
+              ? workflow.ndtOverallResult
+              : col === 'stage'
+                ? workflow.stage
+                : weld[col]
 
     switch (col) {
         case 'excel_row_order':
@@ -201,7 +244,7 @@ function renderCell(col: string, weld: Record<string, unknown>) {
         case 'weld_finish_date':
             return (
                 <span style={{ color: '#64748b', whiteSpace: 'nowrap' }}>
-                    {formatDate(value)}
+                    {normalizeDate(value)}
                 </span>
             )
         default:
@@ -213,14 +256,8 @@ export default function WeldsPage() {
     const supabase = createClient()
     const searchParams = useSearchParams()
     const drawingFilter = searchParams.get('drawing') || ''
-    const { role, checking: checkingRole } = useRoleGuard([
-        'admin',
-        'dcc',
-        'qc',
-        'inspector',
-        'viewer',
-    ])
-    const [welds, setWelds] = useState<Record<string, unknown>[]>([])
+    const { role, checking: checkingRole } = useRoleGuard(['admin', 'dcc', 'qc', 'inspector', 'viewer'])
+    const [welds, setWelds] = useState<WeldRow[]>([])
     const [loading, setLoading] = useState(true)
     const [totalCount, setTotalCount] = useState(0)
     const [page, setPage] = useState(0)
@@ -257,6 +294,7 @@ export default function WeldsPage() {
         }
 
         setLoading(true)
+
         let query = supabase
             .from('welds')
             .select('*', { count: 'exact' })
@@ -270,32 +308,36 @@ export default function WeldsPage() {
             )
         }
 
-        Object.entries(colFilters).forEach(([col, value]) => {
-            if (!value.trim()) return
-            const numericCols = [
-                'weld_no',
-                'weld_length',
-                'thickness',
-                'thickness_lamcheck',
-                'excel_row_order',
-            ]
-            query = numericCols.includes(col)
-                ? query.eq(col, value.trim())
-                : query.ilike(col, `%${value.trim()}%`)
-        })
+        for (const [col, value] of Object.entries(colFilters)) {
+            const trimmed = value.trim()
+            if (!trimmed) {
+                continue
+            }
+
+            const numericCols = ['weld_no', 'weld_length', 'thickness', 'thickness_lamcheck', 'excel_row_order']
+            query = numericCols.includes(col) ? query.eq(col, trimmed) : query.ilike(col, `%${trimmed}%`)
+        }
 
         const { data, count } = await query
-        setWelds((data as Record<string, unknown>[]) || [])
+        setWelds((data as WeldRow[]) || [])
         setTotalCount(count || 0)
         setLoading(false)
     }, [colFilters, currentProjectId, globalSearch, limit, page, sort, supabase])
 
     useEffect(() => {
-        if (currentProjectId === null) return
-        if (debounceRef.current) clearTimeout(debounceRef.current)
+        if (currentProjectId === null) {
+            return
+        }
+
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current)
+        }
+
         debounceRef.current = setTimeout(fetchWelds, 280)
         return () => {
-            if (debounceRef.current) clearTimeout(debounceRef.current)
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current)
+            }
         }
     }, [currentProjectId, fetchWelds])
 
@@ -324,7 +366,10 @@ export default function WeldsPage() {
     }
 
     const SortIcon = ({ col }: { col: string }) => {
-        if (sort.col !== col) return <span style={{ opacity: 0.3, marginLeft: '4px' }}>↕</span>
+        if (sort.col !== col) {
+            return <span style={{ opacity: 0.3, marginLeft: '4px' }}>↕</span>
+        }
+
         return <span style={{ marginLeft: '4px', color: '#3b82f6' }}>{sort.dir === 'asc' ? '↑' : '↓'}</span>
     }
 
@@ -340,13 +385,9 @@ export default function WeldsPage() {
         <div className="page-enter">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
                 <div>
-                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>
-                        Quản lý mối hàn
-                    </h1>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>Quản lý mối hàn</h1>
                     <p style={{ color: '#64748b', marginTop: '4px' }}>
-                        {currentProjectId
-                            ? `${formatNumber(totalCount)} mối hàn`
-                            : 'Chọn dự án ở menu trái'}
+                        {currentProjectId ? `${formatNumber(totalCount)} mối hàn` : 'Chọn dự án ở menu trái'}
                     </p>
                 </div>
 
@@ -467,15 +508,9 @@ export default function WeldsPage() {
                                 </tr>
                                 <tr style={{ background: '#f8fafc' }}>
                                     {COLUMNS.map((col) => {
-                                        const isResult = [
-                                            'overall_status',
-                                            'ndt_overall_result',
-                                            'mt_result',
-                                            'ut_result',
-                                            'rt_result',
-                                            'stage',
-                                        ].includes(col.key)
+                                        const isResult = ['overall_status', 'ndt_overall_result', 'mt_result', 'ut_result', 'rt_result', 'stage'].includes(col.key)
                                         const isExcelRow = col.key === 'excel_row_order'
+
                                         return (
                                             <td
                                                 key={col.key}
@@ -487,9 +522,7 @@ export default function WeldsPage() {
                                                 {isExcelRow ? null : isResult ? (
                                                     <select
                                                         value={colFilters[col.key] || ''}
-                                                        onChange={(event) =>
-                                                            setFilter(col.key, event.target.value)
-                                                        }
+                                                        onChange={(event) => setFilter(col.key, event.target.value)}
                                                         style={{
                                                             width: '100%',
                                                             fontSize: '0.7rem',
@@ -498,9 +531,7 @@ export default function WeldsPage() {
                                                             padding: '2px 4px',
                                                             background: 'white',
                                                             outline: 'none',
-                                                            color: colFilters[col.key]
-                                                                ? '#0f172a'
-                                                                : '#94a3b8',
+                                                            color: colFilters[col.key] ? '#0f172a' : '#94a3b8',
                                                         }}
                                                     >
                                                         <option value="">Tất cả</option>
@@ -531,9 +562,7 @@ export default function WeldsPage() {
                                                     <input
                                                         type="text"
                                                         value={colFilters[col.key] || ''}
-                                                        onChange={(event) =>
-                                                            setFilter(col.key, event.target.value)
-                                                        }
+                                                        onChange={(event) => setFilter(col.key, event.target.value)}
                                                         placeholder="Lọc"
                                                         style={{
                                                             width: '100%',
@@ -543,9 +572,7 @@ export default function WeldsPage() {
                                                             padding: '2px 5px',
                                                             boxSizing: 'border-box',
                                                             outline: 'none',
-                                                            background: colFilters[col.key]
-                                                                ? '#eff6ff'
-                                                                : 'white',
+                                                            background: colFilters[col.key] ? '#eff6ff' : 'white',
                                                         }}
                                                     />
                                                 )}
@@ -566,9 +593,7 @@ export default function WeldsPage() {
                                                 color: '#64748b',
                                             }}
                                         >
-                                            {currentProjectId
-                                                ? 'Không có dữ liệu phù hợp.'
-                                                : 'Chọn dự án ở menu trái.'}
+                                            {currentProjectId ? 'Không có dữ liệu phù hợp.' : 'Chọn dự án ở menu trái.'}
                                         </td>
                                     </tr>
                                 ) : (
@@ -592,10 +617,7 @@ export default function WeldsPage() {
                                                 {canEdit ? (
                                                     <Link
                                                         href={`/welds/${weld.id}/edit`}
-                                                        style={{
-                                                            color: '#3b82f6',
-                                                            textDecoration: 'none',
-                                                        }}
+                                                        style={{ color: '#3b82f6', textDecoration: 'none' }}
                                                     >
                                                         Sửa
                                                     </Link>

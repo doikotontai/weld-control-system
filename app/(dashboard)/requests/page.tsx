@@ -1,4 +1,4 @@
-﻿import { format } from 'date-fns'
+import { format } from 'date-fns'
 import Link from 'next/link'
 import { requireDashboardAuth } from '@/lib/dashboard-auth'
 

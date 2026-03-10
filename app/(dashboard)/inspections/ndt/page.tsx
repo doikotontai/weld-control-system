@@ -1,4 +1,4 @@
-﻿import Link from 'next/link'
+import Link from 'next/link'
 import { requireDashboardAuth } from '@/lib/dashboard-auth'
 
 export const dynamic = 'force-dynamic'

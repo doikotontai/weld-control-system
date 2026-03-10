@@ -1,4 +1,4 @@
-﻿export function formatNumber(value: number | string | null | undefined): string {
+export function formatNumber(value: number | string | null | undefined): string {
     if (value == null || value === '') return ''
     const parsed = Number(value)
     if (Number.isNaN(parsed)) return ''

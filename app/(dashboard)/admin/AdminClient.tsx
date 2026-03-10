@@ -69,7 +69,9 @@ export default function AdminClient({ users }: { users: Profile[] }) {
             return
         }
 
-        setLocalUsers((previous) => previous.map((user) => (user.id === userId ? { ...user, role: nextRole } : user)))
+        setLocalUsers((previous) =>
+            previous.map((user) => (user.id === userId ? { ...user, role: nextRole } : user))
+        )
         setMessage('Đã cập nhật phân quyền.')
     }
 
@@ -100,7 +102,9 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                         alignSelf: 'start',
                     }}
                 >
-                    <h3 style={{ fontWeight: 600, marginBottom: '20px', color: '#1e40af' }}>Tạo người dùng mới</h3>
+                    <h3 style={{ fontWeight: 600, marginBottom: '20px', color: '#1e40af' }}>
+                        Tạo người dùng mới
+                    </h3>
 
                     <form onSubmit={handleCreateUser}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -112,7 +116,9 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                                     autoComplete="email"
                                     required
                                     value={newUser.email}
-                                    onChange={(event) => setNewUser((user) => ({ ...user, email: event.target.value }))}
+                                    onChange={(event) =>
+                                        setNewUser((user) => ({ ...user, email: event.target.value }))
+                                    }
                                     placeholder="user@company.com"
                                 />
                             </div>
@@ -124,7 +130,9 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                                     autoComplete="name"
                                     required
                                     value={newUser.full_name}
-                                    onChange={(event) => setNewUser((user) => ({ ...user, full_name: event.target.value }))}
+                                    onChange={(event) =>
+                                        setNewUser((user) => ({ ...user, full_name: event.target.value }))
+                                    }
                                     placeholder="Nguyễn Văn A"
                                 />
                             </div>
@@ -137,7 +145,9 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                                     autoComplete="new-password"
                                     required
                                     value={newUser.password}
-                                    onChange={(event) => setNewUser((user) => ({ ...user, password: event.target.value }))}
+                                    onChange={(event) =>
+                                        setNewUser((user) => ({ ...user, password: event.target.value }))
+                                    }
                                     placeholder="Tối thiểu 8 ký tự"
                                 />
                             </div>
@@ -147,7 +157,9 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                                 <select
                                     className="form-input"
                                     value={newUser.role}
-                                    onChange={(event) => setNewUser((user) => ({ ...user, role: event.target.value as UserRole }))}
+                                    onChange={(event) =>
+                                        setNewUser((user) => ({ ...user, role: event.target.value as UserRole }))
+                                    }
                                 >
                                     {Object.entries(ROLE_LABELS).map(([role, label]) => (
                                         <option key={role} value={role}>
@@ -178,9 +190,14 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                     </form>
 
                     <div style={{ marginTop: '24px', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
-                        <h4 style={{ fontWeight: 600, marginBottom: '12px', fontSize: '0.875rem' }}>Phân quyền</h4>
+                        <h4 style={{ fontWeight: 600, marginBottom: '12px', fontSize: '0.875rem' }}>
+                            Phân quyền
+                        </h4>
                         {Object.entries(ROLE_LABELS).map(([role, label]) => (
-                            <div key={role} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <div
+                                key={role}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}
+                            >
                                 <span
                                     style={{
                                         width: '8px',
@@ -199,8 +216,17 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                     </div>
                 </div>
 
-                <div style={{ background: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>Danh sách người dùng ({localUsers.length})</h3>
+                <div
+                    style={{
+                        background: 'white',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    }}
+                >
+                    <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>
+                        Danh sách người dùng ({localUsers.length})
+                    </h3>
                     <div className="table-container">
                         <table>
                             <thead>
@@ -255,7 +281,9 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                                                     cursor: 'pointer',
                                                 }}
                                                 value={user.role}
-                                                onChange={(event) => handleUpdateRole(user.id, event.target.value as UserRole)}
+                                                onChange={(event) =>
+                                                    handleUpdateRole(user.id, event.target.value as UserRole)
+                                                }
                                             >
                                                 {Object.entries(ROLE_LABELS).map(([role, label]) => (
                                                     <option key={role} value={role}>

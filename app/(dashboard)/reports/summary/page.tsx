@@ -1,4 +1,4 @@
-﻿import { requireDashboardAuth } from '@/lib/dashboard-auth'
+import { requireDashboardAuth } from '@/lib/dashboard-auth'
 
 export const dynamic = 'force-dynamic'
 

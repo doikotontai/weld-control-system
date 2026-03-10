@@ -1,4 +1,4 @@
-﻿export type UserRole = 'admin' | 'dcc' | 'qc' | 'inspector' | 'viewer'
+export type UserRole = 'admin' | 'dcc' | 'qc' | 'inspector' | 'viewer'
 
 export type WeldStage =
     | 'fitup'

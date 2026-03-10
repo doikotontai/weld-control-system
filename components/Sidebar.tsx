@@ -92,9 +92,10 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
 
     const handleProjectChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const nextProjectId = event.target.value
-        const currentHref = typeof window === 'undefined'
-            ? pathname
-            : `${window.location.pathname}${window.location.search}${window.location.hash}`
+        const currentHref =
+            typeof window === 'undefined'
+                ? pathname
+                : `${window.location.pathname}${window.location.search}`
 
         setSelectedProjectId(nextProjectId)
         writeActiveProjectIdToCookie(nextProjectId)
@@ -102,10 +103,8 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
 
         startTransition(() => {
             void setActiveProject(nextProjectId).then(() => {
+                router.replace(currentHref)
                 router.refresh()
-                if (typeof window !== 'undefined') {
-                    window.location.assign(currentHref)
-                }
             })
         })
     }
@@ -177,7 +176,7 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
                         }}
                     >
                         <option value="">-- Tất cả --</option>
-                        {projects.map(project => (
+                        {projects.map((project) => (
                             <option key={project.id} value={project.id}>
                                 {project.code}
                             </option>
@@ -188,13 +187,16 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
 
             <nav style={{ flex: 1, padding: '6px', overflowY: 'auto' }}>
                 {navSections.map((section, sectionIndex) => {
-                    const visibleItems = section.items.filter(item => item.roles.includes(userRole))
+                    const visibleItems = section.items.filter((item) => item.roles.includes(userRole))
                     if (visibleItems.length === 0) {
                         return null
                     }
 
                     return (
-                        <div key={section.section ?? `section-${sectionIndex}`} style={{ marginTop: sectionIndex > 0 ? '4px' : 0 }}>
+                        <div
+                            key={section.section ?? `section-${sectionIndex}`}
+                            style={{ marginTop: sectionIndex > 0 ? '4px' : 0 }}
+                        >
                             {section.section && (
                                 <div
                                     style={{
@@ -210,7 +212,7 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
                                 </div>
                             )}
 
-                            {visibleItems.map(item => {
+                            {visibleItems.map((item) => {
                                 const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
                                 return (
                                     <Link
@@ -232,7 +234,9 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
                                             transition: 'all 0.12s ease',
                                         }}
                                     >
-                                        <span style={{ fontSize: '0.9rem', width: '18px', textAlign: 'center' }}>{item.icon}</span>
+                                        <span style={{ fontSize: '0.9rem', width: '18px', textAlign: 'center' }}>
+                                            {item.icon}
+                                        </span>
                                         {item.label}
                                     </Link>
                                 )
@@ -243,8 +247,17 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
             </nav>
 
             <div style={{ padding: '10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', marginBottom: '6px' }}>
-                    <div style={{ color: 'white', fontSize: '0.78rem', fontWeight: 500 }}>Người dùng: {userName}</div>
+                <div
+                    style={{
+                        padding: '8px',
+                        background: 'rgba(255,255,255,0.03)',
+                        borderRadius: '6px',
+                        marginBottom: '6px',
+                    }}
+                >
+                    <div style={{ color: 'white', fontSize: '0.78rem', fontWeight: 500 }}>
+                        Người dùng: {userName}
+                    </div>
                     <div
                         style={{
                             display: 'inline-block',

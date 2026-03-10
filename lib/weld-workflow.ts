@@ -16,6 +16,10 @@ export interface WeldWorkflowInput {
     ndtRequirements?: string | null
     ndtOverallResult?: string | null
     overallStatusRaw?: string | null
+    mtResult?: string | null
+    utResult?: string | null
+    rtResult?: string | null
+    pwhtResult?: string | null
     inspectionRequestNo?: string | null
     backgougeDate?: string | null
     backgougeRequestNo?: string | null
@@ -51,25 +55,63 @@ function normalizeResult(value: unknown): 'ACC' | 'REJ' | null {
         return 'ACC'
     }
 
-    if (normalized === 'REJ' || normalized === 'REJECT') {
+    if (normalized === 'REJ' || normalized === 'REJECT' || normalized === 'REPAIR') {
         return 'REJ'
     }
 
     return null
 }
 
-function requiresNdt(ndtRequirements: unknown) {
+type RequiredNdtType = 'MT' | 'UT' | 'RT' | 'PT' | 'PWHT' | 'PAUT'
+
+export function parseRequiredNdtTypes(ndtRequirements: unknown): RequiredNdtType[] {
     const normalized = normalizeText(ndtRequirements).toUpperCase()
     if (!normalized) {
-        return false
+        return []
     }
 
-    return /(MT|UT|RT|PT|PAUT|PWHT|NDT)/.test(normalized)
+    const matches = normalized.match(/PAUT|PWHT|MT|UT|RT|PT/g) || []
+    return [...new Set(matches)] as RequiredNdtType[]
+}
+
+function requiresNdt(ndtRequirements: unknown) {
+    return parseRequiredNdtTypes(ndtRequirements).length > 0
+}
+
+function deriveOverallNdtResult(input: WeldWorkflowInput): 'ACC' | 'REJ' | null {
+    const explicitResult = normalizeResult(input.ndtOverallResult)
+    if (explicitResult) {
+        return explicitResult
+    }
+
+    const requiredTypes = parseRequiredNdtTypes(input.ndtRequirements)
+    if (requiredTypes.length === 0) {
+        return null
+    }
+
+    const resultMap: Record<RequiredNdtType, 'ACC' | 'REJ' | null> = {
+        MT: normalizeResult(input.mtResult),
+        UT: normalizeResult(input.utResult),
+        RT: normalizeResult(input.rtResult),
+        PT: null,
+        PWHT: normalizeResult(input.pwhtResult),
+        PAUT: null,
+    }
+
+    if (requiredTypes.some((type) => resultMap[type] === 'REJ')) {
+        return 'REJ'
+    }
+
+    if (requiredTypes.every((type) => resultMap[type] === 'ACC')) {
+        return 'ACC'
+    }
+
+    return null
 }
 
 export function deriveWeldWorkflow(input: WeldWorkflowInput): WeldWorkflowState {
     const rawOverallStatus = normalizeText(input.overallStatusRaw).toUpperCase()
-    const ndtOverallResult = normalizeResult(input.ndtOverallResult)
+    const ndtOverallResult = deriveOverallNdtResult(input)
 
     let overallStatus: WorkflowOverallStatus
 
