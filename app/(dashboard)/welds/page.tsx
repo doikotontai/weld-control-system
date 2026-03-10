@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from 'react'
 import SyncedTableFrame from '@/components/SyncedTableFrame'
 import { createClient } from '@/lib/supabase/client'
 import { formatNumber } from '@/lib/formatters'
@@ -16,6 +16,7 @@ type Align = 'right' | 'center'
 type InputType = 'text' | 'number' | 'date' | 'select'
 type ColFilters = Record<string, string>
 type DraftRow = Record<string, string>
+type ColumnWidths = Record<string, number>
 type TableMessage = { type: 'success' | 'error'; text: string } | null
 type WeldRow = Record<string, unknown> & { id: string }
 
@@ -35,6 +36,12 @@ interface SelectOption {
     label: string
 }
 
+interface ResizeState {
+    key: string
+    startX: number
+    startWidth: number
+}
+
 interface ColumnDef {
     key: string
     label: string
@@ -46,6 +53,9 @@ interface ColumnDef {
 }
 
 const LIMIT_OPTIONS = [50, 100, 200, 500, 1000, 999999]
+const ACTION_COLUMN_KEY = '__actions__'
+const ACTION_COLUMN_DEFAULT_WIDTH = 180
+const COLUMN_RESIZE_STORAGE_KEY = 'weld-management-column-widths-v1'
 
 const RESULT_OPTIONS: SelectOption[] = [
     { value: '', label: '-- Chưa có --' },
@@ -175,6 +185,33 @@ const DATE_COLUMNS = new Set(
 )
 const INTEGER_COLUMNS = new Set(['excel_row_order', 'thickness'])
 const READ_ONLY_INLINE_COLUMNS = new Set(['excel_row_order', 'overall_status', 'stage', 'final_status'])
+
+function getDefaultColumnWidths(): ColumnWidths {
+    return COLUMNS.reduce<ColumnWidths>(
+        (acc, column) => {
+            acc[column.key] = column.minWidth || 120
+            return acc
+        },
+        { [ACTION_COLUMN_KEY]: ACTION_COLUMN_DEFAULT_WIDTH }
+    )
+}
+
+function sanitizeColumnWidths(value: unknown) {
+    const defaults = getDefaultColumnWidths()
+    if (!value || typeof value !== 'object') {
+        return defaults
+    }
+
+    const next = { ...defaults }
+    for (const [key, width] of Object.entries(value as Record<string, unknown>)) {
+        if (typeof width !== 'number' || Number.isNaN(width)) {
+            continue
+        }
+        next[key] = Math.max(72, Math.round(width))
+    }
+
+    return next
+}
 
 function normalizeText(value: unknown) {
     return value == null ? '' : String(value).trim()
@@ -416,7 +453,7 @@ function FinalStatusBadge({ status }: { status: string | null | undefined }) {
     )
 }
 
-function renderReadOnlyCell(column: ColumnDef, weld: WeldRow) {
+function renderReadOnlyCell(column: ColumnDef, weld: WeldRow, columnWidth: number) {
     const workflow = getDisplayWorkflow(weld)
     const value =
         column.key === 'overall_status'
@@ -483,7 +520,7 @@ function renderReadOnlyCell(column: ColumnDef, weld: WeldRow) {
                     style={{
                         whiteSpace: 'nowrap',
                         display: 'inline-block',
-                        maxWidth: '220px',
+                        maxWidth: `${Math.max(columnWidth - 18, 60)}px`,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                     }}
@@ -541,6 +578,76 @@ export default function WeldsPage() {
     const [rowSavingId, setRowSavingId] = useState<string | null>(null)
     const [tableMessage, setTableMessage] = useState<TableMessage>(null)
     const debounceRef = useRef<NodeJS.Timeout | null>(null)
+    const resizeStateRef = useRef<ResizeState | null>(null)
+    const [columnWidths, setColumnWidths] = useState<ColumnWidths>(() => getDefaultColumnWidths())
+    const [draggingColumnKey, setDraggingColumnKey] = useState<string | null>(null)
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return
+        }
+
+        try {
+            const raw = window.localStorage.getItem(COLUMN_RESIZE_STORAGE_KEY)
+            if (!raw) {
+                return
+            }
+            setColumnWidths(sanitizeColumnWidths(JSON.parse(raw)))
+        } catch {
+            setColumnWidths(getDefaultColumnWidths())
+        }
+    }, [])
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return
+        }
+
+        try {
+            window.localStorage.setItem(COLUMN_RESIZE_STORAGE_KEY, JSON.stringify(columnWidths))
+        } catch {
+            // Ignore storage write failures and keep the in-memory widths.
+        }
+    }, [columnWidths])
+
+    useEffect(() => {
+        const stopResize = () => {
+            if (!resizeStateRef.current) {
+                return
+            }
+
+            resizeStateRef.current = null
+            setDraggingColumnKey(null)
+            document.body.style.cursor = ''
+            document.body.style.userSelect = ''
+        }
+
+        const handlePointerMove = (event: PointerEvent) => {
+            const active = resizeStateRef.current
+            if (!active) {
+                return
+            }
+
+            const nextWidth = Math.max(72, Math.round(active.startWidth + (event.clientX - active.startX)))
+            setColumnWidths((current) => {
+                if (current[active.key] === nextWidth) {
+                    return current
+                }
+                return { ...current, [active.key]: nextWidth }
+            })
+        }
+
+        window.addEventListener('pointermove', handlePointerMove)
+        window.addEventListener('pointerup', stopResize)
+        window.addEventListener('pointercancel', stopResize)
+
+        return () => {
+            window.removeEventListener('pointermove', handlePointerMove)
+            window.removeEventListener('pointerup', stopResize)
+            window.removeEventListener('pointercancel', stopResize)
+            stopResize()
+        }
+    }, [])
 
     useEffect(() => {
         const syncProject = () => setCurrentProjectId(readActiveProjectIdFromCookie())
@@ -617,6 +724,26 @@ export default function WeldsPage() {
 
     const canEdit = role !== null && ['admin', 'dcc', 'qc'].includes(role)
     const totalPages = totalCount === 0 ? 0 : Math.ceil(totalCount / limit)
+    const actionColumnWidth = columnWidths[ACTION_COLUMN_KEY] || ACTION_COLUMN_DEFAULT_WIDTH
+
+    const getColumnWidth = (column: ColumnDef) => columnWidths[column.key] || column.minWidth || 120
+
+    const startColumnResize = (key: string, startWidth: number, event: ReactPointerEvent<HTMLDivElement>) => {
+        event.preventDefault()
+        event.stopPropagation()
+
+        resizeStateRef.current = {
+            key,
+            startX: event.clientX,
+            startWidth,
+        }
+        setDraggingColumnKey(key)
+        document.body.style.cursor = 'col-resize'
+        document.body.style.userSelect = 'none'
+        if (event.currentTarget.setPointerCapture) {
+            event.currentTarget.setPointerCapture(event.pointerId)
+        }
+    }
 
     const handleSort = (column: string) => {
         setSort((current) => ({
@@ -686,7 +813,7 @@ export default function WeldsPage() {
     const renderEditableCell = (column: ColumnDef, weld: WeldRow) => {
         if (READ_ONLY_INLINE_COLUMNS.has(column.key)) {
             const previewWeld = { ...weld, ...buildInlineUpdatePayload(draftRow) }
-            return renderReadOnlyCell(column, previewWeld as WeldRow)
+            return renderReadOnlyCell(column, previewWeld as WeldRow, getColumnWidth(column))
         }
 
         const currentValue = draftRow[column.key] || ''
@@ -861,36 +988,98 @@ export default function WeldsPage() {
                         <table style={{ fontSize: '0.74rem', borderCollapse: 'collapse', width: 'max-content', minWidth: '100%' }}>
                             <thead>
                                 <tr>
-                                    {COLUMNS.map((column) => (
-                                        <th
-                                            key={column.key}
-                                            style={{
-                                                minWidth: column.minWidth,
-                                                textAlign: column.align || 'left',
-                                                cursor: 'pointer',
-                                                userSelect: 'none',
-                                                background: sort.col === column.key ? '#eff6ff' : undefined,
-                                                borderBottom: 'none',
-                                                paddingBottom: '4px',
-                                            }}
-                                            onClick={() => handleSort(column.key)}
-                                            title={`Sắp xếp theo ${column.label}`}
-                                        >
+                                    {COLUMNS.map((column) => {
+                                        const columnWidth = getColumnWidth(column)
+                                        return (
+                                            <th
+                                                key={column.key}
+                                                style={{
+                                                    width: columnWidth,
+                                                    minWidth: columnWidth,
+                                                    maxWidth: columnWidth,
+                                                    textAlign: column.align || 'left',
+                                                    cursor: 'pointer',
+                                                    userSelect: 'none',
+                                                    background: sort.col === column.key ? '#eff6ff' : undefined,
+                                                    borderBottom: 'none',
+                                                    paddingBottom: '4px',
+                                                    position: 'relative',
+                                                }}
+                                                onClick={() => handleSort(column.key)}
+                                                title={`Sắp xếp theo ${column.label}`}
+                                            >
                                             {column.label}
                                             <SortIcon column={column.key} />
+                                            <div
+                                                role="presentation"
+                                                title={`Kéo để đổi độ rộng cột ${column.label}`}
+                                                onPointerDown={(event) => startColumnResize(column.key, columnWidth, event)}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    right: -4,
+                                                    width: '10px',
+                                                    height: '100%',
+                                                    cursor: 'col-resize',
+                                                    touchAction: 'none',
+                                                    background:
+                                                        draggingColumnKey === column.key
+                                                            ? 'rgba(59,130,246,0.18)'
+                                                            : 'transparent',
+                                                }}
+                                            />
                                         </th>
-                                    ))}
-                                    <th style={{ minWidth: 150 }}>Thao tác</th>
+                                        )
+                                    })}
+                                    <th
+                                        style={{
+                                            width: actionColumnWidth,
+                                            minWidth: actionColumnWidth,
+                                            maxWidth: actionColumnWidth,
+                                            position: 'relative',
+                                        }}
+                                    >
+                                        Thao tác
+                                        <div
+                                            role="presentation"
+                                            title="Kéo để đổi độ rộng cột thao tác"
+                                            onPointerDown={(event) => startColumnResize(ACTION_COLUMN_KEY, actionColumnWidth, event)}
+                                            style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                right: -4,
+                                                width: '10px',
+                                                height: '100%',
+                                                cursor: 'col-resize',
+                                                touchAction: 'none',
+                                                background:
+                                                    draggingColumnKey === ACTION_COLUMN_KEY
+                                                        ? 'rgba(59,130,246,0.18)'
+                                                        : 'transparent',
+                                            }}
+                                        />
+                                    </th>
                                 </tr>
                                 <tr style={{ background: '#f8fafc' }}>
                                     {COLUMNS.map((column) => {
                                         const filterOptions = getFilterOptions(column)
+                                        const columnWidth = getColumnWidth(column)
                                         return (
-                                            <td key={column.key} style={{ padding: '3px 6px', borderTop: '1px solid #e2e8f0' }}>
+                                            <td
+                                                key={column.key}
+                                                style={{
+                                                    width: columnWidth,
+                                                    minWidth: columnWidth,
+                                                    maxWidth: columnWidth,
+                                                    padding: '3px 6px',
+                                                    borderTop: '1px solid #e2e8f0',
+                                                }}
+                                            >
                                                 {filterOptions ? (
                                                     <select
                                                         value={colFilters[column.key] || ''}
                                                         onChange={(event) => setFilter(column.key, event.target.value)}
+                                                        title={`Lọc theo ${column.label}`}
                                                         style={{
                                                             width: '100%',
                                                             fontSize: '0.7rem',
@@ -913,7 +1102,8 @@ export default function WeldsPage() {
                                                         type="text"
                                                         value={colFilters[column.key] || ''}
                                                         onChange={(event) => setFilter(column.key, event.target.value)}
-                                                        placeholder="Lọc"
+                                                        placeholder={`Lọc ${column.label}`}
+                                                        title={`Lọc theo ${column.label}`}
                                                         style={{
                                                             width: '100%',
                                                             fontSize: '0.7rem',
@@ -929,7 +1119,17 @@ export default function WeldsPage() {
                                             </td>
                                         )
                                     })}
-                                    <td style={{ borderTop: '1px solid #e2e8f0', padding: '3px 6px', color: '#64748b', fontSize: '0.72rem' }}>
+                                    <td
+                                        style={{
+                                            width: actionColumnWidth,
+                                            minWidth: actionColumnWidth,
+                                            maxWidth: actionColumnWidth,
+                                            borderTop: '1px solid #e2e8f0',
+                                            padding: '3px 6px',
+                                            color: '#64748b',
+                                            fontSize: '0.72rem',
+                                        }}
+                                    >
                                         {canEdit ? 'Bấm Sửa dòng hoặc double click để sửa trực tiếp.' : 'Chỉ xem'}
                                     </td>
                                 </tr>
@@ -958,11 +1158,30 @@ export default function WeldsPage() {
                                                 }}
                                             >
                                                 {COLUMNS.map((column) => (
-                                                    <td key={column.key} style={{ textAlign: column.align || 'left', padding: '5px 8px' }}>
-                                                        {editing ? renderEditableCell(column, weld) : renderReadOnlyCell(column, weld)}
+                                                    <td
+                                                        key={column.key}
+                                                        style={{
+                                                            width: getColumnWidth(column),
+                                                            minWidth: getColumnWidth(column),
+                                                            maxWidth: getColumnWidth(column),
+                                                            textAlign: column.align || 'left',
+                                                            padding: '5px 8px',
+                                                        }}
+                                                    >
+                                                        {editing
+                                                            ? renderEditableCell(column, weld)
+                                                            : renderReadOnlyCell(column, weld, getColumnWidth(column))}
                                                     </td>
                                                 ))}
-                                                <td style={{ padding: '5px 8px', whiteSpace: 'nowrap' }}>
+                                                <td
+                                                    style={{
+                                                        width: actionColumnWidth,
+                                                        minWidth: actionColumnWidth,
+                                                        maxWidth: actionColumnWidth,
+                                                        padding: '5px 8px',
+                                                        whiteSpace: 'nowrap',
+                                                    }}
+                                                >
                                                     {editing ? (
                                                         <div style={{ display: 'flex', gap: '6px' }}>
                                                             <button className="btn btn-primary" onClick={() => saveInlineEdit(rowId)} disabled={saving}>
