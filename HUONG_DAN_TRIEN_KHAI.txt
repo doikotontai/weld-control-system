@@ -1,79 +1,78 @@
-﻿WELD CONTROL ONLINE - HUONG DAN TRIỂN KHAI
+WELD CONTROL ONLINE - HƯỚNG DẪN TRIỂN KHAI
 =========================================
 
-1. MUC TIEU
-- Deploy ban preview/prod len Vercel.
-- Ket noi dung Supabase project.
-- Khong de thieu env va khong de app build len nhung runtime moi vo.
+1. MỤC TIÊU
+- Deploy bản preview/prod lên Vercel.
+- Kết nối đúng Supabase project.
+- Không để thiếu env và không để app build lên nhưng runtime mới vỡ.
 
-2. BIEN MOI TRUONG BAT BUOC TREN VERCEL
+2. BIẾN MÔI TRƯỜNG BẮT BUỘC TRÊN VERCEL
 - NEXT_PUBLIC_SUPABASE_URL
 - NEXT_PUBLIC_SUPABASE_ANON_KEY
 - SUPABASE_SERVICE_ROLE_KEY
 
-Nguon lay:
+Nguồn lấy:
 - Supabase Dashboard -> Project Settings -> API
 
-Ghi chu:
-- NEXT_PUBLIC_* duoc expose cho browser.
-- SERVICE_ROLE_KEY chi dung server-side, phai dat tren Vercel va khong commit vao repo.
+Ghi chú:
+- NEXT_PUBLIC_* được expose cho browser.
+- SERVICE_ROLE_KEY chỉ dùng server-side, phải đặt trên Vercel và không commit vào repo.
 
-3. THU TU CHAY SQL TREN SUPABASE
-Neu la project moi:
-- Chay `setup_database.sql`
+3. THỨ TỰ CHẠY SQL TRÊN SUPABASE
+Nếu là project mới:
+- Chạy `setup_database.sql`
 
-Neu database da ton tai:
-- Backup database truoc.
-- Chay thang `migration_add_weld_columns.sql`.
+Nếu database đã tồn tại:
+- Backup database trước.
+- Chạy thẳng `migration_add_weld_columns.sql`.
 - Redeploy app ngay sau khi SQL xong.
-- Khong chay lai mu quang `schema.sql` neu da co bang/du lieu production.
-- Xem them `HUONG_DAN_MIGRATION_DB_TRUC_TIEP.md`.
+- Không chạy lại mù quáng `schema.sql` nếu đã có bảng/dữ liệu production.
+- Xem thêm `HUONG_DAN_MIGRATION_DB_TRUC_TIEP.md`.
 
-4. KIEM TRA SAU KHI CHAY SQL
-- Bang `welds` co day du cac cot app dang dung.
-- Login duoc.
-- Dashboard load duoc du lieu.
-- Import Excel khong bao loi schema.
-- Tao request / sua weld luu duoc.
+4. KIỂM TRA SAU KHI CHẠY SQL
+- Bảng `welds` có đầy đủ các cột app đang dùng.
+- Login được.
+- Dashboard load được dữ liệu.
+- Import Excel không báo lỗi schema.
+- Tạo request / sửa weld lưu được.
 
-5. DEPLOY LEN VERCEL
+5. DEPLOY LÊN VERCEL
 Preview:
-- Import repo vao Vercel hoac deploy bang CLI.
+- Import repo vào Vercel hoặc deploy bằng CLI.
 - Framework: Next.js
-- Root Directory: `huongtt/weld-control` neu repo root cao hon.
+- Root Directory: `huongtt/weld-control` nếu repo root cao hơn.
 - Build Command: `npm run build`
-- Output: mac dinh cua Next.js
+- Output: mặc định của Next.js
 
 Production:
-- Sau khi preview ok moi promote/production deploy.
+- Sau khi preview OK mới promote/production deploy.
 
-6. VERCEL SETTINGS CAN CHECK
-- Environment Variables: du 3 key Supabase cho Preview va Production.
-- Thuc te hien tai: Production + Development da duoc sync bang CLI; Preview nen them tay tren Vercel Dashboard neu muon dung link preview co login hoan chinh.
-- Node version: de Vercel tu nhan theo Next.js 16, neu can co the set Node 20.
-- Root Directory dung voi source app.
+6. VERCEL SETTINGS CẦN CHECK
+- Environment Variables: đủ 3 key Supabase cho Preview và Production.
+- Thực tế hiện tại: Production + Development đã được sync bằng CLI; Preview nên thêm tay trên Vercel Dashboard nếu muốn dùng link preview có login hoàn chỉnh.
+- Node version: để Vercel tự nhận theo Next.js 16, nếu cần có thể set Node 20.
+- Root Directory đúng với source app.
 
-7. SUPABASE SETTINGS CAN CHECK
+7. SUPABASE SETTINGS CẦN CHECK
 - Auth -> URL Configuration:
   - Site URL = domain Vercel production
-  - Additional Redirect URLs = preview URL neu can login o preview
-  - Neu preview doi domain moi, them domain preview moi vao day
-- API keys dung project dang chay that.
-- SQL Editor da apply cac migration can thiet.
+  - Additional Redirect URLs = preview URL nếu cần login ở preview
+  - Nếu preview đổi domain mới, thêm domain preview mới vào đây
+- API keys đúng project đang chạy thật.
+- SQL Editor đã apply các migration cần thiết.
 
-8. NEU LOGIN TREN VERCEL BI LOI
-Kiem tra theo thu tu:
+8. NẾU LOGIN TRÊN VERCEL BỊ LỖI
+Kiểm tra theo thứ tự:
 - Sai NEXT_PUBLIC_SUPABASE_URL
 - Sai NEXT_PUBLIC_SUPABASE_ANON_KEY
 - Sai SUPABASE_SERVICE_ROLE_KEY
-- Chua them domain Vercel vao Supabase Auth URL config
-- Database chua co schema/migration moi
+- Chưa thêm domain Vercel vào Supabase Auth URL config
+- Database chưa có schema/migration mới
 
-9. CHECKLIST CHOT TRUOC KHI BAN GIAO
+9. CHECKLIST CHỐT TRƯỚC KHI BÀN GIAO
 - `npm run lint` pass
 - `npm run build` pass
-- Login duoc
-- Dashboard / Requests / Welds / Import / Admin mo duoc
-- Console browser khong co error runtime
-- Da backup hoac ghi nhan cac test data da tao tren Supabase
-
+- Login được
+- Dashboard / Requests / Welds / Import / Admin mở được
+- Console browser không có error runtime
+- Đã backup hoặc ghi nhận các test data đã tạo trên Supabase

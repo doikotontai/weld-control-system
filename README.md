@@ -1,42 +1,42 @@
-﻿# Weld Control Online
+# Weld Control Online
 
-He thong quan ly tong hop QA/QC/Han/NDT duoc dung lai tu workbook `WELD CONTROL.xlsx`.
+Hệ thống quản lý tổng hợp QA/QC/Hàn/NDT được dựng lại từ workbook `WELD CONTROL.xlsx`.
 
 ## Stack
 
 - Next.js App Router
 - React 19
 - Supabase (Auth + Postgres)
-- ExcelJS / XLSX cho import-export
+- ExcelJS / XLSX cho import/export
 
-## Logic nghiep vu da khoa
+## Logic nghiệp vụ đã khóa
 
-- `DATA INPUT` la weld master ledger.
-- `O` = Fit-Up request key.
-- `T` = request moi NDT va khach hang visual.
-- `V` = Backgouge request key.
-- `X` = Lamcheck request key.
-- `P` = ngay hoan thanh han.
-- `AJ/AK/AL/AM` = lop release note.
-- `REQUEST` la sheet request chuan; `MPI` khong duoc dung lam workflow chuan cua app.
+- `DATA INPUT` là weld master ledger.
+- `O` = mã request Fit-Up.
+- `T` = request mời NDT và khách hàng visual.
+- `V` = mã request Backgouge.
+- `X` = mã request Lamcheck.
+- `P` = ngày hoàn thành hàn.
+- `AJ/AK/AL/AM` = lớp release note.
+- `REQUEST` là sheet request chuẩn; `MPI` không được dùng làm workflow chuẩn của app.
 
-## Chay local
+## Chạy local
 
-1. Tao file `.env.local` tu `.env.local.example`.
-2. Dien du 3 bien moi truong Supabase.
-3. Cai dependencies:
+1. Tạo file `.env.local` từ `.env.local.example`.
+2. Điền đủ 3 biến môi trường Supabase.
+3. Cài dependencies:
 
 ```bash
 npm install
 ```
 
-4. Chay dev:
+4. Chạy dev:
 
 ```bash
 npm run dev
 ```
 
-5. Hoac build production local:
+5. Hoặc build production local:
 
 ```bash
 npm run lint
@@ -44,7 +44,7 @@ npm run build
 npm run start
 ```
 
-## Bien moi truong bat buoc
+## Biến môi trường bắt buộc
 
 Xem file `.env.local.example`:
 
@@ -52,30 +52,30 @@ Xem file `.env.local.example`:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-Khong co fallback key trong source. Thieu env app se fail som.
+Không có fallback key trong source. Thiếu env thì app sẽ fail sớm.
 
-## SQL / migration can chay tren Supabase
+## SQL / migration cần chạy trên Supabase
 
-Neu database da ton tai va dang dung schema cu:
+Nếu database đã tồn tại và đang dùng schema cũ:
 
-1. backup database truoc
-2. chay `migration_add_weld_columns.sql`
+1. backup database trước
+2. chạy `migration_add_weld_columns.sql`
 3. redeploy app
 
-Khong chay lai mu quang `schema.sql` tren database dang co du lieu.
+Không chạy lại mù quáng `schema.sql` trên database đang có dữ liệu.
 
-Neu muon tao database moi tu dau:
+Nếu muốn tạo database mới từ đầu:
 
 1. `setup_database.sql`
 
-`schema.sql` chi dung nhu canonical reference schema.
+`schema.sql` chỉ dùng như canonical reference schema.
 
-## Tai lieu trien khai
+## Tài liệu triển khai
 
-Xem them `HUONG_DAN_TRIEN_KHAI.txt`.
-Huong dan cutover truc tiep: `HUONG_DAN_MIGRATION_DB_TRUC_TIEP.md`.
+Xem thêm `HUONG_DAN_TRIEN_KHAI.txt`.
+Hướng dẫn cutover trực tiếp: `HUONG_DAN_MIGRATION_DB_TRUC_TIEP.md`.
 
-## Kiem tra nhanh truoc deploy
+## Kiểm tra nhanh trước deploy
 
 ```bash
 npm run lint
