@@ -9,6 +9,9 @@ import { STAGE_LABELS } from '@/types'
 interface WeldRecord {
     weld_id: string | null
     stage: string | null
+    overall_status: string | null
+    ndt_overall_result: string | null
+    final_status: string | null
     is_repair: boolean | null
     drawing_no: string | null
     weld_no: string | null
@@ -38,6 +41,9 @@ interface WeldRecord {
     mt_report_no: string | null
     ut_report_no: string | null
     rt_report_no: string | null
+    lamcheck_date: string | null
+    lamcheck_request_no: string | null
+    lamcheck_report_no: string | null
     ndt_after_pwht: string | null
     release_final_date: string | null
     release_final_request_no: string | null
@@ -69,15 +75,40 @@ function formatDate(value: unknown): string | null {
     return String(value).slice(0, 10) || null
 }
 
-function Field({ label, value, highlight }: { label: string; value: string | null | undefined; highlight?: boolean }) {
+function Field({
+    label,
+    value,
+    highlight,
+}: {
+    label: string
+    value: string | null | undefined
+    highlight?: boolean
+}) {
     const displayValue = value != null && value !== '' ? value : '-'
 
     return (
         <div style={{ padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
+            <div
+                style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    color: '#94a3b8',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    marginBottom: '2px',
+                }}
+            >
                 {label}
             </div>
-            <div style={{ fontSize: '0.9rem', fontWeight: highlight ? 700 : 400, color: highlight ? '#0f172a' : '#374151' }}>{displayValue}</div>
+            <div
+                style={{
+                    fontSize: '0.9rem',
+                    fontWeight: highlight ? 700 : 400,
+                    color: highlight ? '#0f172a' : '#374151',
+                }}
+            >
+                {displayValue}
+            </div>
         </div>
     )
 }
@@ -162,21 +193,84 @@ export default function WeldDetailPage() {
     }
 
     const stage = displayText(weld.stage)
+    const overallStatus = displayText(weld.overall_status)
     const stageColor = (stage && stageColors[stage]) || '#64748b'
+    const overallColor =
+        overallStatus === 'FINISH'
+            ? '#166534'
+            : overallStatus === 'REJ' || overallStatus === 'DELETE'
+              ? '#b91c1c'
+              : '#b45309'
 
     return (
         <div className="page-enter">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: '20px',
+                }}
+            >
                 <div>
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>{displayText(weld.weld_id) || ''}</h1>
-                    <div style={{ marginTop: '6px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        {stage && (
-                            <span style={{ padding: '3px 10px', borderRadius: '5px', fontWeight: 700, fontSize: '0.8rem', background: `${stageColor}22`, color: stageColor }}>
-                                {STAGE_LABELS[stage as keyof typeof STAGE_LABELS] || stage}
+                    <h1
+                        style={{
+                            fontSize: '1.5rem',
+                            fontWeight: 700,
+                            color: '#0f172a',
+                            fontFamily: 'monospace',
+                        }}
+                    >
+                        {displayText(weld.weld_id) || ''}
+                    </h1>
+                    <div
+                        style={{
+                            marginTop: '6px',
+                            display: 'flex',
+                            gap: '10px',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                        }}
+                    >
+                        {overallStatus ? (
+                            <span
+                                style={{
+                                    padding: '3px 10px',
+                                    borderRadius: '5px',
+                                    fontWeight: 700,
+                                    fontSize: '0.8rem',
+                                    background: `${overallColor}22`,
+                                    color: overallColor,
+                                }}
+                            >
+                                Status: {overallStatus}
                             </span>
-                        )}
+                        ) : null}
+                        {stage ? (
+                            <span
+                                style={{
+                                    padding: '3px 10px',
+                                    borderRadius: '5px',
+                                    fontWeight: 700,
+                                    fontSize: '0.8rem',
+                                    background: `${stageColor}22`,
+                                    color: stageColor,
+                                }}
+                            >
+                                Stage: {STAGE_LABELS[stage as keyof typeof STAGE_LABELS] || stage}
+                            </span>
+                        ) : null}
                         {!!weld.is_repair && (
-                            <span style={{ padding: '3px 10px', borderRadius: '5px', fontWeight: 700, fontSize: '0.8rem', background: '#fef9c3', color: '#854d0e' }}>
+                            <span
+                                style={{
+                                    padding: '3px 10px',
+                                    borderRadius: '5px',
+                                    fontWeight: 700,
+                                    fontSize: '0.8rem',
+                                    background: '#fef9c3',
+                                    color: '#854d0e',
+                                }}
+                            >
                                 Repair
                             </span>
                         )}
@@ -187,9 +281,44 @@ export default function WeldDetailPage() {
                 </Link>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-                <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>Thông tin cơ bản</h3>
+            <div
+                style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                    gap: '16px',
+                }}
+            >
+                <div
+                    style={{
+                        background: 'white',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    }}
+                >
+                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>
+                        Workflow tổng
+                    </h3>
+                    <Field label="Status cột Y" value={displayText(weld.overall_status)} highlight />
+                    <Field
+                        label="Stage hệ thống"
+                        value={stage ? STAGE_LABELS[stage as keyof typeof STAGE_LABELS] || stage : null}
+                    />
+                    <Field label="Kết quả NDT tổng (cột Z)" value={displayText(weld.ndt_overall_result)} />
+                    <Field label="Kết luận cuối" value={displayText(weld.final_status)} />
+                </div>
+
+                <div
+                    style={{
+                        background: 'white',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    }}
+                >
+                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>
+                        Thông tin cơ bản
+                    </h3>
                     <Field label="Drawing No" value={displayText(weld.drawing_no)} />
                     <Field label="Weld No" value={displayText(weld.weld_no)} />
                     <Field label="Weld Joints" value={displayText(weld.joint_family)} />
@@ -204,8 +333,17 @@ export default function WeldDetailPage() {
                     <Field label="Welder(s)" value={displayText(weld.welders)} />
                 </div>
 
-                <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>Inspection / Request</h3>
+                <div
+                    style={{
+                        background: 'white',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    }}
+                >
+                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>
+                        Inspection / Request
+                    </h3>
                     <Field label="FU Inspector" value={displayText(weld.fitup_inspector)} />
                     <Field label="FU Date" value={formatDate(weld.fitup_date)} />
                     <Field label="FU Request" value={displayText(weld.fitup_request_no)} />
@@ -217,46 +355,83 @@ export default function WeldDetailPage() {
                     <Field label="BG Request" value={displayText(weld.backgouge_request_no)} />
                 </div>
 
-                <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>Kết quả NDT / Release</h3>
+                <div
+                    style={{
+                        background: 'white',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    }}
+                >
+                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>
+                        Kết quả NDT / Release
+                    </h3>
                     <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', flexWrap: 'wrap' }}>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '4px' }}>MT</div>
+                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '4px' }}>
+                                MT
+                            </div>
                             <ResultBadge value={displayText(weld.mt_result)} />
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '4px' }}>UT</div>
+                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '4px' }}>
+                                UT
+                            </div>
                             <ResultBadge value={displayText(weld.ut_result)} />
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '4px' }}>RT</div>
+                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '4px' }}>
+                                RT
+                            </div>
                             <ResultBadge value={displayText(weld.rt_result)} />
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '4px' }}>PWHT</div>
+                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '4px' }}>
+                                PWHT
+                            </div>
                             <ResultBadge value={displayText(weld.pwht_result)} />
                         </div>
                     </div>
                     <Field label="MT Report" value={displayText(weld.mt_report_no)} />
                     <Field label="UT Report" value={displayText(weld.ut_report_no)} />
                     <Field label="RT Report" value={displayText(weld.rt_report_no)} />
+                    <Field label="Lamcheck date" value={formatDate(weld.lamcheck_date)} />
+                    <Field label="Lamcheck request" value={displayText(weld.lamcheck_request_no)} />
+                    <Field label="Lamcheck report" value={displayText(weld.lamcheck_report_no)} />
                     <Field label="NDT after PWHT" value={displayText(weld.ndt_after_pwht)} />
                     <Field label="Release Final Date" value={formatDate(weld.release_final_date)} />
                     <Field label="Release Final RQ" value={displayText(weld.release_final_request_no)} />
                     <Field label="Release Note" value={displayText(weld.release_note_no)} highlight />
                     <Field label="Release Date" value={formatDate(weld.release_note_date)} />
-                    <Field label="Defect Length" value={weld.defect_length != null ? `${weld.defect_length} mm` : null} />
-                    <Field label="Repair Length" value={weld.repair_length != null ? `${weld.repair_length} mm` : null} />
+                    <Field
+                        label="Defect Length"
+                        value={weld.defect_length != null ? `${weld.defect_length} mm` : null}
+                    />
+                    <Field
+                        label="Repair Length"
+                        value={weld.repair_length != null ? `${weld.repair_length} mm` : null}
+                    />
                 </div>
 
-                <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>Close-Out / Package</h3>
+                <div
+                    style={{
+                        background: 'white',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    }}
+                >
+                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>
+                        Close-Out / Package
+                    </h3>
                     <Field label="Cut Off" value={displayText(weld.cut_off)} />
                     <Field label="MW1" value={displayText(weld.mw1_no)} />
                     <Field label="Transmittal No" value={displayText(weld.transmittal_no)} />
                     <Field label="Contractor Issue" value={displayText(weld.contractor_issue)} />
                     <Field label="Note" value={displayText(weld.note)} />
-                    {displayText(weld.remarks) && <Field label="Remarks" value={displayText(weld.remarks)} />}
+                    {displayText(weld.remarks) ? (
+                        <Field label="Remarks" value={displayText(weld.remarks)} />
+                    ) : null}
                 </div>
             </div>
 

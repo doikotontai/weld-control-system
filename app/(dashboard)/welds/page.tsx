@@ -48,6 +48,8 @@ const COLUMNS: { key: string; label: string; minWidth?: number; align?: Align }[
     { key: 'inspection_request_no', label: 'RQ NDT', minWidth: 95 },
     { key: 'backgouge_date', label: 'Ngày BG', minWidth: 95 },
     { key: 'backgouge_request_no', label: 'Request BG', minWidth: 95 },
+    { key: 'overall_status', label: 'Status (Y)', minWidth: 120 },
+    { key: 'ndt_overall_result', label: 'NDT tổng (Z)', minWidth: 90, align: 'center' },
     { key: 'mt_result', label: 'KQ MT', minWidth: 80, align: 'center' },
     { key: 'mt_report_no', label: 'Báo cáo MT', minWidth: 130 },
     { key: 'ut_result', label: 'KQ UT', minWidth: 80, align: 'center' },
@@ -55,7 +57,7 @@ const COLUMNS: { key: string; label: string; minWidth?: number; align?: Align }[
     { key: 'rt_result', label: 'KQ RT', minWidth: 80, align: 'center' },
     { key: 'release_note_no', label: 'Release note', minWidth: 150 },
     { key: 'release_note_date', label: 'Ngày release', minWidth: 95 },
-    { key: 'stage', label: 'Stage', minWidth: 100 },
+    { key: 'stage', label: 'Stage', minWidth: 110 },
 ]
 
 const STAGE_COLORS: Record<string, string> = {
@@ -78,7 +80,17 @@ function ResultBadge({ result }: { result: string | null | undefined }) {
     const ok = result === 'ACC'
     const rej = result === 'REJ'
     return (
-        <span style={{ display: 'inline-block', padding: '1px 7px', borderRadius: '4px', fontWeight: 700, fontSize: '0.72rem', background: ok ? '#dcfce7' : rej ? '#fee2e2' : '#f1f5f9', color: ok ? '#166534' : rej ? '#991b1b' : '#64748b' }}>
+        <span
+            style={{
+                display: 'inline-block',
+                padding: '1px 7px',
+                borderRadius: '4px',
+                fontWeight: 700,
+                fontSize: '0.72rem',
+                background: ok ? '#dcfce7' : rej ? '#fee2e2' : '#f1f5f9',
+                color: ok ? '#166534' : rej ? '#991b1b' : '#64748b',
+            }}
+        >
             {result}
         </span>
     )
@@ -88,8 +100,45 @@ function StageBadge({ stage }: { stage: string | null | undefined }) {
     if (!stage) return <span style={{ color: '#94a3b8' }}>-</span>
     const color = STAGE_COLORS[stage] || '#64748b'
     return (
-        <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, background: `${color}18`, color, whiteSpace: 'nowrap' }}>
+        <span
+            style={{
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                background: `${color}18`,
+                color,
+                whiteSpace: 'nowrap',
+            }}
+        >
             {STAGE_LABELS[stage as keyof typeof STAGE_LABELS] || stage}
+        </span>
+    )
+}
+
+function StatusBadge({ status }: { status: string | null | undefined }) {
+    if (!status) return <span style={{ color: '#94a3b8' }}>-</span>
+
+    const color =
+        status === 'FINISH'
+            ? '#166534'
+            : status === 'REJ' || status === 'DELETE'
+              ? '#b91c1c'
+              : '#b45309'
+
+    return (
+        <span
+            style={{
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                background: `${color}18`,
+                color,
+                whiteSpace: 'nowrap',
+            }}
+        >
+            {status}
         </span>
     )
 }
@@ -105,7 +154,19 @@ function renderCell(col: string, weld: Record<string, unknown>) {
         case 'excel_row_order':
             return <span style={{ color: '#94a3b8', fontWeight: 600 }}>{(value as number) || ''}</span>
         case 'weld_id':
-            return <Link href={`/welds/${weld.id}`} style={{ color: '#1d4ed8', textDecoration: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}>{String(value || '')}</Link>
+            return (
+                <Link
+                    href={`/welds/${weld.id}`}
+                    style={{
+                        color: '#1d4ed8',
+                        textDecoration: 'none',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                    }}
+                >
+                    {String(value || '')}
+                </Link>
+            )
         case 'drawing_no':
             return <span style={{ color: '#64748b' }}>{String(value || '')}</span>
         case 'weld_no':
@@ -113,15 +174,22 @@ function renderCell(col: string, weld: Record<string, unknown>) {
         case 'joint_type':
             return <span style={{ fontWeight: 600 }}>{String(value || '')}</span>
         case 'goc_code':
-            return value ? <span style={{ padding: '1px 4px', background: '#f1f5f9', borderRadius: '3px' }}>{String(value)}</span> : null
+            return value ? (
+                <span style={{ padding: '1px 4px', background: '#f1f5f9', borderRadius: '3px' }}>
+                    {String(value)}
+                </span>
+            ) : null
         case 'wps_no':
             return <span style={{ color: '#6366f1' }}>{String(value || '')}</span>
         case 'weld_length':
             return <span>{formatNumber(value as number | null | undefined)}</span>
+        case 'ndt_overall_result':
         case 'mt_result':
         case 'ut_result':
         case 'rt_result':
             return <ResultBadge result={value as string | null | undefined} />
+        case 'overall_status':
+            return <StatusBadge status={value as string | null | undefined} />
         case 'release_note_no':
             return <span style={{ fontWeight: 600, color: '#0369a1' }}>{String(value || '')}</span>
         case 'stage':
@@ -131,7 +199,11 @@ function renderCell(col: string, weld: Record<string, unknown>) {
         case 'backgouge_date':
         case 'release_note_date':
         case 'weld_finish_date':
-            return <span style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{formatDate(value)}</span>
+            return (
+                <span style={{ color: '#64748b', whiteSpace: 'nowrap' }}>
+                    {formatDate(value)}
+                </span>
+            )
         default:
             return <span style={{ whiteSpace: 'nowrap' }}>{String(value || '')}</span>
     }
@@ -141,7 +213,13 @@ export default function WeldsPage() {
     const supabase = createClient()
     const searchParams = useSearchParams()
     const drawingFilter = searchParams.get('drawing') || ''
-    const { role, checking: checkingRole } = useRoleGuard(['admin', 'dcc', 'qc', 'inspector', 'viewer'])
+    const { role, checking: checkingRole } = useRoleGuard([
+        'admin',
+        'dcc',
+        'qc',
+        'inspector',
+        'viewer',
+    ])
     const [welds, setWelds] = useState<Record<string, unknown>[]>([])
     const [loading, setLoading] = useState(true)
     const [totalCount, setTotalCount] = useState(0)
@@ -187,13 +265,23 @@ export default function WeldsPage() {
             .range(page * limit, (page + 1) * limit - 1)
 
         if (globalSearch.trim()) {
-            query = query.or(`weld_id.ilike.%${globalSearch}%,weld_no.ilike.%${globalSearch}%,drawing_no.ilike.%${globalSearch}%,welders.ilike.%${globalSearch}%,joint_family.ilike.%${globalSearch}%`)
+            query = query.or(
+                `weld_id.ilike.%${globalSearch}%,weld_no.ilike.%${globalSearch}%,drawing_no.ilike.%${globalSearch}%,welders.ilike.%${globalSearch}%,joint_family.ilike.%${globalSearch}%`
+            )
         }
 
         Object.entries(colFilters).forEach(([col, value]) => {
             if (!value.trim()) return
-            const numericCols = ['weld_no', 'weld_length', 'thickness', 'thickness_lamcheck', 'excel_row_order']
-            query = numericCols.includes(col) ? query.eq(col, value.trim()) : query.ilike(col, `%${value.trim()}%`)
+            const numericCols = [
+                'weld_no',
+                'weld_length',
+                'thickness',
+                'thickness_lamcheck',
+                'excel_row_order',
+            ]
+            query = numericCols.includes(col)
+                ? query.eq(col, value.trim())
+                : query.ilike(col, `%${value.trim()}%`)
         })
 
         const { data, count } = await query
@@ -212,7 +300,10 @@ export default function WeldsPage() {
     }, [currentProjectId, fetchWelds])
 
     const handleSort = (col: string) => {
-        setSort((current) => ({ col, dir: current.col === col && current.dir === 'asc' ? 'desc' : 'asc' }))
+        setSort((current) => ({
+            col,
+            dir: current.col === col && current.dir === 'asc' ? 'desc' : 'asc',
+        }))
         setPage(0)
     }
 
@@ -238,22 +329,47 @@ export default function WeldsPage() {
     }
 
     if (checkingRole) {
-        return <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Đang kiểm tra quyền truy cập...</div>
+        return (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                Đang kiểm tra quyền truy cập...
+            </div>
+        )
     }
 
     return (
         <div className="page-enter">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
                 <div>
-                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>Quản lý mối hàn</h1>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>
+                        Quản lý mối hàn
+                    </h1>
                     <p style={{ color: '#64748b', marginTop: '4px' }}>
-                        {currentProjectId ? `${formatNumber(totalCount)} mối hàn` : 'Chọn dự án ở menu trái'}
+                        {currentProjectId
+                            ? `${formatNumber(totalCount)} mối hàn`
+                            : 'Chọn dự án ở menu trái'}
                     </p>
                 </div>
 
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', background: 'white', borderRadius: '10px', padding: '12px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    {canEdit ? <Link href="/welds/new" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Tạo mới / hàng loạt</Link> : null}
-                    <button onClick={handleExport} className="btn btn-secondary" style={{ whiteSpace: 'nowrap' }}>Export Excel</button>
+                <div
+                    style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '12px',
+                        alignItems: 'center',
+                        background: 'white',
+                        borderRadius: '10px',
+                        padding: '12px 16px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                    }}
+                >
+                    {canEdit ? (
+                        <Link href="/welds/new" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
+                            Tạo mới / hàng loạt
+                        </Link>
+                    ) : null}
+                    <button onClick={handleExport} className="btn btn-secondary" style={{ whiteSpace: 'nowrap' }}>
+                        Export Excel
+                    </button>
                     <input
                         type="text"
                         className="form-input"
@@ -265,22 +381,55 @@ export default function WeldsPage() {
                             setPage(0)
                         }}
                     />
-                    {(globalSearch || Object.values(colFilters).some(Boolean)) ? (
-                        <button className="btn btn-secondary" onClick={() => {
-                            setGlobalSearch('')
-                            setColFilters({})
-                            setPage(0)
-                        }}>
+                    {globalSearch || Object.values(colFilters).some(Boolean) ? (
+                        <button
+                            className="btn btn-secondary"
+                            onClick={() => {
+                                setGlobalSearch('')
+                                setColFilters({})
+                                setPage(0)
+                            }}
+                        >
                             Xóa lọc
                         </button>
                     ) : null}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderLeft: '1px solid #e2e8f0', paddingLeft: '12px' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>Hiển thị:</span>
-                        <select value={limit} onChange={(event) => { setLimit(Number(event.target.value)); setPage(0) }} style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', outline: 'none', cursor: 'pointer' }}>
-                            {LIMIT_OPTIONS.map((option) => <option key={option} value={option}>{option === 999999 ? 'Tất cả' : option}</option>)}
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            borderLeft: '1px solid #e2e8f0',
+                            paddingLeft: '12px',
+                        }}
+                    >
+                        <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>
+                            Hiển thị:
+                        </span>
+                        <select
+                            value={limit}
+                            onChange={(event) => {
+                                setLimit(Number(event.target.value))
+                                setPage(0)
+                            }}
+                            style={{
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                border: '1px solid #cbd5e1',
+                                fontSize: '0.8rem',
+                                outline: 'none',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            {LIMIT_OPTIONS.map((option) => (
+                                <option key={option} value={option}>
+                                    {option === 999999 ? 'Tất cả' : option}
+                                </option>
+                            ))}
                         </select>
                     </div>
-                    <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>Đang xem {Math.min(limit, welds.length)}/{totalCount}</span>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                        Đang xem {Math.min(limit, welds.length)}/{totalCount}
+                    </span>
                 </div>
             </div>
 
@@ -296,27 +445,109 @@ export default function WeldsPage() {
                             <thead>
                                 <tr>
                                     {COLUMNS.map((col) => (
-                                        <th key={col.key} style={{ minWidth: col.minWidth, textAlign: col.align || 'left', cursor: 'pointer', userSelect: 'none', background: sort.col === col.key ? '#eff6ff' : undefined, borderBottom: 'none', paddingBottom: '4px' }} onClick={() => handleSort(col.key)} title={`Sắp xếp theo ${col.label}`}>
-                                            {col.label}<SortIcon col={col.key} />
+                                        <th
+                                            key={col.key}
+                                            style={{
+                                                minWidth: col.minWidth,
+                                                textAlign: col.align || 'left',
+                                                cursor: 'pointer',
+                                                userSelect: 'none',
+                                                background: sort.col === col.key ? '#eff6ff' : undefined,
+                                                borderBottom: 'none',
+                                                paddingBottom: '4px',
+                                            }}
+                                            onClick={() => handleSort(col.key)}
+                                            title={`Sắp xếp theo ${col.label}`}
+                                        >
+                                            {col.label}
+                                            <SortIcon col={col.key} />
                                         </th>
                                     ))}
                                     <th style={{ minWidth: 60 }}>Hành động</th>
                                 </tr>
                                 <tr style={{ background: '#f8fafc' }}>
                                     {COLUMNS.map((col) => {
-                                        const isResult = ['mt_result', 'ut_result', 'rt_result', 'stage'].includes(col.key)
+                                        const isResult = [
+                                            'overall_status',
+                                            'ndt_overall_result',
+                                            'mt_result',
+                                            'ut_result',
+                                            'rt_result',
+                                            'stage',
+                                        ].includes(col.key)
                                         const isExcelRow = col.key === 'excel_row_order'
                                         return (
-                                            <td key={col.key} style={{ padding: '3px 6px', borderTop: '1px solid #e2e8f0' }}>
+                                            <td
+                                                key={col.key}
+                                                style={{
+                                                    padding: '3px 6px',
+                                                    borderTop: '1px solid #e2e8f0',
+                                                }}
+                                            >
                                                 {isExcelRow ? null : isResult ? (
-                                                    <select value={colFilters[col.key] || ''} onChange={(event) => setFilter(col.key, event.target.value)} style={{ width: '100%', fontSize: '0.7rem', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '2px 4px', background: 'white', outline: 'none', color: colFilters[col.key] ? '#0f172a' : '#94a3b8' }}>
+                                                    <select
+                                                        value={colFilters[col.key] || ''}
+                                                        onChange={(event) =>
+                                                            setFilter(col.key, event.target.value)
+                                                        }
+                                                        style={{
+                                                            width: '100%',
+                                                            fontSize: '0.7rem',
+                                                            border: '1px solid #e2e8f0',
+                                                            borderRadius: '4px',
+                                                            padding: '2px 4px',
+                                                            background: 'white',
+                                                            outline: 'none',
+                                                            color: colFilters[col.key]
+                                                                ? '#0f172a'
+                                                                : '#94a3b8',
+                                                        }}
+                                                    >
                                                         <option value="">Tất cả</option>
-                                                        {col.key === 'stage'
-                                                            ? Object.entries(STAGE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)
-                                                            : (<><option value="ACC">ACC</option><option value="REJ">REJ</option><option value="N/A">N/A</option></>)}
+                                                        {col.key === 'stage' ? (
+                                                            Object.entries(STAGE_LABELS).map(([key, label]) => (
+                                                                <option key={key} value={key}>
+                                                                    {label}
+                                                                </option>
+                                                            ))
+                                                        ) : col.key === 'overall_status' ? (
+                                                            <>
+                                                                <option value="NOT YET FITUP">NOT YET FITUP</option>
+                                                                <option value="NOT YET VISUAL">NOT YET VISUAL</option>
+                                                                <option value="NOT YET NDT">NOT YET NDT</option>
+                                                                <option value="FINISH">FINISH</option>
+                                                                <option value="REJ">REJ</option>
+                                                                <option value="DELETE">DELETE</option>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <option value="ACC">ACC</option>
+                                                                <option value="REJ">REJ</option>
+                                                                <option value="N/A">N/A</option>
+                                                            </>
+                                                        )}
                                                     </select>
                                                 ) : (
-                                                    <input type="text" value={colFilters[col.key] || ''} onChange={(event) => setFilter(col.key, event.target.value)} placeholder="Lọc" style={{ width: '100%', fontSize: '0.7rem', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '2px 5px', boxSizing: 'border-box', outline: 'none', background: colFilters[col.key] ? '#eff6ff' : 'white' }} />
+                                                    <input
+                                                        type="text"
+                                                        value={colFilters[col.key] || ''}
+                                                        onChange={(event) =>
+                                                            setFilter(col.key, event.target.value)
+                                                        }
+                                                        placeholder="Lọc"
+                                                        style={{
+                                                            width: '100%',
+                                                            fontSize: '0.7rem',
+                                                            border: '1px solid #e2e8f0',
+                                                            borderRadius: '4px',
+                                                            padding: '2px 5px',
+                                                            boxSizing: 'border-box',
+                                                            outline: 'none',
+                                                            background: colFilters[col.key]
+                                                                ? '#eff6ff'
+                                                                : 'white',
+                                                        }}
+                                                    />
                                                 )}
                                             </td>
                                         )
@@ -326,26 +557,98 @@ export default function WeldsPage() {
                             </thead>
                             <tbody>
                                 {welds.length === 0 ? (
-                                    <tr><td colSpan={COLUMNS.length + 1} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>{currentProjectId ? 'Không có dữ liệu phù hợp.' : 'Chọn dự án ở menu trái.'}</td></tr>
-                                ) : welds.map((weld, index) => (
-                                    <tr key={String(weld.id)} style={{ background: index % 2 ? '#fafafa' : 'white' }}>
-                                        {COLUMNS.map((col) => <td key={col.key} style={{ textAlign: col.align || 'left', padding: '5px 8px' }}>{renderCell(col.key, weld)}</td>)}
-                                        <td style={{ padding: '5px 8px' }}>{canEdit ? <Link href={`/welds/${weld.id}/edit`} style={{ color: '#3b82f6', textDecoration: 'none' }}>Sửa</Link> : <span style={{ color: '#94a3b8' }}>-</span>}</td>
+                                    <tr>
+                                        <td
+                                            colSpan={COLUMNS.length + 1}
+                                            style={{
+                                                textAlign: 'center',
+                                                padding: '40px',
+                                                color: '#64748b',
+                                            }}
+                                        >
+                                            {currentProjectId
+                                                ? 'Không có dữ liệu phù hợp.'
+                                                : 'Chọn dự án ở menu trái.'}
+                                        </td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    welds.map((weld, index) => (
+                                        <tr
+                                            key={String(weld.id)}
+                                            style={{ background: index % 2 ? '#fafafa' : 'white' }}
+                                        >
+                                            {COLUMNS.map((col) => (
+                                                <td
+                                                    key={col.key}
+                                                    style={{
+                                                        textAlign: col.align || 'left',
+                                                        padding: '5px 8px',
+                                                    }}
+                                                >
+                                                    {renderCell(col.key, weld)}
+                                                </td>
+                                            ))}
+                                            <td style={{ padding: '5px 8px' }}>
+                                                {canEdit ? (
+                                                    <Link
+                                                        href={`/welds/${weld.id}/edit`}
+                                                        style={{
+                                                            color: '#3b82f6',
+                                                            textDecoration: 'none',
+                                                        }}
+                                                    >
+                                                        Sửa
+                                                    </Link>
+                                                ) : (
+                                                    <span style={{ color: '#94a3b8' }}>-</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </SyncedTableFrame>
                 )}
 
                 {totalPages > 1 ? (
-                    <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Trang {page + 1}/{totalPages} - {totalCount} mối hàn</span>
+                    <div
+                        style={{
+                            padding: '12px 16px',
+                            borderTop: '1px solid #f1f5f9',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                        }}
+                    >
+                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                            Trang {page + 1}/{totalPages} - {totalCount} mối hàn
+                        </span>
                         <div style={{ display: 'flex', gap: '6px' }}>
-                            <button className="btn btn-secondary" onClick={() => setPage(0)} disabled={page === 0}>{'<<'}</button>
-                            <button className="btn btn-secondary" onClick={() => setPage((current) => current - 1)} disabled={page === 0}>Trước</button>
-                            <button className="btn btn-secondary" onClick={() => setPage((current) => current + 1)} disabled={page >= totalPages - 1}>Sau</button>
-                            <button className="btn btn-secondary" onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1}>{'>>'}</button>
+                            <button className="btn btn-secondary" onClick={() => setPage(0)} disabled={page === 0}>
+                                {'<<'}
+                            </button>
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => setPage((current) => current - 1)}
+                                disabled={page === 0}
+                            >
+                                Trước
+                            </button>
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => setPage((current) => current + 1)}
+                                disabled={page >= totalPages - 1}
+                            >
+                                Sau
+                            </button>
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => setPage(totalPages - 1)}
+                                disabled={page >= totalPages - 1}
+                            >
+                                {'>>'}
+                            </button>
                         </div>
                     </div>
                 ) : null}
@@ -353,4 +656,3 @@ export default function WeldsPage() {
         </div>
     )
 }
-

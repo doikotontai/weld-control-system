@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { deriveWeldWorkflow } from '@/lib/weld-workflow'
 import { STAGE_LABELS } from '@/types'
 import { useRoleGuard } from '@/lib/use-role-guard'
 
@@ -32,6 +33,7 @@ interface WeldRecord {
     inspection_request_no: string | null
     backgouge_date: string | null
     backgouge_request_no: string | null
+    ndt_overall_result: string | null
     mt_result: string | null
     mt_report_no: string | null
     ut_result: string | null
@@ -54,7 +56,9 @@ interface WeldRecord {
     contractor_issue: string | null
     transmittal_no: string | null
     mw1_no: string | null
+    overall_status: string | null
     stage: string | null
+    final_status: string | null
     remarks: string | null
 }
 
@@ -79,21 +83,23 @@ interface FieldConfig {
     rows?: number
 }
 
-const NDT_OPTIONS = [
+const RESULT_OPTIONS = [
     { value: '', label: '-- Chưa có --' },
     { value: 'ACC', label: 'ACC (Chấp nhận)' },
     { value: 'REJ', label: 'REJ (Từ chối)' },
     { value: 'N/A', label: 'N/A' },
 ]
 
+const OVERALL_NDT_OPTIONS = [
+    { value: '', label: '-- Chưa có --' },
+    { value: 'ACC', label: 'ACC (Hoàn thành)' },
+    { value: 'REJ', label: 'REJ (Reject)' },
+]
+
 const JOINT_TYPE_OPTIONS = ['', 'DB', 'DV', 'SB', 'SV', 'X1', 'X2', 'X3'].map((value) => ({
     value,
     label: value || '-- Chọn --',
 }))
-
-const STAGE_OPTIONS = [{ value: '', label: '-- Tự động --' }].concat(
-    Object.entries(STAGE_LABELS).map(([value, label]) => ({ value, label }))
-)
 
 const EMPTY_FORM: FormData = {
     weld_id: '',
@@ -118,6 +124,7 @@ const EMPTY_FORM: FormData = {
     inspection_request_no: '',
     backgouge_date: '',
     backgouge_request_no: '',
+    ndt_overall_result: '',
     mt_result: '',
     mt_report_no: '',
     ut_result: '',
@@ -140,7 +147,6 @@ const EMPTY_FORM: FormData = {
     contractor_issue: '',
     transmittal_no: '',
     mw1_no: '',
-    stage: '',
     remarks: '',
 }
 
@@ -150,7 +156,7 @@ const BASIC_FIELDS: FieldConfig[] = [
     { key: 'weld_no', label: 'Weld No', placeholder: '1 / 17R1 / 127A' },
     { key: 'joint_family', label: 'Weld Joints', placeholder: 'X1, X2, X3...' },
     { key: 'joint_type', label: 'Weld Type', type: 'select', options: JOINT_TYPE_OPTIONS },
-    { key: 'ndt_requirements', label: 'NDT', placeholder: '100%MT & UT' },
+    { key: 'ndt_requirements', label: 'NDT requirements', placeholder: '100%MT & UT' },
     { key: 'position', label: 'OD / L (Position)', placeholder: 'D / L' },
     { key: 'weld_length', label: 'Length (mm)', type: 'number', placeholder: '2392.68' },
     { key: 'thickness', label: 'Thickness (mm)', type: 'number', placeholder: '25' },
@@ -179,13 +185,14 @@ const NDT_FIELDS: FieldConfig[] = [
     { key: 'lamcheck_date', label: 'Ngày Lamcheck', type: 'date' },
     { key: 'lamcheck_request_no', label: 'Request Lamcheck', placeholder: 'UL-001' },
     { key: 'lamcheck_report_no', label: 'Báo cáo Lamcheck', placeholder: 'LC-001' },
-    { key: 'mt_result', label: 'Kết quả MT', type: 'select', options: NDT_OPTIONS },
+    { key: 'ndt_overall_result', label: 'Kết quả NDT tổng (cột Z)', type: 'select', options: OVERALL_NDT_OPTIONS },
+    { key: 'mt_result', label: 'Kết quả MT', type: 'select', options: RESULT_OPTIONS },
     { key: 'mt_report_no', label: 'Báo cáo MT', placeholder: 'MT-2211-ST-22-0017' },
-    { key: 'ut_result', label: 'Kết quả UT', type: 'select', options: NDT_OPTIONS },
+    { key: 'ut_result', label: 'Kết quả UT', type: 'select', options: RESULT_OPTIONS },
     { key: 'ut_report_no', label: 'Báo cáo UT', placeholder: 'UT-2211-ST-22-0033' },
-    { key: 'rt_result', label: 'Kết quả RT', type: 'select', options: NDT_OPTIONS },
+    { key: 'rt_result', label: 'Kết quả RT', type: 'select', options: RESULT_OPTIONS },
     { key: 'rt_report_no', label: 'Báo cáo RT', placeholder: 'RT-...' },
-    { key: 'pwht_result', label: 'Kết quả PWHT', type: 'select', options: NDT_OPTIONS },
+    { key: 'pwht_result', label: 'Kết quả PWHT', type: 'select', options: RESULT_OPTIONS },
     { key: 'defect_length', label: 'Chiều dài khuyết tật (mm)', type: 'number', placeholder: '0' },
     { key: 'repair_length', label: 'Chiều dài sửa chữa (mm)', type: 'number', placeholder: '0' },
 ]
@@ -200,7 +207,6 @@ const RELEASE_FIELDS: FieldConfig[] = [
     { key: 'mw1_no', label: 'MW1', placeholder: 'MW1-...' },
     { key: 'transmittal_no', label: 'Transmittal No', placeholder: 'TR-...' },
     { key: 'contractor_issue', label: 'Contractor Issue', placeholder: 'Contractor issue' },
-    { key: 'stage', label: 'Stage', type: 'select', options: STAGE_OPTIONS },
     { key: 'note', label: 'Ghi chú release / close-out', type: 'textarea', rows: 2, placeholder: 'Ghi chú close-out / release...', fullWidth: true },
     { key: 'remarks', label: 'Ghi chú thêm', type: 'textarea', rows: 3, placeholder: 'Ghi chú thêm...', fullWidth: true },
 ]
@@ -226,7 +232,15 @@ function Label({ children, required }: { children: React.ReactNode; required?: b
 
 function SectionCard({ icon, title, children }: { icon: string; title: string; children: React.ReactNode }) {
     return (
-        <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+        <div
+            style={{
+                background: 'white',
+                borderRadius: '12px',
+                padding: '24px',
+                marginBottom: '16px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+            }}
+        >
             <h3
                 style={{
                     fontWeight: 600,
@@ -242,7 +256,15 @@ function SectionCard({ icon, title, children }: { icon: string; title: string; c
                 <span>{icon}</span>
                 <span>{title}</span>
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>{children}</div>
+            <div
+                style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '14px',
+                }}
+            >
+                {children}
+            </div>
         </div>
     )
 }
@@ -331,6 +353,31 @@ function FieldGrid({
     )
 }
 
+function SummaryItem({ label, value, tone = 'neutral' }: { label: string; value: string; tone?: 'neutral' | 'good' | 'warn' | 'bad' }) {
+    const colors: Record<typeof tone, { bg: string; text: string; border: string }> = {
+        neutral: { bg: '#f8fafc', text: '#334155', border: '#e2e8f0' },
+        good: { bg: '#ecfdf5', text: '#166534', border: '#bbf7d0' },
+        warn: { bg: '#fffbeb', text: '#b45309', border: '#fde68a' },
+        bad: { bg: '#fef2f2', text: '#b91c1c', border: '#fecaca' },
+    }
+
+    return (
+        <div
+            style={{
+                padding: '12px 14px',
+                borderRadius: '10px',
+                border: `1px solid ${colors[tone].border}`,
+                background: colors[tone].bg,
+            }}
+        >
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {label}
+            </div>
+            <div style={{ marginTop: '6px', fontSize: '0.95rem', fontWeight: 700, color: colors[tone].text }}>{value}</div>
+        </div>
+    )
+}
+
 export default function EditWeldPage() {
     const supabase = createClient()
     const router = useRouter()
@@ -346,6 +393,30 @@ export default function EditWeldPage() {
     const [success, setSuccess] = useState('')
     const [weldDisplayId, setWeldDisplayId] = useState('')
     const [form, setForm] = useState<FormData>(EMPTY_FORM)
+
+    const workflow = useMemo(
+        () =>
+            deriveWeldWorkflow({
+                weldNo: form.weld_no,
+                fitupDate: form.fitup_date,
+                visualDate: form.visual_date,
+                ndtRequirements: form.ndt_requirements,
+                ndtOverallResult: form.ndt_overall_result,
+                inspectionRequestNo: form.inspection_request_no,
+                backgougeDate: form.backgouge_date,
+                backgougeRequestNo: form.backgouge_request_no,
+                lamcheckDate: form.lamcheck_date,
+                lamcheckRequestNo: form.lamcheck_request_no,
+                lamcheckReportNo: form.lamcheck_report_no,
+                releaseFinalDate: form.release_final_date,
+                releaseFinalRequestNo: form.release_final_request_no,
+                releaseNoteDate: form.release_note_date,
+                releaseNoteNo: form.release_note_no,
+                cutOff: form.cut_off,
+                mw1No: form.mw1_no,
+            }),
+        [form]
+    )
 
     const setField = (key: string, value: string) => {
         setForm((current) => ({ ...current, [key]: value }))
@@ -386,6 +457,7 @@ export default function EditWeldPage() {
                 inspection_request_no: toText(weld.inspection_request_no),
                 backgouge_date: toDateString(weld.backgouge_date),
                 backgouge_request_no: toText(weld.backgouge_request_no),
+                ndt_overall_result: toText(weld.ndt_overall_result),
                 mt_result: toText(weld.mt_result),
                 mt_report_no: toText(weld.mt_report_no),
                 ut_result: toText(weld.ut_result),
@@ -408,7 +480,6 @@ export default function EditWeldPage() {
                 contractor_issue: toText(weld.contractor_issue),
                 transmittal_no: toText(weld.transmittal_no),
                 mw1_no: toText(weld.mw1_no),
-                stage: toText(weld.stage),
                 remarks: toText(weld.remarks),
             })
             setLoading(false)
@@ -446,6 +517,7 @@ export default function EditWeldPage() {
             inspection_request_no: form.inspection_request_no || null,
             backgouge_date: form.backgouge_date || null,
             backgouge_request_no: form.backgouge_request_no || null,
+            ndt_overall_result: form.ndt_overall_result || null,
             mt_result: form.mt_result || null,
             mt_report_no: form.mt_report_no || null,
             ut_result: form.ut_result || null,
@@ -468,7 +540,9 @@ export default function EditWeldPage() {
             contractor_issue: form.contractor_issue || null,
             transmittal_no: form.transmittal_no || null,
             mw1_no: form.mw1_no || null,
-            stage: form.stage || null,
+            overall_status: workflow.overallStatus,
+            stage: workflow.stage,
+            final_status: workflow.finalStatus,
             remarks: form.remarks || null,
         }
 
@@ -516,12 +590,36 @@ export default function EditWeldPage() {
         )
     }
 
+    const stageLabel = STAGE_LABELS[workflow.stage] || workflow.stage
+    const overallTone =
+        workflow.overallStatus === 'FINISH'
+            ? 'good'
+            : workflow.overallStatus === 'REJ' || workflow.overallStatus === 'DELETE'
+              ? 'bad'
+              : 'warn'
+
     return (
         <div className="page-enter">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: '20px',
+                }}
+            >
                 <div>
                     <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Sửa mối hàn</h1>
-                    <p style={{ color: '#64748b', marginTop: '4px', fontFamily: 'monospace', fontSize: '0.95rem' }}>{weldDisplayId}</p>
+                    <p
+                        style={{
+                            color: '#64748b',
+                            marginTop: '4px',
+                            fontFamily: 'monospace',
+                            fontSize: '0.95rem',
+                        }}
+                    >
+                        {weldDisplayId}
+                    </p>
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -533,17 +631,41 @@ export default function EditWeldPage() {
                         <button
                             className="btn"
                             onClick={() => setConfirmDelete(true)}
-                            style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}
+                            style={{
+                                background: '#fee2e2',
+                                color: '#dc2626',
+                                border: '1px solid #fca5a5',
+                            }}
                         >
                             Xóa
                         </button>
                     ) : (
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.875rem' }}>Xác nhận xóa?</span>
-                            <button className="btn" onClick={handleDelete} disabled={deleting} style={{ background: '#dc2626', color: 'white', border: 'none' }}>
+                            <span
+                                style={{
+                                    color: '#dc2626',
+                                    fontWeight: 600,
+                                    fontSize: '0.875rem',
+                                }}
+                            >
+                                Xác nhận xóa?
+                            </span>
+                            <button
+                                className="btn"
+                                onClick={handleDelete}
+                                disabled={deleting}
+                                style={{
+                                    background: '#dc2626',
+                                    color: 'white',
+                                    border: 'none',
+                                }}
+                            >
                                 {deleting ? 'Đang xóa...' : 'Xóa'}
                             </button>
-                            <button className="btn btn-secondary" onClick={() => setConfirmDelete(false)}>
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => setConfirmDelete(false)}
+                            >
                                 Hủy
                             </button>
                         </div>
@@ -551,8 +673,74 @@ export default function EditWeldPage() {
                 </div>
             </div>
 
-            {error && <div style={{ padding: '12px 16px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', color: '#991b1b', marginBottom: '16px' }}>{error}</div>}
-            {success && <div style={{ padding: '12px 16px', background: '#dcfce7', border: '1px solid #86efac', borderRadius: '8px', color: '#166534', marginBottom: '16px' }}>{success}</div>}
+            {error ? (
+                <div
+                    style={{
+                        padding: '12px 16px',
+                        background: '#fee2e2',
+                        border: '1px solid #fca5a5',
+                        borderRadius: '8px',
+                        color: '#991b1b',
+                        marginBottom: '16px',
+                    }}
+                >
+                    {error}
+                </div>
+            ) : null}
+            {success ? (
+                <div
+                    style={{
+                        padding: '12px 16px',
+                        background: '#dcfce7',
+                        border: '1px solid #86efac',
+                        borderRadius: '8px',
+                        color: '#166534',
+                        marginBottom: '16px',
+                    }}
+                >
+                    {success}
+                </div>
+            ) : null}
+
+            <div
+                style={{
+                    background: 'white',
+                    borderRadius: '12px',
+                    padding: '18px 20px',
+                    marginBottom: '16px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                }}
+            >
+                <div style={{ marginBottom: '12px' }}>
+                    <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+                        Workflow tự động theo Excel
+                    </h2>
+                    <p style={{ color: '#64748b', marginTop: '4px', fontSize: '0.9rem' }}>
+                        Trạng thái được suy ra theo thứ tự của cột Y: Fit-Up → Visual → NDT tổng
+                        (cột Z). Nhập ACC ở cột Z sẽ không thể vượt qua bước Fit-Up hoặc Visual còn
+                        thiếu.
+                    </p>
+                </div>
+                <div
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                        gap: '12px',
+                    }}
+                >
+                    <SummaryItem
+                        label="Status cột Y"
+                        value={workflow.overallStatus}
+                        tone={overallTone}
+                    />
+                    <SummaryItem label="Stage hệ thống" value={stageLabel} />
+                    <SummaryItem
+                        label="Kết luận cuối"
+                        value={workflow.finalStatus || '-'}
+                        tone={workflow.finalStatus === 'OK' ? 'good' : workflow.finalStatus === 'REJECT' ? 'bad' : 'neutral'}
+                    />
+                </div>
+            </div>
 
             <form onSubmit={handleSave}>
                 <SectionCard icon="INFO" title="Thông tin cơ bản">

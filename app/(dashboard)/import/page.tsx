@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx'
 import { formatNumber } from '@/lib/formatters'
 import { PROJECT_CHANGE_EVENT, readActiveProjectIdFromCookie } from '@/lib/project-selection'
 import { useRoleGuard } from '@/lib/use-role-guard'
+import { deriveWeldWorkflow } from '@/lib/weld-workflow'
 
 interface PreviewRow {
     weld_id: string
@@ -153,28 +154,6 @@ function parseText(val: unknown): string | null {
     return text || null
 }
 
-function parseStage(row: Record<string, unknown>): string {
-    const mtResult = parseResult(row['mt_result'])
-    const utResult = parseResult(row['ut_result'])
-    const rtResult = parseResult(row['rt_result'])
-    const overallStatus = String(row['overall_status'] || '').toUpperCase().trim()
-
-    if (overallStatus === 'DELETE') return 'rejected'
-    if (mtResult === 'REJ' || utResult === 'REJ' || rtResult === 'REJ' || overallStatus === 'REJ') return 'rejected'
-    if (row['mw1_no']) return 'mw1'
-    if (row['cut_off']) return 'cutoff'
-    if (row['release_note_no'] || row['release_final_request_no'] || row['release_final_date']) return 'release'
-    if (overallStatus === 'FINISH') return 'completed'
-    if (row['mt_report_no'] || row['ut_report_no'] || row['rt_report_no'] || row['ndt_after_pwht']) return 'ndt'
-    if (row['lamcheck_date'] || row['lamcheck_request_no']) return 'lamcheck'
-    if (row['backgouge_date'] || row['backgouge_request_no']) return 'backgouge'
-    if (row['inspection_request_no']) return 'request'
-    if (row['visual_date'] || row['visual_inspector']) return 'visual'
-    if (row['weld_finish_date'] || row['welders']) return 'welding'
-    if (row['fitup_date'] || row['fitup_inspector']) return 'fitup'
-    return 'fitup'
-}
-
 export default function ImportPage() {
     const [file, setFile] = useState<File | null>(null)
     const [preview, setPreview] = useState<PreviewRow[]>([])
@@ -276,6 +255,26 @@ export default function ImportPage() {
                         Object.entries(COLUMN_MAP).forEach(([idx, key]) => {
                             rowObj[key] = row[parseInt(idx)]
                         })
+                        const workflow = deriveWeldWorkflow({
+                            weldNo: parseText(rowObj['weld_no']),
+                            fitupDate: parseDate(rowObj['fitup_date']),
+                            visualDate: parseDate(rowObj['visual_date']),
+                            ndtRequirements: parseText(rowObj['ndt_requirements']),
+                            ndtOverallResult: parseText(rowObj['ndt_overall_result']),
+                            overallStatusRaw: parseText(rowObj['overall_status']),
+                            inspectionRequestNo: parseText(rowObj['inspection_request_no']),
+                            backgougeDate: parseDate(rowObj['backgouge_date']),
+                            backgougeRequestNo: parseText(rowObj['backgouge_request_no']),
+                            lamcheckDate: parseDate(rowObj['lamcheck_date']),
+                            lamcheckRequestNo: parseText(rowObj['lamcheck_request_no']),
+                            lamcheckReportNo: parseText(rowObj['lamcheck_report_no']),
+                            releaseFinalDate: parseDate(rowObj['release_final_date']),
+                            releaseFinalRequestNo: parseText(rowObj['release_final_request_no']),
+                            releaseNoteDate: parseDate(rowObj['release_note_date']),
+                            releaseNoteNo: parseText(rowObj['release_note_no']),
+                            cutOff: parseText(rowObj['cut_off']),
+                            mw1No: parseText(rowObj['mw1_no']),
+                        })
 
                         rows.push({
                             weld_id: weldId,
@@ -302,8 +301,8 @@ export default function ImportPage() {
                             backgouge_request_no: String(rowObj['backgouge_request_no'] || ''),
                             lamcheck_date: parseDate(rowObj['lamcheck_date']) || '',
                             lamcheck_request_no: String(rowObj['lamcheck_request_no'] || ''),
-                            overall_status: String(rowObj['overall_status'] || ''),
-                            ndt_overall_result: String(rowObj['ndt_overall_result'] || ''),
+                            overall_status: workflow.overallStatus,
+                            ndt_overall_result: workflow.ndtOverallResult || '',
                             mt_result: parseResult(rowObj['mt_result']) || '',
                             mt_report_no: String(rowObj['mt_report_no'] || ''),
                             ut_result: parseResult(rowObj['ut_result']) || '',
@@ -324,7 +323,7 @@ export default function ImportPage() {
                             contractor_issue: String(rowObj['contractor_issue'] || ''),
                             transmittal_no: String(rowObj['transmittal_no'] || ''),
                             mw1_no: String(rowObj['mw1_no'] || ''),
-                            stage: parseStage(rowObj),
+                            stage: workflow.stage,
                         })
                     }
                 }
@@ -379,10 +378,27 @@ export default function ImportPage() {
 
                     const mtResult = parseResult(rowObj['mt_result'])
                     const utResult = parseResult(rowObj['ut_result'])
-                    const rtResult = parseResult(rowObj['rt_result'])
-                    const overallStatus = String(rowObj['overall_status'] || '').toUpperCase().trim()
-
                     const weldNo = parseText(rowObj['weld_no'])
+                    const workflow = deriveWeldWorkflow({
+                        weldNo,
+                        fitupDate: parseDate(rowObj['fitup_date']),
+                        visualDate: parseDate(rowObj['visual_date']),
+                        ndtRequirements: parseText(rowObj['ndt_requirements']),
+                        ndtOverallResult: parseText(rowObj['ndt_overall_result']),
+                        overallStatusRaw: parseText(rowObj['overall_status']),
+                        inspectionRequestNo: parseText(rowObj['inspection_request_no']),
+                        backgougeDate: parseDate(rowObj['backgouge_date']),
+                        backgougeRequestNo: parseText(rowObj['backgouge_request_no']),
+                        lamcheckDate: parseDate(rowObj['lamcheck_date']),
+                        lamcheckRequestNo: parseText(rowObj['lamcheck_request_no']),
+                        lamcheckReportNo: parseText(rowObj['lamcheck_report_no']),
+                        releaseFinalDate: parseDate(rowObj['release_final_date']),
+                        releaseFinalRequestNo: parseText(rowObj['release_final_request_no']),
+                        releaseNoteDate: parseDate(rowObj['release_note_date']),
+                        releaseNoteNo: parseText(rowObj['release_note_no']),
+                        cutOff: parseText(rowObj['cut_off']),
+                        mw1No: parseText(rowObj['mw1_no']),
+                    })
                     const weldIdUpper = weldId.toUpperCase()
 
                     const weldData = {
@@ -412,6 +428,8 @@ export default function ImportPage() {
                         backgouge_request_no: parseText(rowObj['backgouge_request_no']),
                         lamcheck_date: parseDate(rowObj['lamcheck_date']),
                         lamcheck_request_no: parseText(rowObj['lamcheck_request_no']),
+                        overall_status: workflow.overallStatus,
+                        ndt_overall_result: workflow.ndtOverallResult,
                         mt_result: mtResult,
                         ut_result: utResult,
                         mt_report_no: parseText(rowObj['mt_report_no']),
@@ -432,12 +450,8 @@ export default function ImportPage() {
                         contractor_issue: parseText(rowObj['contractor_issue']),
                         transmittal_no: parseText(rowObj['transmittal_no']),
                         mw1_no: parseText(rowObj['mw1_no']),
-                        stage: parseStage(rowObj),
-                        final_status: overallStatus === 'FINISH' || (mtResult === 'ACC' && utResult === 'ACC')
-                            ? 'OK'
-                            : (mtResult === 'REJ' || utResult === 'REJ' || rtResult === 'REJ')
-                                ? 'REJECT'
-                                : null,
+                        stage: workflow.stage,
+                        final_status: workflow.finalStatus,
                         excel_row_order: dataRowIndex,
                     }
                     dataRows.push(weldData)
@@ -680,6 +694,3 @@ export default function ImportPage() {
         </div>
     )
 }
-
-
-
