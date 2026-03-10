@@ -4,7 +4,9 @@ import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatNumber } from '@/lib/formatters'
+import { PROJECT_CHANGE_EVENT, readActiveProjectIdFromCookie } from '@/lib/project-selection'
 import { STAGE_LABELS } from '@/types'
+import { useRoleGuard } from '@/lib/use-role-guard'
 
 type SortDir = 'asc' | 'desc'
 
@@ -17,9 +19,11 @@ interface ColFilters {
     [col: string]: string
 }
 
+type Align = 'right' | 'center'
+
 const LIMIT_OPTIONS = [50, 100, 200, 500, 1000, 999999]
 
-const COLUMNS: { key: string; label: string; minWidth?: number; align?: 'right' | 'center' }[] = [
+const COLUMNS: { key: string; label: string; minWidth?: number; align?: Align }[] = [
     { key: 'excel_row_order', label: '#', minWidth: 48, align: 'center' },
     { key: 'weld_id', label: 'Weld ID', minWidth: 180 },
     { key: 'drawing_no', label: 'Drawing No', minWidth: 130 },
@@ -30,28 +34,43 @@ const COLUMNS: { key: string; label: string; minWidth?: number; align?: 'right' 
     { key: 'position', label: 'OD / L', minWidth: 65, align: 'center' },
     { key: 'weld_length', label: 'Length (mm)', minWidth: 90, align: 'right' },
     { key: 'thickness', label: 'Thickness (mm)', minWidth: 80, align: 'right' },
-    { key: 'thickness_lamcheck', label: 'Thick LC', minWidth: 80, align: 'right' },
+    { key: 'thickness_lamcheck', label: 'Độ dày LC', minWidth: 80, align: 'right' },
     { key: 'wps_no', label: 'WPS No.', minWidth: 90 },
     { key: 'goc_code', label: 'GOC Code', minWidth: 90 },
-    { key: 'fitup_inspector', label: 'FU Inspector', minWidth: 100 },
-    { key: 'fitup_date', label: 'FU Date', minWidth: 95 },
-    { key: 'fitup_request_no', label: 'FU Request', minWidth: 95 },
-    { key: 'weld_finish_date', label: 'Weld Finish', minWidth: 95 },
+    { key: 'fitup_inspector', label: 'QC Fit-Up', minWidth: 100 },
+    { key: 'fitup_date', label: 'Ngày FU', minWidth: 95 },
+    { key: 'fitup_request_no', label: 'Request FU', minWidth: 95 },
+    { key: 'weld_finish_date', label: 'Hoàn thành hàn', minWidth: 95 },
     { key: 'welders', label: "Welders' ID", minWidth: 110 },
-    { key: 'visual_inspector', label: 'VS Inspector', minWidth: 100 },
-    { key: 'visual_date', label: 'VS Date', minWidth: 95 },
-    { key: 'inspection_request_no', label: 'NDT RQ', minWidth: 95 },
-    { key: 'backgouge_date', label: 'BG Date', minWidth: 90 },
-    { key: 'backgouge_request_no', label: 'BG Request', minWidth: 90 },
-    { key: 'mt_result', label: 'MT Result', minWidth: 80, align: 'center' },
-    { key: 'mt_report_no', label: 'MT Report', minWidth: 130 },
-    { key: 'ut_result', label: 'UT Result', minWidth: 80, align: 'center' },
-    { key: 'ut_report_no', label: 'UT Report', minWidth: 130 },
-    { key: 'rt_result', label: 'RT Result', minWidth: 80, align: 'center' },
-    { key: 'release_note_no', label: 'Release Note', minWidth: 150 },
-    { key: 'release_note_date', label: 'Release Date', minWidth: 90 },
+    { key: 'visual_inspector', label: 'QC Visual', minWidth: 100 },
+    { key: 'visual_date', label: 'Ngày Visual', minWidth: 95 },
+    { key: 'inspection_request_no', label: 'RQ NDT', minWidth: 95 },
+    { key: 'backgouge_date', label: 'Ngày BG', minWidth: 90 },
+    { key: 'backgouge_request_no', label: 'Request BG', minWidth: 90 },
+    { key: 'mt_result', label: 'KQ MT', minWidth: 80, align: 'center' },
+    { key: 'mt_report_no', label: 'Báo cáo MT', minWidth: 130 },
+    { key: 'ut_result', label: 'KQ UT', minWidth: 80, align: 'center' },
+    { key: 'ut_report_no', label: 'Báo cáo UT', minWidth: 130 },
+    { key: 'rt_result', label: 'KQ RT', minWidth: 80, align: 'center' },
+    { key: 'release_note_no', label: 'Release note', minWidth: 150 },
+    { key: 'release_note_date', label: 'Ngày release', minWidth: 90 },
     { key: 'stage', label: 'Stage', minWidth: 100 },
 ]
+
+const STAGE_COLORS: Record<string, string> = {
+    fitup: '#0891b2',
+    welding: '#92400e',
+    visual: '#b45309',
+    request: '#0ea5e9',
+    backgouge: '#c2410c',
+    lamcheck: '#065f46',
+    ndt: '#7c3aed',
+    release: '#166534',
+    cutoff: '#475569',
+    mw1: '#06b6d4',
+    completed: '#16a34a',
+    rejected: '#b91c1c',
+}
 
 function ResultBadge({ result }: { result: string | null | undefined }) {
     if (!result) {
@@ -76,21 +95,6 @@ function ResultBadge({ result }: { result: string | null | undefined }) {
             {result}
         </span>
     )
-}
-
-const STAGE_COLORS: Record<string, string> = {
-    fitup: '#0891b2',
-    welding: '#92400e',
-    visual: '#b45309',
-    request: '#0ea5e9',
-    backgouge: '#c2410c',
-    lamcheck: '#065f46',
-    ndt: '#7c3aed',
-    release: '#166534',
-    cutoff: '#475569',
-    mw1: '#06b6d4',
-    completed: '#16a34a',
-    rejected: '#b91c1c',
 }
 
 function StageBadge({ stage }: { stage: string | null | undefined }) {
@@ -134,29 +138,29 @@ function renderCell(col: string, weld: Record<string, unknown>) {
         case 'weld_id':
             return (
                 <Link href={`/welds/${weld.id}`} style={{ color: '#1d4ed8', textDecoration: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    {value as string}
+                    {String(value || '')}
                 </Link>
             )
         case 'drawing_no':
-            return <span style={{ color: '#64748b' }}>{value as string}</span>
+            return <span style={{ color: '#64748b' }}>{String(value || '')}</span>
         case 'weld_no':
         case 'joint_family':
         case 'joint_type':
             return <span style={{ fontWeight: 600 }}>{String(value || '')}</span>
         case 'goc_code':
-            return value ? <span style={{ padding: '1px 4px', background: '#f1f5f9', borderRadius: '3px' }}>{value as string}</span> : null
+            return value ? <span style={{ padding: '1px 4px', background: '#f1f5f9', borderRadius: '3px' }}>{String(value)}</span> : null
         case 'wps_no':
-            return <span style={{ color: '#6366f1' }}>{value as string}</span>
+            return <span style={{ color: '#6366f1' }}>{String(value || '')}</span>
         case 'weld_length':
             return <span>{formatNumber(value as number | null | undefined)}</span>
         case 'mt_result':
         case 'ut_result':
         case 'rt_result':
-            return <ResultBadge result={value as string} />
+            return <ResultBadge result={value as string | null | undefined} />
         case 'release_note_no':
-            return <span style={{ fontWeight: 600, color: '#0369a1' }}>{value as string}</span>
+            return <span style={{ fontWeight: 600, color: '#0369a1' }}>{String(value || '')}</span>
         case 'stage':
-            return <StageBadge stage={value as string} />
+            return <StageBadge stage={value as string | null | undefined} />
         case 'fitup_date':
         case 'visual_date':
         case 'backgouge_date':
@@ -164,12 +168,13 @@ function renderCell(col: string, weld: Record<string, unknown>) {
         case 'weld_finish_date':
             return <span style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{formatDate(value)}</span>
         default:
-            return <span style={{ whiteSpace: 'nowrap' }}>{(value as string) || ''}</span>
+            return <span style={{ whiteSpace: 'nowrap' }}>{String(value || '')}</span>
     }
 }
 
 export default function WeldsPage() {
     const supabase = createClient()
+    const { role, checking: checkingRole } = useRoleGuard(['admin', 'dcc', 'qc', 'inspector', 'viewer'])
     const [welds, setWelds] = useState<Record<string, unknown>[]>([])
     const [loading, setLoading] = useState(true)
     const [totalCount, setTotalCount] = useState(0)
@@ -182,9 +187,21 @@ export default function WeldsPage() {
     const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
     useEffect(() => {
-        if (typeof document !== 'undefined') {
-            const match = document.cookie.match(/(?:^|;)\s*weld-control-project-id=([^;]+)/)
-            setCurrentProjectId(match ? match[1] : null)
+        if (typeof window === 'undefined') {
+            return
+        }
+
+        const syncProject = () => {
+            setCurrentProjectId(readActiveProjectIdFromCookie())
+        }
+
+        syncProject()
+        window.addEventListener(PROJECT_CHANGE_EVENT, syncProject)
+        window.addEventListener('focus', syncProject)
+
+        return () => {
+            window.removeEventListener(PROJECT_CHANGE_EVENT, syncProject)
+            window.removeEventListener('focus', syncProject)
         }
     }, [])
 
@@ -211,16 +228,16 @@ export default function WeldsPage() {
             )
         }
 
-        Object.entries(colFilters).forEach(([col, val]) => {
-            if (!val?.trim()) {
+        Object.entries(colFilters).forEach(([col, value]) => {
+            if (!value.trim()) {
                 return
             }
 
             const numericCols = ['weld_no', 'weld_length', 'thickness', 'thickness_lamcheck', 'excel_row_order']
             if (numericCols.includes(col)) {
-                query = query.eq(col, val.trim())
+                query = query.eq(col, value.trim())
             } else {
-                query = query.ilike(col, `%${val.trim()}%`)
+                query = query.ilike(col, `%${value.trim()}%`)
             }
         })
 
@@ -231,11 +248,20 @@ export default function WeldsPage() {
     }, [colFilters, currentProjectId, globalSearch, limit, page, sort, supabase])
 
     useEffect(() => {
-        if (currentProjectId !== null) {
+        if (currentProjectId === null) {
+            return
+        }
+
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current)
+        }
+
+        debounceRef.current = setTimeout(fetchWelds, 280)
+
+        return () => {
             if (debounceRef.current) {
                 clearTimeout(debounceRef.current)
             }
-            debounceRef.current = setTimeout(fetchWelds, 280)
         }
     }, [currentProjectId, fetchWelds])
 
@@ -253,13 +279,14 @@ export default function WeldsPage() {
     }
 
     const totalPages = Math.ceil(totalCount / limit)
+    const canEdit = role !== null && ['admin', 'dcc', 'qc'].includes(role)
 
     const handleExport = async () => {
         const { utils, writeFile } = await import('xlsx')
-        const ws = utils.json_to_sheet(welds)
-        const wb = utils.book_new()
-        utils.book_append_sheet(wb, ws, 'Welds')
-        writeFile(wb, `weld-export-${new Date().toISOString().slice(0, 10)}.xlsx`)
+        const worksheet = utils.json_to_sheet(welds)
+        const workbook = utils.book_new()
+        utils.book_append_sheet(workbook, worksheet, 'Welds')
+        writeFile(workbook, `weld-export-${new Date().toISOString().slice(0, 10)}.xlsx`)
     }
 
     const SortIcon = ({ col }: { col: string }) => {
@@ -270,13 +297,21 @@ export default function WeldsPage() {
         return <span style={{ marginLeft: '4px', color: '#3b82f6' }}>{sort.dir === 'asc' ? '↑' : '↓'}</span>
     }
 
+    if (checkingRole) {
+        return (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                Đang kiểm tra quyền truy cập...
+            </div>
+        )
+    }
+
     return (
         <div className="page-enter">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
                 <div>
-                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>Quan ly moi han</h1>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>Quản lý mối hàn</h1>
                     <p style={{ color: '#64748b', marginTop: '4px' }}>
-                        {currentProjectId ? `${formatNumber(totalCount)} moi han` : 'Chon du an o menu trai'}
+                        {currentProjectId ? `${formatNumber(totalCount)} mối hàn` : 'Chọn dự án ở menu trái'}
                     </p>
                 </div>
 
@@ -292,9 +327,12 @@ export default function WeldsPage() {
                         boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                     }}
                 >
-                    <Link href="/welds/new" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
-                        Tao moi
-                    </Link>
+                    {canEdit && (
+                        <Link href="/welds/new" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
+                            Tạo mới
+                        </Link>
+                    )}
+
                     <button onClick={handleExport} className="btn btn-secondary" style={{ whiteSpace: 'nowrap' }}>
                         Export Excel
                     </button>
@@ -302,7 +340,7 @@ export default function WeldsPage() {
                     <input
                         type="text"
                         className="form-input"
-                        placeholder="Tim nhanh: Weld ID, DrawingNo, Welders..."
+                        placeholder="Tìm nhanh: Weld ID, Drawing No, Welders..."
                         value={globalSearch}
                         style={{ flex: 1, minWidth: '220px' }}
                         onChange={(event) => {
@@ -321,12 +359,12 @@ export default function WeldsPage() {
                             }}
                             style={{ whiteSpace: 'nowrap' }}
                         >
-                            Xoa loc
+                            Xóa lọc
                         </button>
                     )}
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderLeft: '1px solid #e2e8f0', paddingLeft: '12px' }}>
-                        <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>Hien thi:</span>
+                        <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>Hiển thị:</span>
                         <select
                             value={limit}
                             onChange={(event) => {
@@ -344,14 +382,14 @@ export default function WeldsPage() {
                         >
                             {LIMIT_OPTIONS.map((option) => (
                                 <option key={option} value={option}>
-                                    {option === 999999 ? 'Tat ca' : option}
+                                    {option === 999999 ? 'Tất cả' : option}
                                 </option>
                             ))}
                         </select>
                     </div>
 
                     <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                        Dang xem {Math.min(limit, welds.length)}/{totalCount}
+                        Đang xem {Math.min(limit, welds.length)}/{totalCount}
                     </span>
                 </div>
             </div>
@@ -360,7 +398,7 @@ export default function WeldsPage() {
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '60px' }}>
                         <div className="spinner" style={{ margin: '0 auto 16px' }} />
-                        <p style={{ color: '#64748b' }}>Dang tai...</p>
+                        <p style={{ color: '#64748b' }}>Đang tải...</p>
                     </div>
                 ) : (
                     <div className="table-container">
@@ -386,7 +424,7 @@ export default function WeldsPage() {
                                             <SortIcon col={col.key} />
                                         </th>
                                     ))}
-                                    <th style={{ minWidth: 60 }}>Action</th>
+                                    <th style={{ minWidth: 60 }}>Hành động</th>
                                 </tr>
                                 <tr style={{ background: '#f8fafc' }}>
                                     {COLUMNS.map((col) => {
@@ -410,7 +448,7 @@ export default function WeldsPage() {
                                                             color: colFilters[col.key] ? '#0f172a' : '#94a3b8',
                                                         }}
                                                     >
-                                                        <option value="">All</option>
+                                                        <option value="">Tất cả</option>
                                                         {col.key === 'stage' ? (
                                                             Object.entries(STAGE_LABELS).map(([key, label]) => (
                                                                 <option key={key} value={key}>
@@ -430,7 +468,7 @@ export default function WeldsPage() {
                                                         type="text"
                                                         value={colFilters[col.key] || ''}
                                                         onChange={(event) => setFilter(col.key, event.target.value)}
-                                                        placeholder="Loc"
+                                                        placeholder="Lọc"
                                                         style={{
                                                             width: '100%',
                                                             fontSize: '0.7rem',
@@ -453,7 +491,7 @@ export default function WeldsPage() {
                                 {welds.length === 0 ? (
                                     <tr>
                                         <td colSpan={COLUMNS.length + 1} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-                                            {currentProjectId ? 'Khong co du lieu phu hop.' : 'Chon du an o menu trai.'}
+                                            {currentProjectId ? 'Không có dữ liệu phù hợp.' : 'Chọn dự án ở menu trái.'}
                                         </td>
                                     </tr>
                                 ) : (
@@ -465,9 +503,13 @@ export default function WeldsPage() {
                                                 </td>
                                             ))}
                                             <td style={{ padding: '5px 8px' }}>
-                                                <Link href={`/welds/${weld.id}/edit`} style={{ color: '#3b82f6', textDecoration: 'none' }}>
-                                                    Sua
-                                                </Link>
+                                                {canEdit ? (
+                                                    <Link href={`/welds/${weld.id}/edit`} style={{ color: '#3b82f6', textDecoration: 'none' }}>
+                                                        Sửa
+                                                    </Link>
+                                                ) : (
+                                                    <span style={{ color: '#94a3b8' }}>-</span>
+                                                )}
                                             </td>
                                         </tr>
                                     ))
@@ -488,14 +530,14 @@ export default function WeldsPage() {
                         }}
                     >
                         <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                            Trang {page + 1}/{totalPages} - {totalCount} moi han
+                            Trang {page + 1}/{totalPages} - {totalCount} mối hàn
                         </span>
                         <div style={{ display: 'flex', gap: '6px' }}>
                             <button className="btn btn-secondary" onClick={() => setPage(0)} disabled={page === 0}>
                                 {'<<'}
                             </button>
                             <button className="btn btn-secondary" onClick={() => setPage((current) => current - 1)} disabled={page === 0}>
-                                Truoc
+                                Trước
                             </button>
                             <button className="btn btn-secondary" onClick={() => setPage((current) => current + 1)} disabled={page >= totalPages - 1}>
                                 Sau

@@ -271,8 +271,8 @@ export const STAGE_LABELS: Record<WeldStage, string> = {
     release: 'Release',
     cutoff: 'Cut-Off',
     mw1: 'MW1',
-    completed: 'Hoan thanh',
-    rejected: 'Bi tu choi',
+    completed: 'Hoàn thành',
+    rejected: 'Bị từ chối',
 }
 
 export const STAGE_COLORS: Record<WeldStage, string> = {
@@ -291,7 +291,7 @@ export const STAGE_COLORS: Record<WeldStage, string> = {
 }
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-    admin: 'Quan tri vien',
+    admin: 'Quản trị viên',
     dcc: 'DCC',
     qc: 'QC Engineer',
     inspector: 'Inspector',

@@ -1,9 +1,10 @@
 ﻿'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createInspectionRequest } from '@/app/actions/requests'
 import { createClient } from '@/lib/supabase/client'
+import { PROJECT_CHANGE_EVENT, readActiveProjectIdFromCookie } from '@/lib/project-selection'
 
 interface Project {
     id: string
@@ -36,7 +37,7 @@ const REQUEST_TYPE_LABELS: Record<string, string> = {
     fitup: 'Fit-Up',
     backgouge: 'Backgouge',
     lamcheck: 'Lamcheck',
-    request: 'NDT / Khach hang visual',
+    request: 'NDT / Khách hàng visual',
 }
 
 const REQUEST_PREFIX: Record<string, string> = {
@@ -80,9 +81,30 @@ export default function RequestForm({ projects, userName }: { projects: Project[
     const [loadingWelds, setLoadingWelds] = useState(false)
     const [searched, setSearched] = useState(false)
 
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return
+        }
+
+        const syncProject = () => {
+            setProjectId(readActiveProjectIdFromCookie() || '')
+            setMatchedWelds([])
+            setSearched(false)
+        }
+
+        syncProject()
+        window.addEventListener(PROJECT_CHANGE_EVENT, syncProject)
+
+        return () => {
+            window.removeEventListener(PROJECT_CHANGE_EVENT, syncProject)
+        }
+    }, [])
+
     const lookupWelds = useCallback(async () => {
-        if (!projectId || !requestType || !requestNo.trim()) {
-            setError('Vui long chon du an, loai yeu cau va nhap so request.')
+        const normalizedRequestNo = requestNo.trim().toUpperCase()
+
+        if (!projectId || !requestType || !normalizedRequestNo) {
+            setError('Vui lòng chọn dự án, loại yêu cầu và nhập số request.')
             return
         }
 
@@ -94,16 +116,17 @@ export default function RequestForm({ projects, userName }: { projects: Project[
         setLoadingWelds(true)
         setError('')
         setSearched(true)
+        setRequestNo(normalizedRequestNo)
 
         const { data, error: dbError } = await supabase
             .from('welds')
             .select('id, weld_id, drawing_no, weld_no, joint_type, ndt_requirements, weld_length, position, stage, mt_result, ut_result')
             .eq('project_id', projectId)
-            .eq(column, requestNo.trim())
+            .ilike(column, normalizedRequestNo)
             .order('excel_row_order', { ascending: true })
 
         if (dbError) {
-            setError(`Loi tra cuu: ${dbError.message}`)
+            setError(`Lỗi tra cứu: ${dbError.message}`)
         } else {
             setMatchedWelds((data || []) as Weld[])
         }
@@ -115,7 +138,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
         event.preventDefault()
 
         if (matchedWelds.length === 0) {
-            setError('Khong co moi han nao duoc chon. Hay tra cuu truoc.')
+            setError('Không có mối hàn nào được chọn. Hãy tra cứu trước.')
             return
         }
 
@@ -124,7 +147,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
 
         const formData = new FormData(event.currentTarget)
         formData.set('weld_ids', JSON.stringify(matchedWelds.map((weld) => weld.id)))
-        formData.set('request_no', requestNo.trim())
+        formData.set('request_no', requestNo.trim().toUpperCase())
 
         const result = await createInspectionRequest(formData)
         if (result.error) {
@@ -155,10 +178,10 @@ export default function RequestForm({ projects, userName }: { projects: Project[
             )}
 
             <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                <h3 style={{ fontWeight: 700, marginBottom: '16px', color: '#1e40af', fontSize: '0.95rem' }}>Buoc 1: Chon du an va loai yeu cau</h3>
+                <h3 style={{ fontWeight: 700, marginBottom: '16px', color: '#1e40af', fontSize: '0.95rem' }}>Bước 1: Chọn dự án và loại yêu cầu</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div>
-                        <label style={labelStyle}>Du an *</label>
+                        <label style={labelStyle}>Dự án *</label>
                         <select
                             name="project_id"
                             required
@@ -170,7 +193,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                             }}
                             style={inputStyle}
                         >
-                            <option value="">-- Chon du an --</option>
+                            <option value="">-- Chọn dự án --</option>
                             {projects.map((project) => (
                                 <option key={project.id} value={project.id}>
                                     {project.code} - {project.name}
@@ -179,7 +202,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                         </select>
                     </div>
                     <div>
-                        <label style={labelStyle}>Loai yeu cau *</label>
+                        <label style={labelStyle}>Loại yêu cầu *</label>
                         <select
                             name="request_type"
                             required
@@ -193,7 +216,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                             }}
                             style={inputStyle}
                         >
-                            <option value="">-- Chon loai --</option>
+                            <option value="">-- Chọn loại --</option>
                             {Object.entries(REQUEST_TYPE_LABELS).map(([value, label]) => (
                                 <option key={value} value={value}>
                                     {label}
@@ -205,17 +228,17 @@ export default function RequestForm({ projects, userName }: { projects: Project[
             </div>
 
             <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                <h3 style={{ fontWeight: 700, marginBottom: '4px', color: '#1e40af', fontSize: '0.95rem' }}>Buoc 2: Nhap so request va tra cuu moi han</h3>
+                <h3 style={{ fontWeight: 700, marginBottom: '4px', color: '#1e40af', fontSize: '0.95rem' }}>Bước 2: Nhập số request và tra cứu mối hàn</h3>
                 <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '14px' }}>
-                    Nhap dung so request da duoc QC gan trong weld master, vi du <strong>V-191</strong>. He thong se do theo cot tuong ung trong du lieu import tu Excel.
+                    Nhập đúng số request đã được QC gắn trong weld master, ví dụ <strong>V-191</strong>. Hệ thống sẽ dò theo cột tương ứng trong dữ liệu import từ Excel.
                 </p>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
                     <div style={{ flex: 1 }}>
                         <label style={labelStyle}>
-                            So request *
+                            Số request *
                             {requestType && (
                                 <span style={{ color: '#94a3b8', fontWeight: 400, textTransform: 'none', marginLeft: '6px' }}>
-                                    (cot DB: <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '3px' }}>{REQUEST_TYPE_COLUMN[requestType]}</code>)
+                                    (cột DB: <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '3px' }}>{REQUEST_TYPE_COLUMN[requestType]}</code>)
                                 </span>
                             )}
                         </label>
@@ -233,7 +256,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                                     void lookupWelds()
                                 }
                             }}
-                            placeholder={requestType ? `VD: ${REQUEST_PREFIX[requestType] || ''}191` : 'Chon loai yeu cau truoc'}
+                            placeholder={requestType ? `VD: ${REQUEST_PREFIX[requestType] || ''}191` : 'Chọn loại yêu cầu trước'}
                             style={{ ...inputStyle, fontSize: '1rem', fontWeight: 600 }}
                             disabled={!requestType || !projectId}
                         />
@@ -253,7 +276,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                             whiteSpace: 'nowrap' as const,
                         }}
                     >
-                        {loadingWelds ? 'Dang tim...' : 'Tim moi han'}
+                        {loadingWelds ? 'Đang tìm...' : 'Tìm mối hàn'}
                     </button>
                 </div>
 
@@ -261,16 +284,16 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                     <div style={{ marginTop: '16px' }}>
                         {matchedWelds.length === 0 ? (
                             <div style={{ padding: '20px', textAlign: 'center', background: '#fef9c3', borderRadius: '8px', color: '#854d0e', fontWeight: 500 }}>
-                                Khong tim thay moi han nao co {REQUEST_TYPE_COLUMN[requestType]} = &quot;{requestNo}&quot;.
+                                Không tìm thấy mối hàn nào có {REQUEST_TYPE_COLUMN[requestType]} = &quot;{requestNo}&quot;.
                                 <div style={{ fontSize: '0.8rem', marginTop: '4px', color: '#92400e' }}>
-                                    Kiem tra lai so request hoac bao dam du lieu da duoc import tu Excel.
+                                    Kiểm tra lại số request hoặc bảo đảm dữ liệu đã được import từ Excel.
                                 </div>
                             </div>
                         ) : (
                             <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                                     <div style={{ fontWeight: 600, color: '#166534', background: '#dcfce7', padding: '6px 14px', borderRadius: '6px', fontSize: '0.875rem' }}>
-                                        Tim thay <strong>{matchedWelds.length}</strong> moi han voi request <strong>{requestNo}</strong>
+                                        Tìm thấy <strong>{matchedWelds.length}</strong> mối hàn với request <strong>{requestNo}</strong>
                                     </div>
                                 </div>
                                 <div style={{ maxHeight: '400px', overflowY: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -365,18 +388,18 @@ export default function RequestForm({ projects, userName }: { projects: Project[
             </div>
 
             <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                <h3 style={{ fontWeight: 700, marginBottom: '16px', color: '#1e40af', fontSize: '0.95rem' }}>Buoc 3: Thong tin yeu cau</h3>
+                <h3 style={{ fontWeight: 700, marginBottom: '16px', color: '#1e40af', fontSize: '0.95rem' }}>Bước 3: Thông tin yêu cầu</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
                     <div>
-                        <label style={labelStyle}>Ngay yeu cau *</label>
+                        <label style={labelStyle}>Ngày yêu cầu *</label>
                         <input type="date" name="request_date" required style={inputStyle} />
                     </div>
                     <div>
-                        <label style={labelStyle}>Gio yeu cau</label>
+                        <label style={labelStyle}>Giờ yêu cầu</label>
                         <input type="time" name="request_time" style={inputStyle} />
                     </div>
                     <div>
-                        <label style={labelStyle}>Nguoi tao phieu</label>
+                        <label style={labelStyle}>Người tạo phiếu</label>
                         <input
                             type="text"
                             name="requested_by"
@@ -386,12 +409,12 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                         />
                     </div>
                     <div>
-                        <label style={labelStyle}>Don vi NDT / kiem tra</label>
+                        <label style={labelStyle}>Đơn vị NDT / kiểm tra</label>
                         <input type="text" name="inspector_company" placeholder="VD: Alpha NDT" style={inputStyle} />
                     </div>
                     <div style={{ gridColumn: '1 / -1' }}>
-                        <label style={labelStyle}>Ghi chu</label>
-                        <textarea name="remarks" rows={2} placeholder="Ghi chu them..." style={{ ...inputStyle, resize: 'vertical' }} />
+                        <label style={labelStyle}>Ghi chú</label>
+                        <textarea name="remarks" rows={2} placeholder="Ghi chú thêm..." style={{ ...inputStyle, resize: 'vertical' }} />
                     </div>
                 </div>
             </div>
@@ -410,7 +433,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                         cursor: 'pointer',
                     }}
                 >
-                    Huy
+                    Hủy
                 </button>
                 <button
                     type="submit"
@@ -425,7 +448,7 @@ export default function RequestForm({ projects, userName }: { projects: Project[
                         color: 'white',
                     }}
                 >
-                    {isSubmitting ? 'Dang luu...' : `Tao yeu cau (${matchedWelds.length} moi han)`}
+                    {isSubmitting ? 'Đang lưu...' : `Tạo yêu cầu (${matchedWelds.length} mối hàn)`}
                 </button>
             </div>
         </form>

@@ -1,8 +1,6 @@
 ﻿import { format } from 'date-fns'
-import { cookies } from 'next/headers'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { requireDashboardAuth } from '@/lib/dashboard-auth'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -30,38 +28,24 @@ const TYPE_LABELS: Record<string, string> = {
     fitup: 'Fit-Up',
     backgouge: 'Backgouge',
     lamcheck: 'Lamcheck',
-    request: 'NDT / Khach hang visual',
+    request: 'NDT / Khách hàng visual',
     vs_final: 'VS Final',
 }
 
 function renderStatus(status: string) {
     if (status === 'completed') {
-        return { label: 'Hoan thanh', bg: '#dcfce7', color: '#166534' }
+        return { label: 'Hoàn thành', bg: '#dcfce7', color: '#166534' }
     }
 
     if (status === 'submitted') {
-        return { label: 'Da gui', bg: '#dbeafe', color: '#1e40af' }
+        return { label: 'Đã gửi', bg: '#dbeafe', color: '#1e40af' }
     }
 
-    return { label: 'Ban nhap', bg: '#fef3c7', color: '#92400e' }
+    return { label: 'Bản nháp', bg: '#fef3c7', color: '#92400e' }
 }
 
 export default async function RequestsPage() {
-    const supabase = await createClient()
-    const cookieStore = await cookies()
-    const accessToken = cookieStore.get('weld-control-auth')?.value
-
-    if (!accessToken) {
-        redirect('/login')
-    }
-
-    const {
-        data: { user },
-    } = await supabase.auth.getUser(accessToken)
-
-    if (!user) {
-        redirect('/login')
-    }
+    const { supabase, cookieStore } = await requireDashboardAuth(['admin', 'dcc', 'qc'])
 
     const currentProjectId = cookieStore.get('weld-control-project-id')?.value || null
 
@@ -87,9 +71,9 @@ export default async function RequestsPage() {
         <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#1e293b' }}>Yeu cau kiem tra</h1>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#1e293b' }}>Yêu cầu kiểm tra</h1>
                     <p style={{ color: '#64748b', marginTop: '4px' }}>
-                        Danh sach request duoc tao tu cac nhom moi han da gan so request trong weld master.
+                        Danh sách request được tạo từ các nhóm mối hàn đã gắn số request trong weld master.
                     </p>
                 </div>
                 <Link
@@ -108,7 +92,7 @@ export default async function RequestsPage() {
                     }}
                 >
                     <span>+</span>
-                    <span>Tao yeu cau moi</span>
+                    <span>Tạo yêu cầu mới</span>
                 </Link>
             </div>
 
@@ -117,27 +101,27 @@ export default async function RequestsPage() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
                         <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                             <tr>
-                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Du an</th>
-                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>So request</th>
-                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Loáº¡i request</th>
-                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Ngay yeu cau</th>
-                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Nguoi tao</th>
-                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Trang thai</th>
-                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569', textAlign: 'right' }}>Hanh dong</th>
+                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Dự án</th>
+                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Số request</th>
+                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Loại request</th>
+                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Ngày yêu cầu</th>
+                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Người tạo</th>
+                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>Trạng thái</th>
+                                <th style={{ padding: '12px 16px', fontWeight: 600, color: '#475569', textAlign: 'right' }}>Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
                             {!currentProjectId ? (
                                 <tr>
                                     <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>
-                                        Vui long chon du an o menu ben trai de xem danh sach yeu cau kiem tra.
+                                        Vui lòng chọn dự án ở menu bên trái để xem danh sách yêu cầu kiểm tra.
                                     </td>
                                 </tr>
                             ) : requests.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
-                                        <div style={{ fontWeight: 500 }}>Chua co yeu cau kiem tra nao trong du an nay.</div>
-                                        <div style={{ fontSize: '0.8rem', marginTop: '4px' }}>Bam &quot;Tao yeu cau moi&quot; de bat dau.</div>
+                                        <div style={{ fontWeight: 500 }}>Chưa có yêu cầu kiểm tra nào trong dự án này.</div>
+                                        <div style={{ fontSize: '0.8rem', marginTop: '4px' }}>Bấm &quot;Tạo yêu cầu mới&quot; để bắt đầu.</div>
                                     </td>
                                 </tr>
                             ) : (
@@ -195,7 +179,7 @@ export default async function RequestsPage() {
                                                         textDecoration: 'none',
                                                     }}
                                                 >
-                                                    Xem chi tiet
+                                                    Xem chi tiết
                                                 </Link>
                                             </td>
                                         </tr>

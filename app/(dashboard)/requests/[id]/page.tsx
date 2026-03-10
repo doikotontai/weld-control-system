@@ -1,10 +1,10 @@
-﻿import { createClient } from '@/lib/supabase/server'
+import { requireDashboardAuth } from '@/lib/dashboard-auth'
 import RequestPrintView from './RequestPrintView'
 
 export const dynamic = 'force-dynamic'
 
 export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
-    const supabase = await createClient()
+    const { supabase } = await requireDashboardAuth(['admin', 'dcc', 'qc'])
     const resolvedParams = await params
     const id = resolvedParams.id
 
@@ -15,7 +15,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
         .single()
 
     if (!request) {
-        return <div style={{ padding: '40px', textAlign: 'center' }}>Khong tim thay yeu cau nay.</div>
+        return <div style={{ padding: '40px', textAlign: 'center' }}>Không tìm thấy yêu cầu này.</div>
     }
 
     let columnToMatch = ''

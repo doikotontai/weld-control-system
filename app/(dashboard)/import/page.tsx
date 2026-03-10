@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import * as XLSX from 'xlsx'
 import { formatNumber } from '@/lib/formatters'
+import { PROJECT_CHANGE_EVENT, readActiveProjectIdFromCookie } from '@/lib/project-selection'
+import { useRoleGuard } from '@/lib/use-role-guard'
 
 interface PreviewRow {
     weld_id: string
@@ -183,20 +185,28 @@ export default function ImportPage() {
     const supabase = createClient()
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
     const [currentProjectCode, setCurrentProjectCode] = useState<string>('')
+    const { checking: checkingRole } = useRoleGuard(['admin', 'dcc'])
 
     useEffect(() => {
-        if (typeof document === 'undefined') {
+        if (typeof window === 'undefined') {
             return
         }
 
-        const match = document.cookie.match(/(?:^|;)\s*weld-control-project-id=([^;]+)/)
-        const nextProjectId = match ? match[1] : null
-        const frame = window.requestAnimationFrame(() => {
+        const syncProject = () => {
+            const nextProjectId = readActiveProjectIdFromCookie()
             setCurrentProjectId(nextProjectId)
-        })
+            if (!nextProjectId) {
+                setCurrentProjectCode('')
+            }
+        }
+
+        syncProject()
+        window.addEventListener(PROJECT_CHANGE_EVENT, syncProject)
+        window.addEventListener('focus', syncProject)
 
         return () => {
-            window.cancelAnimationFrame(frame)
+            window.removeEventListener(PROJECT_CHANGE_EVENT, syncProject)
+            window.removeEventListener('focus', syncProject)
         }
     }, [])
 
@@ -223,6 +233,14 @@ export default function ImportPage() {
             isMounted = false
         }
     }, [currentProjectId, supabase])
+
+    if (checkingRole) {
+        return (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                Đang kiểm tra quyền truy cập...
+            </div>
+        )
+    }
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0]

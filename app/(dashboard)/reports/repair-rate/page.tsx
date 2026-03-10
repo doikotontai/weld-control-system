@@ -1,5 +1,4 @@
-import { cookies } from 'next/headers'
-import { createClient } from '@/lib/supabase/server'
+import { requireDashboardAuth } from '@/lib/dashboard-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,12 +24,11 @@ interface WelderRepairStat {
 
 function splitWelders(value: string | null) {
     const welders = (value || '').split(/[;,/]/).map((item) => item.trim()).filter(Boolean)
-    return welders.length > 0 ? welders : ['(Chưa rõ)']
+    return welders.length > 0 ? welders : ['(Ch?a r?)']
 }
 
 export default async function RepairRatePage() {
-    const supabase = await createClient()
-    const cookieStore = await cookies()
+    const { supabase, cookieStore } = await requireDashboardAuth(['admin', 'dcc', 'qc'])
     const projectId = cookieStore.get('weld-control-project-id')?.value || null
 
     let welderStats: WelderRepairStat[] = []

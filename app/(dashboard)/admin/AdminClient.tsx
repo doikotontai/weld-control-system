@@ -15,6 +15,14 @@ interface ProfileRoleTable {
     }
 }
 
+const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
+    admin: 'Toàn quyền',
+    dcc: 'Tạo yêu cầu, import dữ liệu',
+    qc: 'Quản lý mối hàn, yêu cầu kiểm tra',
+    inspector: 'Nhập kết quả NDT',
+    viewer: 'Chỉ xem',
+}
+
 export default function AdminClient({ users }: { users: Profile[] }) {
     const supabase = createClient()
     const [localUsers, setLocalUsers] = useState(users)
@@ -40,12 +48,12 @@ export default function AdminClient({ users }: { users: Profile[] }) {
 
         const data = (await response.json()) as CreateUserResponse
         if (data.error) {
-            setMessage(`Loi: ${data.error}`)
+            setMessage(`Lỗi: ${data.error}`)
         } else {
-            setMessage(`Da tao user ${newUser.email} thanh cong.`)
+            setMessage(`Đã tạo người dùng ${newUser.email} thành công.`)
             setNewUser({ email: '', full_name: '', password: '', role: 'viewer' })
             if (data.user) {
-                setLocalUsers((previous) => [data.user!, ...previous])
+                setLocalUsers((previous) => [data.user as Profile, ...previous])
             }
         }
 
@@ -55,10 +63,14 @@ export default function AdminClient({ users }: { users: Profile[] }) {
     const handleUpdateRole = async (userId: string, nextRole: UserRole) => {
         const profilesTable = supabase.from('profiles') as unknown as ProfileRoleTable
         const { error } = await profilesTable.update({ role: nextRole }).eq('id', userId)
-        if (!error) {
-            setLocalUsers((previous) => previous.map((user) => (user.id === userId ? { ...user, role: nextRole } : user)))
-            setMessage('Da cap nhat phan quyen.')
+
+        if (error) {
+            setMessage(`Lỗi: ${error.message}`)
+            return
         }
+
+        setLocalUsers((previous) => previous.map((user) => (user.id === userId ? { ...user, role: nextRole } : user)))
+        setMessage('Đã cập nhật phân quyền.')
     }
 
     const roleColors: Record<UserRole, string> = {
@@ -69,11 +81,13 @@ export default function AdminClient({ users }: { users: Profile[] }) {
         viewer: '#94a3b8',
     }
 
+    const isError = message.startsWith('Lỗi:')
+
     return (
         <div className="page-enter">
             <div style={{ marginBottom: '24px' }}>
-                <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>Quan tri he thong</h1>
-                <p style={{ color: '#64748b', marginTop: '4px' }}>Quan ly nguoi dung va phan quyen</p>
+                <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>Quản trị hệ thống</h1>
+                <p style={{ color: '#64748b', marginTop: '4px' }}>Quản lý người dùng và phân quyền</p>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
@@ -86,7 +100,8 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                         alignSelf: 'start',
                     }}
                 >
-                    <h3 style={{ fontWeight: 600, marginBottom: '20px', color: '#1e40af' }}>Tao nguoi dung moi</h3>
+                    <h3 style={{ fontWeight: 600, marginBottom: '20px', color: '#1e40af' }}>Tạo người dùng mới</h3>
+
                     <form onSubmit={handleCreateUser}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             <div>
@@ -101,19 +116,21 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                                     placeholder="user@company.com"
                                 />
                             </div>
+
                             <div>
-                                <label className="form-label">Ho ten *</label>
+                                <label className="form-label">Họ tên *</label>
                                 <input
                                     className="form-input"
                                     autoComplete="name"
                                     required
                                     value={newUser.full_name}
                                     onChange={(event) => setNewUser((user) => ({ ...user, full_name: event.target.value }))}
-                                    placeholder="Nguyen Van A"
+                                    placeholder="Nguyễn Văn A"
                                 />
                             </div>
+
                             <div>
-                                <label className="form-label">Mat khau tam *</label>
+                                <label className="form-label">Mật khẩu tạm *</label>
                                 <input
                                     className="form-input"
                                     type="password"
@@ -121,11 +138,12 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                                     required
                                     value={newUser.password}
                                     onChange={(event) => setNewUser((user) => ({ ...user, password: event.target.value }))}
-                                    placeholder="Toi thieu 8 ky tu"
+                                    placeholder="Tối thiểu 8 ký tự"
                                 />
                             </div>
+
                             <div>
-                                <label className="form-label">Phan quyen *</label>
+                                <label className="form-label">Phân quyền *</label>
                                 <select
                                     className="form-input"
                                     value={newUser.role}
@@ -138,27 +156,29 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                                     ))}
                                 </select>
                             </div>
+
                             {message && (
                                 <div
                                     style={{
                                         padding: '10px',
-                                        background: message.startsWith('Loi:') ? '#fee2e2' : '#dcfce7',
+                                        background: isError ? '#fee2e2' : '#dcfce7',
                                         borderRadius: '6px',
                                         fontSize: '0.8rem',
-                                        color: message.startsWith('Loi:') ? '#991b1b' : '#166534',
+                                        color: isError ? '#991b1b' : '#166534',
                                     }}
                                 >
                                     {message}
                                 </div>
                             )}
+
                             <button type="submit" className="btn btn-primary" disabled={creating}>
-                                {creating ? 'Dang tao...' : 'Tao nguoi dung'}
+                                {creating ? 'Đang tạo...' : 'Tạo người dùng'}
                             </button>
                         </div>
                     </form>
 
                     <div style={{ marginTop: '24px', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
-                        <h4 style={{ fontWeight: 600, marginBottom: '12px', fontSize: '0.875rem' }}>Phan quyen</h4>
+                        <h4 style={{ fontWeight: 600, marginBottom: '12px', fontSize: '0.875rem' }}>Phân quyền</h4>
                         {Object.entries(ROLE_LABELS).map(([role, label]) => (
                             <div key={role} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                                 <span
@@ -172,11 +192,7 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                                 />
                                 <strong style={{ fontSize: '0.8rem' }}>{label}</strong>
                                 <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                    {role === 'admin' && '- Toan quyen'}
-                                    {role === 'dcc' && '- Tao request, import'}
-                                    {role === 'qc' && '- Quan ly weld, request'}
-                                    {role === 'inspector' && '- Nhap NDT result'}
-                                    {role === 'viewer' && '- Chi xem'}
+                                    - {ROLE_DESCRIPTIONS[role as UserRole]}
                                 </span>
                             </div>
                         ))}
@@ -184,16 +200,16 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                 </div>
 
                 <div style={{ background: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>Danh sach nguoi dung ({localUsers.length})</h3>
+                    <h3 style={{ fontWeight: 600, marginBottom: '16px' }}>Danh sách người dùng ({localUsers.length})</h3>
                     <div className="table-container">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Ho ten</th>
+                                    <th>Họ tên</th>
                                     <th>Email</th>
-                                    <th>Phan quyen</th>
-                                    <th>Trang thai</th>
-                                    <th>Thay doi role</th>
+                                    <th>Phân quyền</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thay đổi role</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -226,7 +242,7 @@ export default function AdminClient({ users }: { users: Profile[] }) {
                                                     color: user.is_active ? '#166534' : '#64748b',
                                                 }}
                                             >
-                                                {user.is_active ? 'Hoat dong' : 'Vo hieu'}
+                                                {user.is_active ? 'Hoạt động' : 'Vô hiệu'}
                                             </span>
                                         </td>
                                         <td>

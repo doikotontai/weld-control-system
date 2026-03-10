@@ -1,5 +1,4 @@
-﻿import { cookies } from 'next/headers'
-import { createClient } from '@/lib/supabase/server'
+﻿import { requireDashboardAuth } from '@/lib/dashboard-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,7 +29,7 @@ interface WelderNdtStat {
 
 function splitWelders(value: string | null) {
     const welders = (value || '').split(/[;,/]/).map((item) => item.trim()).filter(Boolean)
-    return welders.length > 0 ? welders : ['(Chua ro)']
+    return welders.length > 0 ? welders : ['(Chưa rõ)']
 }
 
 function RateBadge({ rate }: { rate: number }) {
@@ -50,8 +49,7 @@ function ResultSummary({ acc, rej }: { acc: number; rej: number }) {
 }
 
 export default async function WelderNDTPage() {
-    const supabase = await createClient()
-    const cookieStore = await cookies()
+    const { supabase, cookieStore } = await requireDashboardAuth(['admin', 'dcc', 'qc'])
     const projectId = cookieStore.get('weld-control-project-id')?.value || null
 
     let welderStats: WelderNdtStat[] = []
@@ -100,14 +98,14 @@ export default async function WelderNDTPage() {
     return (
         <div className="page-enter">
             <div style={{ marginBottom: '20px' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>NDT theo Tho han</h1>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>NDT theo thợ hàn</h1>
                 <p style={{ color: '#64748b', marginTop: '4px', fontSize: '0.875rem' }}>
-                    Tuong ung sheet <strong>KQ HAN(IN)</strong> - {welderStats.length} tho han | sap xep theo repair rate giam dan
+                    Tương ứng sheet <strong>KQ HAN(IN)</strong> - {welderStats.length} thợ hàn | sắp xếp theo repair rate giảm dần
                 </p>
             </div>
 
             {!projectId ? (
-                <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui long chon Du an o menu ben trai.</div>
+                <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui lòng chọn dự án ở menu bên trái.</div>
             ) : (
                 <div className="table-container">
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
@@ -128,7 +126,7 @@ export default async function WelderNDTPage() {
                         <tbody>
                             {welderStats.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} style={{ ...tdStyle, textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Khong co du lieu</td>
+                                    <td colSpan={10} style={{ ...tdStyle, textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Không có dữ liệu</td>
                                 </tr>
                             ) : welderStats.map((stat, index) => (
                                 <tr key={stat.welder} style={{ background: index % 2 === 0 ? 'white' : '#fafafa' }}>

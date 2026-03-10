@@ -1,6 +1,5 @@
 ﻿import Link from 'next/link'
-import { cookies } from 'next/headers'
-import { createClient } from '@/lib/supabase/server'
+import { requireDashboardAuth } from '@/lib/dashboard-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,8 +46,7 @@ function ProgressCell({ done, total }: { done: number; total: number }) {
 }
 
 export default async function DrawingsPage() {
-    const supabase = await createClient()
-    const cookieStore = await cookies()
+    const { supabase, cookieStore } = await requireDashboardAuth(['admin', 'dcc', 'qc', 'viewer'])
     const projectId = cookieStore.get('weld-control-project-id')?.value || null
 
     let drawings: DrawingSummaryRow[] = []
@@ -64,7 +62,7 @@ export default async function DrawingsPage() {
             const drawingMap: Record<string, DrawingSummaryRow> = {}
 
             ;(data as DrawingSourceRow[]).forEach((row) => {
-                const drawingNo = row.drawing_no || '(Chua co drawing)'
+                const drawingNo = row.drawing_no || '(Chưa có bản vẽ)'
                 if (!drawingMap[drawingNo]) {
                     drawingMap[drawingNo] = {
                         drawing_no: drawingNo,
@@ -96,18 +94,18 @@ export default async function DrawingsPage() {
     return (
         <div className="page-enter">
             <div style={{ marginBottom: '20px' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Ban ve (Drawing Map)</h1>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Bản vẽ (Drawing Map)</h1>
                 <p style={{ color: '#64748b', marginTop: '4px', fontSize: '0.875rem' }}>
-                    Tuong ung sheet <strong>list WMap</strong> - {projectId ? `${totalDrawings} ban ve | ${totalWelds.toLocaleString()} moi han` : 'Chon du an de xem'}
+                    Tương ứng sheet <strong>list WMap</strong> - {projectId ? `${totalDrawings} bản vẽ | ${totalWelds.toLocaleString()} mối hàn` : 'Chọn dự án để xem'}
                 </p>
             </div>
 
             {!projectId ? (
-                <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui long chon du an o menu ben trai.</div>
+                <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui lòng chọn dự án ở menu bên trái.</div>
             ) : drawings.length === 0 ? (
                 <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>Map</div>
-                    Chua co du lieu ban ve. Hay import file Excel truoc.
+                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>Bản vẽ</div>
+                    Chưa có dữ liệu bản vẽ. Hãy import file Excel trước.
                 </div>
             ) : (
                 <div className="table-container">
@@ -122,7 +120,7 @@ export default async function DrawingsPage() {
                                 <th style={thStyle}>Visual</th>
                                 <th style={thStyle}>NDT Done</th>
                                 <th style={thStyle}>Release Note</th>
-                                <th style={thStyle}>Xem moi han</th>
+                                <th style={thStyle}>Xem mối hàn</th>
                             </tr>
                         </thead>
                         <tbody>

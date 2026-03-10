@@ -2,9 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState, useTransition } from 'react'
 import { logoutWithSupabase } from '@/app/actions/auth'
 import { setActiveProject } from '@/app/actions/project-context'
 import { ROLE_LABELS, UserRole } from '@/types'
+import { dispatchActiveProjectChange, writeActiveProjectIdToCookie } from '@/lib/project-selection'
 
 interface Project {
     id: string
@@ -38,36 +40,36 @@ const navSections: NavSection[] = [
         ],
     },
     {
-        section: 'KIEM TRA',
+        section: 'KIỂM TRA',
         items: [
             { href: '/inspections/fitup', icon: 'F', label: 'Fit-Up', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
             { href: '/inspections/visual', icon: 'V', label: 'Visual / Request', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
             { href: '/inspections/backgouge', icon: 'B', label: 'Backgouge', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
             { href: '/inspections/lamcheck', icon: 'L', label: 'Lamcheck', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
             { href: '/inspections/ndt', icon: 'N', label: 'NDT Results', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
-            { href: '/requests', icon: 'R', label: 'Yeu cau kiem tra', roles: ['admin', 'dcc', 'qc'] },
+            { href: '/requests', icon: 'R', label: 'Yêu cầu kiểm tra', roles: ['admin', 'dcc', 'qc'] },
         ],
     },
     {
-        section: 'DU LIEU',
+        section: 'DỮ LIỆU',
         items: [
-            { href: '/welds', icon: 'W', label: 'Tat ca moi han', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
-            { href: '/drawings', icon: 'DR', label: 'Ban ve / Drawings', roles: ['admin', 'dcc', 'qc', 'viewer'] },
+            { href: '/welds', icon: 'W', label: 'Tất cả mối hàn', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
+            { href: '/drawings', icon: 'DR', label: 'Bản vẽ / Drawings', roles: ['admin', 'dcc', 'qc', 'viewer'] },
         ],
     },
     {
-        section: 'BAO CAO',
+        section: 'BÁO CÁO',
         items: [
-            { href: '/reports/summary', icon: 'S', label: 'Tong hop', roles: ['admin', 'dcc', 'qc', 'viewer'] },
+            { href: '/reports/summary', icon: 'S', label: 'Tổng hợp', roles: ['admin', 'dcc', 'qc', 'viewer'] },
             { href: '/reports/welder-ndt', icon: 'WN', label: 'NDT by Welder', roles: ['admin', 'dcc', 'qc'] },
             { href: '/reports/repair-rate', icon: 'RR', label: 'Repair Rate', roles: ['admin', 'dcc', 'qc'] },
         ],
     },
     {
-        section: 'QUAN LY',
+        section: 'QUẢN LÝ',
         items: [
             { href: '/import', icon: 'I', label: 'Import Excel', roles: ['admin', 'dcc'] },
-            { href: '/admin', icon: 'A', label: 'Quan tri he thong', roles: ['admin'] },
+            { href: '/admin', icon: 'A', label: 'Quản trị hệ thống', roles: ['admin'] },
         ],
     },
 ]
@@ -75,6 +77,12 @@ const navSections: NavSection[] = [
 export default function Sidebar({ userRole, userName, projects, currentProjectId }: SidebarProps) {
     const pathname = usePathname()
     const router = useRouter()
+    const [selectedProjectId, setSelectedProjectId] = useState(currentProjectId)
+    const [isSwitchingProject, startTransition] = useTransition()
+
+    useEffect(() => {
+        setSelectedProjectId(currentProjectId)
+    }, [currentProjectId])
 
     const handleLogout = async () => {
         await logoutWithSupabase()
@@ -82,8 +90,17 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
         router.refresh()
     }
 
-    const handleProjectChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
-        await setActiveProject(event.target.value)
+    const handleProjectChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        const nextProjectId = event.target.value
+        setSelectedProjectId(nextProjectId)
+        writeActiveProjectIdToCookie(nextProjectId)
+        dispatchActiveProjectChange(nextProjectId || null)
+
+        startTransition(() => {
+            void setActiveProject(nextProjectId).then(() => {
+                router.refresh()
+            })
+        })
     }
 
     return (
@@ -133,11 +150,12 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
                             letterSpacing: '0.05em',
                         }}
                     >
-                        DU AN
+                        DỰ ÁN
                     </div>
                     <select
-                        value={currentProjectId}
+                        value={selectedProjectId}
                         onChange={handleProjectChange}
+                        disabled={isSwitchingProject}
                         style={{
                             width: '100%',
                             background: 'rgba(0,0,0,0.3)',
@@ -148,9 +166,10 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
                             fontSize: '0.78rem',
                             outline: 'none',
                             cursor: 'pointer',
+                            opacity: isSwitchingProject ? 0.7 : 1,
                         }}
                     >
-                        <option value="">-- Tat ca --</option>
+                        <option value="">-- Tất cả --</option>
                         {projects.map(project => (
                             <option key={project.id} value={project.id}>
                                 {project.code}
@@ -218,7 +237,7 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
 
             <div style={{ padding: '10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <div style={{ padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', marginBottom: '6px' }}>
-                    <div style={{ color: 'white', fontSize: '0.78rem', fontWeight: 500 }}>User: {userName}</div>
+                    <div style={{ color: 'white', fontSize: '0.78rem', fontWeight: 500 }}>Người dùng: {userName}</div>
                     <div
                         style={{
                             display: 'inline-block',
@@ -248,7 +267,7 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
                         fontWeight: 500,
                     }}
                 >
-                    Dang xuat
+                    Đăng xuất
                 </button>
             </div>
         </div>

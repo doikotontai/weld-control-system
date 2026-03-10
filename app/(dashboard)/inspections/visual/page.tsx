@@ -60,14 +60,14 @@ export default async function VisualPage(props: { searchParams: Promise<{ [key: 
     return (
         <div className="page-enter">
             <div style={{ marginBottom: '24px' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Visual Data Review</h1>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Dữ liệu Visual</h1>
                 <p style={{ color: '#64748b', marginTop: '4px', fontSize: '0.875rem' }}>
-                    Du lieu visual hien co trong weld master - {projectId ? `${total.toLocaleString()} moi han da visual` : 'Chon du an de xem'}
+                    Dữ liệu visual hiện có trong weld master - {projectId ? `${total.toLocaleString()} mối hàn đã visual` : 'Chọn dự án để xem'}
                 </p>
             </div>
 
             {!projectId ? (
-                <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui long chon Du an o menu ben trai.</div>
+                <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui lòng chọn dự án ở menu bên trái.</div>
             ) : (
                 <div className="table-container">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -92,7 +92,7 @@ export default async function VisualPage(props: { searchParams: Promise<{ [key: 
                             {welds.length === 0 ? (
                                 <tr>
                                     <td colSpan={13} style={{ ...tdStyle, textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                                        Chua co moi han nao co du lieu visual.
+                                        Chưa có mối hàn nào có dữ liệu visual.
                                     </td>
                                 </tr>
                             ) : welds.map((weld, index) => (
@@ -128,10 +128,10 @@ export default async function VisualPage(props: { searchParams: Promise<{ [key: 
             {totalPages > 1 && (
                 <div style={{ padding: '16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
                     <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                        Trang {page + 1}/{totalPages} - Khop {total} moi han
+                        Trang {page + 1}/{totalPages} - Khớp {total} mối hàn
                     </span>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                        {page > 0 && <Link href={`?page=${page - 1}`} className="btn btn-secondary" style={{ textDecoration: 'none' }}>Truoc</Link>}
+                        {page > 0 && <Link href={`?page=${page - 1}`} className="btn btn-secondary" style={{ textDecoration: 'none' }}>Trước</Link>}
                         {page < totalPages - 1 && <Link href={`?page=${page + 1}`} className="btn btn-secondary" style={{ textDecoration: 'none' }}>Sau</Link>}
                     </div>
                 </div>

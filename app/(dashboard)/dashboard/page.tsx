@@ -13,7 +13,7 @@ export default async function DashboardPage() {
             <div className="page-enter" style={{ padding: '24px', textAlign: 'center' }}>
                 <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a', marginBottom: '16px' }}>Dashboard</h1>
                 <div style={{ background: 'white', padding: '40px', borderRadius: '12px', color: '#64748b' }}>
-                    Vui long chon du an o menu ben trai de xem thong ke.
+                    Vui lòng chọn dự án ở menu bên trái để xem thống kê.
                 </div>
             </div>
         )
@@ -70,7 +70,7 @@ export default async function DashboardPage() {
             <div style={{ marginBottom: '24px' }}>
                 <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0f172a' }}>Dashboard</h1>
                 <p style={{ color: '#64748b', marginTop: '4px' }}>
-                    Tong quan tien do han - Du an: {project?.code} - {project?.name}
+                    Tổng quan tiến độ hàn - Dự án: {project?.code} - {project?.name}
                 </p>
             </div>
 
@@ -84,28 +84,28 @@ export default async function DashboardPage() {
             >
                 <div className="stat-card" style={{ borderColor: '#3b82f6' }}>
                     <div style={{ fontSize: '2rem', fontWeight: 700, color: '#1e40af' }}>{totalWelds.toLocaleString()}</div>
-                    <div style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>Tong moi han</div>
+                    <div style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>Tổng mối hàn</div>
                 </div>
 
                 <div className="stat-card" style={{ borderColor: '#22c55e' }}>
                     <div style={{ fontSize: '2rem', fontWeight: 700, color: '#166534' }}>{completedWelds.toLocaleString()}</div>
-                    <div style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>Hoan thanh</div>
+                    <div style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>Hoàn thành</div>
                     <div style={{ color: '#22c55e', fontSize: '0.8rem', fontWeight: 600 }}>{completionPct}%</div>
                 </div>
 
                 <div className="stat-card" style={{ borderColor: '#f59e0b' }}>
                     <div style={{ fontSize: '2rem', fontWeight: 700, color: '#92400e' }}>{pendingWelds.toLocaleString()}</div>
-                    <div style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>Dang cho</div>
+                    <div style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>Đang chờ</div>
                 </div>
 
                 <div className="stat-card" style={{ borderColor: '#ef4444' }}>
                     <div style={{ fontSize: '2rem', fontWeight: 700, color: '#991b1b' }}>{repairWelds.toLocaleString()}</div>
-                    <div style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>Can sua chua</div>
+                    <div style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>Cần sửa chữa</div>
                 </div>
 
                 <div className="stat-card" style={{ borderColor: '#8b5cf6' }}>
                     <div style={{ fontSize: '2rem', fontWeight: 700, color: '#5b21b6' }}>{completionPct}%</div>
-                    <div style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>Tien do hoan thanh</div>
+                    <div style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>Tiến độ hoàn thành</div>
                     <div
                         style={{
                             marginTop: '8px',
@@ -144,7 +144,7 @@ export default async function DashboardPage() {
                         boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                     }}
                 >
-                    <h3 style={{ fontWeight: 600, marginBottom: '16px', color: '#0f172a' }}>Tien do theo stage</h3>
+                    <h3 style={{ fontWeight: 600, marginBottom: '16px', color: '#0f172a' }}>Tiến độ theo giai đoạn</h3>
                     {[ 
                         { key: 'fitup', label: 'Fit-Up', color: '#3b82f6' },
                         { key: 'welding', label: 'Welding', color: '#f59e0b' },
@@ -191,9 +191,9 @@ export default async function DashboardPage() {
                     }}
                 >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                        <h3 style={{ fontWeight: 600, color: '#0f172a' }}>Moi han cap nhat gan day</h3>
+                        <h3 style={{ fontWeight: 600, color: '#0f172a' }}>Mối hàn cập nhật gần đây</h3>
                         <Link href="/welds" style={{ color: '#3b82f6', fontSize: '0.875rem', textDecoration: 'none' }}>
-                            Xem tat ca {'->'}
+                            Xem tất cả {'->'}
                         </Link>
                     </div>
                     <div className="table-container">
@@ -201,8 +201,8 @@ export default async function DashboardPage() {
                             <thead>
                                 <tr>
                                     <th>Weld ID</th>
-                                    <th>Ban ve</th>
-                                    <th>Loai</th>
+                                    <th>Bản vẽ</th>
+                                    <th>Loại</th>
                                     <th>MT</th>
                                     <th>UT</th>
                                     <th>Stage</th>
@@ -245,7 +245,7 @@ export default async function DashboardPage() {
                     boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                 }}
             >
-                <h3 style={{ fontWeight: 600, marginBottom: '16px', color: '#0f172a' }}>Top khu vuc (GOC Code)</h3>
+                <h3 style={{ fontWeight: 600, marginBottom: '16px', color: '#0f172a' }}>Top khu vực (GOC Code)</h3>
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                     {topGoc.map(([code, count]) => (
                         <div

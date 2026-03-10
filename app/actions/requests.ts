@@ -36,7 +36,7 @@ export async function createInspectionRequest(formData: FormData) {
 
         if (!profile || !['admin', 'dcc', 'qc'].includes(profile.role)) {
             return {
-                error: 'Ban khong co quyen tao yeu cau kiem tra.',
+                error: 'Bạn không có quyền tạo yêu cầu kiểm tra.',
                 success: false,
             }
         }
@@ -55,7 +55,7 @@ export async function createInspectionRequest(formData: FormData) {
 
         if (!projectId || !requestType || !requestNo) {
             return {
-                error: 'Vui long chon du an, loai request va nhap dung Request No.',
+                error: 'Vui lòng chọn dự án, loại request và nhập đúng Request No.',
                 success: false,
             }
         }
@@ -74,7 +74,7 @@ export async function createInspectionRequest(formData: FormData) {
                 .in('id', weldIds)
 
             if (weldsInfo?.length) {
-                item = `DS moi han: ${weldsInfo.map((w) => w.weld_no).join(', ')}`
+                item = `DS mối hàn: ${weldsInfo.map((w) => w.weld_no).join(', ')}`
             }
         }
 
@@ -87,7 +87,7 @@ export async function createInspectionRequest(formData: FormData) {
 
         if (existingRequest) {
             return {
-                error: `Request No ${requestNo} da ton tai trong du an nay.`,
+                error: `Request No ${requestNo} đã tồn tại trong dự án này.`,
                 success: false,
             }
         }
@@ -113,7 +113,7 @@ export async function createInspectionRequest(formData: FormData) {
 
         if (error) {
             console.error('Error creating request:', error)
-            return { error: error.message || 'Khong tao duoc request', success: false }
+            return { error: error.message || 'Không tạo được request', success: false }
         }
 
         if (weldIds.length > 0) {
@@ -142,7 +142,7 @@ export async function createInspectionRequest(formData: FormData) {
     } catch (error) {
         console.error('Server action error:', error)
         return {
-            error: error instanceof Error ? error.message : 'Loi he thong',
+            error: error instanceof Error ? error.message : 'Lỗi hệ thống',
             success: false,
         }
     }
@@ -159,7 +159,7 @@ export async function updateRequestStatus(requestId: string, newStatus: string) 
             .single()
 
         if (!profile || !['admin', 'qc'].includes(profile.role)) {
-            return { error: 'Ban khong co quyen chuyen trang thai.', success: false }
+            return { error: 'Bạn không có quyền chuyển trạng thái.', success: false }
         }
 
         const { error } = await supabase
@@ -176,7 +176,7 @@ export async function updateRequestStatus(requestId: string, newStatus: string) 
         return { success: true }
     } catch (error) {
         return {
-            error: error instanceof Error ? error.message : 'Loi he thong',
+            error: error instanceof Error ? error.message : 'Lỗi hệ thống',
             success: false,
         }
     }

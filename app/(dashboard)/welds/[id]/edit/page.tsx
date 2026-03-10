@@ -5,13 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { STAGE_LABELS } from '@/types'
-
-const NDT_OPTIONS = [
-    { value: '', label: '-- Chua co --' },
-    { value: 'ACC', label: 'ACC (Chap nhan)' },
-    { value: 'REJ', label: 'REJ (Tu choi)' },
-    { value: 'N/A', label: 'N/A' },
-]
+import { useRoleGuard } from '@/lib/use-role-guard'
 
 type FormData = Record<string, string>
 
@@ -73,6 +67,144 @@ interface WeldUpdateTable {
     }
 }
 
+type FieldType = 'text' | 'number' | 'date' | 'select' | 'textarea'
+
+interface FieldConfig {
+    key: keyof WeldRecord | string
+    label: string
+    type?: FieldType
+    placeholder?: string
+    options?: { value: string; label: string }[]
+    fullWidth?: boolean
+    rows?: number
+}
+
+const NDT_OPTIONS = [
+    { value: '', label: '-- Chưa có --' },
+    { value: 'ACC', label: 'ACC (Chấp nhận)' },
+    { value: 'REJ', label: 'REJ (Từ chối)' },
+    { value: 'N/A', label: 'N/A' },
+]
+
+const JOINT_TYPE_OPTIONS = ['', 'DB', 'DV', 'SB', 'SV', 'X1', 'X2', 'X3'].map((value) => ({
+    value,
+    label: value || '-- Chọn --',
+}))
+
+const STAGE_OPTIONS = [{ value: '', label: '-- Tự động --' }].concat(
+    Object.entries(STAGE_LABELS).map(([value, label]) => ({ value, label }))
+)
+
+const EMPTY_FORM: FormData = {
+    weld_id: '',
+    drawing_no: '',
+    weld_no: '',
+    joint_family: '',
+    joint_type: '',
+    ndt_requirements: '',
+    position: '',
+    weld_length: '',
+    thickness: '',
+    thickness_lamcheck: '',
+    wps_no: '',
+    goc_code: '',
+    fitup_inspector: '',
+    fitup_date: '',
+    fitup_request_no: '',
+    weld_finish_date: '',
+    welders: '',
+    visual_inspector: '',
+    visual_date: '',
+    inspection_request_no: '',
+    backgouge_date: '',
+    backgouge_request_no: '',
+    mt_result: '',
+    mt_report_no: '',
+    ut_result: '',
+    ut_report_no: '',
+    rt_result: '',
+    rt_report_no: '',
+    lamcheck_date: '',
+    lamcheck_request_no: '',
+    lamcheck_report_no: '',
+    release_final_date: '',
+    release_final_request_no: '',
+    release_note_no: '',
+    release_note_date: '',
+    pwht_result: '',
+    ndt_after_pwht: '',
+    defect_length: '',
+    repair_length: '',
+    cut_off: '',
+    note: '',
+    contractor_issue: '',
+    transmittal_no: '',
+    mw1_no: '',
+    stage: '',
+    remarks: '',
+}
+
+const BASIC_FIELDS: FieldConfig[] = [
+    { key: 'weld_id', label: 'Weld ID', placeholder: '9001-2211-DS-0032-01-WM1' },
+    { key: 'drawing_no', label: 'Drawing No', placeholder: '9001-2211-DS-0032-01-WM' },
+    { key: 'weld_no', label: 'Weld No', placeholder: '1 / 17R1 / 127A' },
+    { key: 'joint_family', label: 'Weld Joints', placeholder: 'X1, X2, X3...' },
+    { key: 'joint_type', label: 'Weld Type', type: 'select', options: JOINT_TYPE_OPTIONS },
+    { key: 'ndt_requirements', label: 'NDT', placeholder: '100%MT & UT' },
+    { key: 'position', label: 'OD / L (Position)', placeholder: 'D / L' },
+    { key: 'weld_length', label: 'Length (mm)', type: 'number', placeholder: '2392.68' },
+    { key: 'thickness', label: 'Thickness (mm)', type: 'number', placeholder: '25' },
+    { key: 'thickness_lamcheck', label: 'Độ dày LC', type: 'number', placeholder: '25' },
+    { key: 'wps_no', label: 'WPS No.', placeholder: 'WPS-TNHA-S06' },
+    { key: 'goc_code', label: 'GOC Code', placeholder: 'ST-22' },
+    { key: 'welders', label: 'Thợ hàn (Welders)', placeholder: 'BGT-0005;BGT-0015;GTC-12', fullWidth: true },
+]
+
+const FITUP_FIELDS: FieldConfig[] = [
+    { key: 'fitup_inspector', label: 'QC Fit-Up', placeholder: 'Nguyễn Văn A' },
+    { key: 'fitup_date', label: 'Ngày Fit-Up', type: 'date' },
+    { key: 'fitup_request_no', label: 'Request Fit-Up', placeholder: 'F-044' },
+    { key: 'weld_finish_date', label: 'Ngày hoàn thành hàn', type: 'date' },
+]
+
+const VISUAL_FIELDS: FieldConfig[] = [
+    { key: 'visual_inspector', label: 'QC Visual', placeholder: 'Nguyễn Văn A' },
+    { key: 'visual_date', label: 'Ngày Visual', type: 'date' },
+    { key: 'inspection_request_no', label: 'RQ mời NDT / khách hàng', placeholder: 'V-065' },
+    { key: 'backgouge_date', label: 'Ngày Backgouge', type: 'date' },
+    { key: 'backgouge_request_no', label: 'Request Backgouge', placeholder: 'BG-043' },
+]
+
+const NDT_FIELDS: FieldConfig[] = [
+    { key: 'lamcheck_date', label: 'Ngày Lamcheck', type: 'date' },
+    { key: 'lamcheck_request_no', label: 'Request Lamcheck', placeholder: 'UL-001' },
+    { key: 'lamcheck_report_no', label: 'Báo cáo Lamcheck', placeholder: 'LC-001' },
+    { key: 'mt_result', label: 'Kết quả MT', type: 'select', options: NDT_OPTIONS },
+    { key: 'mt_report_no', label: 'Báo cáo MT', placeholder: 'MT-2211-ST-22-0017' },
+    { key: 'ut_result', label: 'Kết quả UT', type: 'select', options: NDT_OPTIONS },
+    { key: 'ut_report_no', label: 'Báo cáo UT', placeholder: 'UT-2211-ST-22-0033' },
+    { key: 'rt_result', label: 'Kết quả RT', type: 'select', options: NDT_OPTIONS },
+    { key: 'rt_report_no', label: 'Báo cáo RT', placeholder: 'RT-...' },
+    { key: 'pwht_result', label: 'Kết quả PWHT', type: 'select', options: NDT_OPTIONS },
+    { key: 'defect_length', label: 'Chiều dài khuyết tật (mm)', type: 'number', placeholder: '0' },
+    { key: 'repair_length', label: 'Chiều dài sửa chữa (mm)', type: 'number', placeholder: '0' },
+]
+
+const RELEASE_FIELDS: FieldConfig[] = [
+    { key: 'release_final_date', label: 'Ngày release final', type: 'date' },
+    { key: 'release_final_request_no', label: 'RQ release final', placeholder: 'FINAL-V-141' },
+    { key: 'release_note_no', label: 'Release note / IRN', placeholder: 'IRN-2211-ST-22-0001' },
+    { key: 'release_note_date', label: 'Ngày release note', type: 'date' },
+    { key: 'ndt_after_pwht', label: 'NDT after PWHT', placeholder: 'MT / UT / RT' },
+    { key: 'cut_off', label: 'Cut Off', placeholder: 'Cut-off ref' },
+    { key: 'mw1_no', label: 'MW1', placeholder: 'MW1-...' },
+    { key: 'transmittal_no', label: 'Transmittal No', placeholder: 'TR-...' },
+    { key: 'contractor_issue', label: 'Contractor Issue', placeholder: 'Contractor issue' },
+    { key: 'stage', label: 'Stage', type: 'select', options: STAGE_OPTIONS },
+    { key: 'note', label: 'Ghi chú release / close-out', type: 'textarea', rows: 2, placeholder: 'Ghi chú close-out / release...', fullWidth: true },
+    { key: 'remarks', label: 'Ghi chú thêm', type: 'textarea', rows: 3, placeholder: 'Ghi chú thêm...', fullWidth: true },
+]
+
 function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
     return (
         <label
@@ -92,59 +224,7 @@ function Label({ children, required }: { children: React.ReactNode; required?: b
     )
 }
 
-function Input({
-    value,
-    onChange,
-    type,
-    placeholder,
-}: {
-    value: string
-    onChange: (value: string) => void
-    type?: string
-    placeholder?: string
-}) {
-    return (
-        <input
-            type={type || 'text'}
-            className="form-input"
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder={placeholder}
-            style={{ width: '100%', boxSizing: 'border-box' }}
-        />
-    )
-}
-
-function Select({
-    value,
-    onChange,
-    children,
-}: {
-    value: string
-    onChange: (value: string) => void
-    children: React.ReactNode
-}) {
-    return (
-        <select
-            className="form-input"
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            style={{ width: '100%', boxSizing: 'border-box' }}
-        >
-            {children}
-        </select>
-    )
-}
-
-function SectionCard({
-    icon,
-    title,
-    children,
-}: {
-    icon: string
-    title: string
-    children: React.ReactNode
-}) {
+function SectionCard({ icon, title, children }: { icon: string; title: string; children: React.ReactNode }) {
     return (
         <div style={{ background: 'white', borderRadius: '12px', padding: '24px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
             <h3
@@ -162,16 +242,99 @@ function SectionCard({
                 <span>{icon}</span>
                 <span>{title}</span>
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-                {children}
-            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>{children}</div>
         </div>
+    )
+}
+
+function toDateString(value: unknown) {
+    return value ? String(value).slice(0, 10) : ''
+}
+
+function toText(value: unknown) {
+    return value == null ? '' : String(value)
+}
+
+function toNumberText(value: number | null) {
+    return value == null ? '' : String(value)
+}
+
+function parseFloatOrNull(value: string) {
+    return value ? parseFloat(value) : null
+}
+
+function parseIntOrNull(value: string) {
+    return value ? parseInt(value, 10) : null
+}
+
+function renderField(field: FieldConfig, value: string, onChange: (value: string) => void) {
+    if (field.type === 'textarea') {
+        return (
+            <textarea
+                className="form-input"
+                rows={field.rows || 3}
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+                placeholder={field.placeholder}
+                style={{ resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
+            />
+        )
+    }
+
+    if (field.type === 'select') {
+        return (
+            <select
+                className="form-input"
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+                style={{ width: '100%', boxSizing: 'border-box' }}
+            >
+                {(field.options || []).map((option) => (
+                    <option key={option.value || '__empty'} value={option.value}>
+                        {option.label}
+                    </option>
+                ))}
+            </select>
+        )
+    }
+
+    return (
+        <input
+            type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+            className="form-input"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder={field.placeholder}
+            style={{ width: '100%', boxSizing: 'border-box' }}
+        />
+    )
+}
+
+function FieldGrid({
+    fields,
+    form,
+    setField,
+}: {
+    fields: FieldConfig[]
+    form: FormData
+    setField: (key: string, value: string) => void
+}) {
+    return (
+        <>
+            {fields.map((field) => (
+                <div key={field.key} style={field.fullWidth ? { gridColumn: '1 / -1' } : undefined}>
+                    <Label>{field.label}</Label>
+                    {renderField(field, form[field.key] || '', (value) => setField(field.key, value))}
+                </div>
+            ))}
+        </>
     )
 }
 
 export default function EditWeldPage() {
     const supabase = createClient()
     const router = useRouter()
+    const { checking: checkingRole } = useRoleGuard(['admin', 'dcc', 'qc'])
     const params = useParams()
     const id = params.id as string
 
@@ -182,119 +345,71 @@ export default function EditWeldPage() {
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
     const [weldDisplayId, setWeldDisplayId] = useState('')
+    const [form, setForm] = useState<FormData>(EMPTY_FORM)
 
-    const emptyForm: FormData = {
-        weld_id: '',
-        drawing_no: '',
-        weld_no: '',
-        joint_family: '',
-        joint_type: '',
-        ndt_requirements: '',
-        position: '',
-        weld_length: '',
-        thickness: '',
-        thickness_lamcheck: '',
-        wps_no: '',
-        goc_code: '',
-        fitup_inspector: '',
-        fitup_date: '',
-        fitup_request_no: '',
-        weld_finish_date: '',
-        welders: '',
-        visual_inspector: '',
-        visual_date: '',
-        inspection_request_no: '',
-        backgouge_date: '',
-        backgouge_request_no: '',
-        mt_result: '',
-        mt_report_no: '',
-        ut_result: '',
-        ut_report_no: '',
-        rt_result: '',
-        rt_report_no: '',
-        lamcheck_date: '',
-        lamcheck_request_no: '',
-        lamcheck_report_no: '',
-        release_final_date: '',
-        release_final_request_no: '',
-        release_note_no: '',
-        release_note_date: '',
-        pwht_result: '',
-        ndt_after_pwht: '',
-        defect_length: '',
-        repair_length: '',
-        cut_off: '',
-        note: '',
-        contractor_issue: '',
-        transmittal_no: '',
-        mw1_no: '',
-        stage: '',
-        remarks: '',
+    const setField = (key: string, value: string) => {
+        setForm((current) => ({ ...current, [key]: value }))
     }
-
-    const [form, setForm] = useState<FormData>(emptyForm)
-    const setField = (key: string) => (value: string) => setForm((current) => ({ ...current, [key]: value }))
 
     useEffect(() => {
         async function load() {
             const { data, error: loadError } = await supabase.from('welds').select('*').eq('id', id).single()
+
             if (loadError || !data) {
-                setError('Khong tim thay moi han.')
+                setError('Không tìm thấy mối hàn.')
                 setLoading(false)
                 return
             }
 
             const weld = data as unknown as WeldRecord
-            const formatDate = (value: unknown) => (value ? String(value).slice(0, 10) : '')
-
-            setWeldDisplayId(String(weld.weld_id || ''))
+            setWeldDisplayId(toText(weld.weld_id))
             setForm({
-                weld_id: String(weld.weld_id || ''),
-                drawing_no: String(weld.drawing_no || ''),
-                weld_no: String(weld.weld_no || ''),
-                joint_family: String(weld.joint_family || ''),
-                joint_type: String(weld.joint_type || ''),
-                ndt_requirements: String(weld.ndt_requirements || ''),
-                position: String(weld.position || ''),
-                weld_length: weld.weld_length != null ? String(weld.weld_length) : '',
-                thickness: weld.thickness != null ? String(weld.thickness) : '',
-                thickness_lamcheck: weld.thickness_lamcheck != null ? String(weld.thickness_lamcheck) : '',
-                wps_no: String(weld.wps_no || ''),
-                goc_code: String(weld.goc_code || ''),
-                fitup_inspector: String(weld.fitup_inspector || ''),
-                fitup_date: formatDate(weld.fitup_date),
-                fitup_request_no: String(weld.fitup_request_no || ''),
-                weld_finish_date: formatDate(weld.weld_finish_date),
-                welders: String(weld.welders || ''),
-                visual_inspector: String(weld.visual_inspector || ''),
-                visual_date: formatDate(weld.visual_date),
-                inspection_request_no: String(weld.inspection_request_no || ''),
-                backgouge_date: formatDate(weld.backgouge_date),
-                backgouge_request_no: String(weld.backgouge_request_no || ''),
-                mt_result: String(weld.mt_result || ''),
-                mt_report_no: String(weld.mt_report_no || ''),
-                ut_result: String(weld.ut_result || ''),
-                ut_report_no: String(weld.ut_report_no || ''),
-                rt_result: String(weld.rt_result || ''),
-                rt_report_no: String(weld.rt_report_no || ''),
-                lamcheck_date: formatDate(weld.lamcheck_date),
-                lamcheck_request_no: String(weld.lamcheck_request_no || ''),
-                lamcheck_report_no: String(weld.lamcheck_report_no || ''),
-                release_final_date: formatDate(weld.release_final_date),
-                release_final_request_no: String(weld.release_final_request_no || ''),
-                release_note_no: String(weld.release_note_no || ''),
-                release_note_date: formatDate(weld.release_note_date),
-                pwht_result: String(weld.pwht_result || ''),
-                ndt_after_pwht: String(weld.ndt_after_pwht || ''),
-                defect_length: weld.defect_length != null ? String(weld.defect_length) : '',
-                repair_length: weld.repair_length != null ? String(weld.repair_length) : '',
-                cut_off: String(weld.cut_off || ''),
-                note: String(weld.note || ''),
-                contractor_issue: String(weld.contractor_issue || ''),
-                transmittal_no: String(weld.transmittal_no || ''),
-                mw1_no: String(weld.mw1_no || ''),
-                stage: String(weld.stage || ''),
-                remarks: String(weld.remarks || ''),
+                weld_id: toText(weld.weld_id),
+                drawing_no: toText(weld.drawing_no),
+                weld_no: toText(weld.weld_no),
+                joint_family: toText(weld.joint_family),
+                joint_type: toText(weld.joint_type),
+                ndt_requirements: toText(weld.ndt_requirements),
+                position: toText(weld.position),
+                weld_length: toNumberText(weld.weld_length),
+                thickness: toNumberText(weld.thickness),
+                thickness_lamcheck: toNumberText(weld.thickness_lamcheck),
+                wps_no: toText(weld.wps_no),
+                goc_code: toText(weld.goc_code),
+                fitup_inspector: toText(weld.fitup_inspector),
+                fitup_date: toDateString(weld.fitup_date),
+                fitup_request_no: toText(weld.fitup_request_no),
+                weld_finish_date: toDateString(weld.weld_finish_date),
+                welders: toText(weld.welders),
+                visual_inspector: toText(weld.visual_inspector),
+                visual_date: toDateString(weld.visual_date),
+                inspection_request_no: toText(weld.inspection_request_no),
+                backgouge_date: toDateString(weld.backgouge_date),
+                backgouge_request_no: toText(weld.backgouge_request_no),
+                mt_result: toText(weld.mt_result),
+                mt_report_no: toText(weld.mt_report_no),
+                ut_result: toText(weld.ut_result),
+                ut_report_no: toText(weld.ut_report_no),
+                rt_result: toText(weld.rt_result),
+                rt_report_no: toText(weld.rt_report_no),
+                lamcheck_date: toDateString(weld.lamcheck_date),
+                lamcheck_request_no: toText(weld.lamcheck_request_no),
+                lamcheck_report_no: toText(weld.lamcheck_report_no),
+                release_final_date: toDateString(weld.release_final_date),
+                release_final_request_no: toText(weld.release_final_request_no),
+                release_note_no: toText(weld.release_note_no),
+                release_note_date: toDateString(weld.release_note_date),
+                pwht_result: toText(weld.pwht_result),
+                ndt_after_pwht: toText(weld.ndt_after_pwht),
+                defect_length: toNumberText(weld.defect_length),
+                repair_length: toNumberText(weld.repair_length),
+                cut_off: toText(weld.cut_off),
+                note: toText(weld.note),
+                contractor_issue: toText(weld.contractor_issue),
+                transmittal_no: toText(weld.transmittal_no),
+                mw1_no: toText(weld.mw1_no),
+                stage: toText(weld.stage),
+                remarks: toText(weld.remarks),
             })
             setLoading(false)
         }
@@ -316,9 +431,9 @@ export default function EditWeldPage() {
             joint_type: form.joint_type || null,
             ndt_requirements: form.ndt_requirements || null,
             position: form.position || null,
-            weld_length: form.weld_length ? parseFloat(form.weld_length) : null,
-            thickness: form.thickness ? parseInt(form.thickness, 10) : null,
-            thickness_lamcheck: form.thickness_lamcheck ? parseFloat(form.thickness_lamcheck) : null,
+            weld_length: parseFloatOrNull(form.weld_length),
+            thickness: parseIntOrNull(form.thickness),
+            thickness_lamcheck: parseFloatOrNull(form.thickness_lamcheck),
             wps_no: form.wps_no || null,
             goc_code: form.goc_code || null,
             fitup_inspector: form.fitup_inspector || null,
@@ -346,8 +461,8 @@ export default function EditWeldPage() {
             release_note_date: form.release_note_date || null,
             pwht_result: form.pwht_result || null,
             ndt_after_pwht: form.ndt_after_pwht || null,
-            defect_length: form.defect_length ? parseFloat(form.defect_length) : null,
-            repair_length: form.repair_length ? parseFloat(form.repair_length) : null,
+            defect_length: parseFloatOrNull(form.defect_length),
+            repair_length: parseFloatOrNull(form.repair_length),
             cut_off: form.cut_off || null,
             note: form.note || null,
             contractor_issue: form.contractor_issue || null,
@@ -361,9 +476,9 @@ export default function EditWeldPage() {
         const { error: updateError } = await weldTable.update(updateData).eq('id', id)
 
         if (updateError) {
-            setError(`Loi luu: ${updateError.message}`)
+            setError(`Lỗi lưu: ${updateError.message}`)
         } else {
-            setSuccess('Da luu thanh cong.')
+            setSuccess('Đã lưu thành công.')
             setTimeout(() => setSuccess(''), 3000)
         }
 
@@ -376,7 +491,7 @@ export default function EditWeldPage() {
         const { error: deleteError } = await weldTable.delete().eq('id', id)
 
         if (deleteError) {
-            setError(`Loi xoa: ${deleteError.message}`)
+            setError(`Lỗi xóa: ${deleteError.message}`)
             setDeleting(false)
             return
         }
@@ -384,11 +499,19 @@ export default function EditWeldPage() {
         router.push('/welds')
     }
 
+    if (checkingRole) {
+        return (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                Đang kiểm tra quyền truy cập...
+            </div>
+        )
+    }
+
     if (loading) {
         return (
             <div style={{ textAlign: 'center', padding: '80px' }}>
                 <div className="spinner" style={{ margin: '0 auto 16px' }} />
-                <p style={{ color: '#64748b' }}>Dang tai...</p>
+                <p style={{ color: '#64748b' }}>Đang tải...</p>
             </div>
         )
     }
@@ -397,29 +520,31 @@ export default function EditWeldPage() {
         <div className="page-enter">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                 <div>
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Sua moi han</h1>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Sửa mối hàn</h1>
                     <p style={{ color: '#64748b', marginTop: '4px', fontFamily: 'monospace', fontSize: '0.95rem' }}>{weldDisplayId}</p>
                 </div>
+
                 <div style={{ display: 'flex', gap: '8px' }}>
                     <Link href="/welds" className="btn btn-secondary">
-                        Danh sach
+                        Danh sách
                     </Link>
+
                     {!confirmDelete ? (
                         <button
                             className="btn"
                             onClick={() => setConfirmDelete(true)}
                             style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}
                         >
-                            Xoa
+                            Xóa
                         </button>
                     ) : (
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.875rem' }}>Xac nhan xoa?</span>
+                            <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.875rem' }}>Xác nhận xóa?</span>
                             <button className="btn" onClick={handleDelete} disabled={deleting} style={{ background: '#dc2626', color: 'white', border: 'none' }}>
-                                {deleting ? 'Dang xoa...' : 'Xoa'}
+                                {deleting ? 'Đang xóa...' : 'Xóa'}
                             </button>
                             <button className="btn btn-secondary" onClick={() => setConfirmDelete(false)}>
-                                Huy
+                                Hủy
                             </button>
                         </div>
                     )}
@@ -430,253 +555,24 @@ export default function EditWeldPage() {
             {success && <div style={{ padding: '12px 16px', background: '#dcfce7', border: '1px solid #86efac', borderRadius: '8px', color: '#166534', marginBottom: '16px' }}>{success}</div>}
 
             <form onSubmit={handleSave}>
-                <SectionCard icon="INFO" title="Thong tin co ban">
-                    <div>
-                        <Label>Weld ID</Label>
-                        <Input value={form.weld_id} onChange={setField('weld_id')} placeholder="9001-2211-DS-0032-01-WM1" />
-                    </div>
-                    <div>
-                        <Label>Drawing No</Label>
-                        <Input value={form.drawing_no} onChange={setField('drawing_no')} placeholder="9001-2211-DS-0032-01-WM" />
-                    </div>
-                    <div>
-                        <Label>Weld No</Label>
-                        <Input value={form.weld_no} onChange={setField('weld_no')} placeholder="1 / 17R1 / 127A" />
-                    </div>
-                    <div>
-                        <Label>Weld Joints</Label>
-                        <Input value={form.joint_family} onChange={setField('joint_family')} placeholder="X1, X2, X3..." />
-                    </div>
-                    <div>
-                        <Label>Weld Type</Label>
-                        <Select value={form.joint_type} onChange={setField('joint_type')}>
-                            <option value="">-- Chon --</option>
-                            {['DB', 'DV', 'SB', 'SV', 'X1', 'X2', 'X3'].map((type) => (
-                                <option key={type} value={type}>
-                                    {type}
-                                </option>
-                            ))}
-                        </Select>
-                    </div>
-                    <div>
-                        <Label>NDT</Label>
-                        <Input value={form.ndt_requirements} onChange={setField('ndt_requirements')} placeholder="100%MT & UT" />
-                    </div>
-                    <div>
-                        <Label>OD / L (Position)</Label>
-                        <Input value={form.position} onChange={setField('position')} placeholder="D / L" />
-                    </div>
-                    <div>
-                        <Label>Length (mm)</Label>
-                        <Input value={form.weld_length} onChange={setField('weld_length')} type="number" placeholder="2392.68" />
-                    </div>
-                    <div>
-                        <Label>Thickness (mm)</Label>
-                        <Input value={form.thickness} onChange={setField('thickness')} type="number" placeholder="25" />
-                    </div>
-                    <div>
-                        <Label>Thick LC</Label>
-                        <Input value={form.thickness_lamcheck} onChange={setField('thickness_lamcheck')} type="number" placeholder="25" />
-                    </div>
-                    <div>
-                        <Label>WPS No.</Label>
-                        <Input value={form.wps_no} onChange={setField('wps_no')} placeholder="WPS-TNHA-S06" />
-                    </div>
-                    <div>
-                        <Label>GOC Code</Label>
-                        <Input value={form.goc_code} onChange={setField('goc_code')} placeholder="ST-22" />
-                    </div>
-                    <div style={{ gridColumn: '1 / -1' }}>
-                        <Label>Welder(s)</Label>
-                        <Input value={form.welders} onChange={setField('welders')} placeholder="BGT-0005;BGT-0015;GTC-12" />
-                    </div>
+                <SectionCard icon="INFO" title="Thông tin cơ bản">
+                    <FieldGrid fields={BASIC_FIELDS} form={form} setField={setField} />
                 </SectionCard>
 
-                <SectionCard icon="FIT" title="Fit-Up / Welding completion">
-                    <div>
-                        <Label>FU Inspector</Label>
-                        <Input value={form.fitup_inspector} onChange={setField('fitup_inspector')} placeholder="Nguyen Van A" />
-                    </div>
-                    <div>
-                        <Label>FU Date</Label>
-                        <Input value={form.fitup_date} onChange={setField('fitup_date')} type="date" />
-                    </div>
-                    <div>
-                        <Label>FU Request</Label>
-                        <Input value={form.fitup_request_no} onChange={setField('fitup_request_no')} placeholder="F-044" />
-                    </div>
-                    <div>
-                        <Label>Weld Finish Date</Label>
-                        <Input value={form.weld_finish_date} onChange={setField('weld_finish_date')} type="date" />
-                    </div>
+                <SectionCard icon="FIT" title="Fit-Up / Hoàn thành hàn">
+                    <FieldGrid fields={FITUP_FIELDS} form={form} setField={setField} />
                 </SectionCard>
 
                 <SectionCard icon="VIS" title="Visual / Request / Backgouge">
-                    <div>
-                        <Label>Visual Inspector</Label>
-                        <Input value={form.visual_inspector} onChange={setField('visual_inspector')} placeholder="Nguyen Van A" />
-                    </div>
-                    <div>
-                        <Label>Visual Date</Label>
-                        <Input value={form.visual_date} onChange={setField('visual_date')} type="date" />
-                    </div>
-                    <div>
-                        <Label>NDT / KH Visual RQ</Label>
-                        <Input value={form.inspection_request_no} onChange={setField('inspection_request_no')} placeholder="V-065" />
-                    </div>
-                    <div>
-                        <Label>BG Date</Label>
-                        <Input value={form.backgouge_date} onChange={setField('backgouge_date')} type="date" />
-                    </div>
-                    <div>
-                        <Label>BG Request</Label>
-                        <Input value={form.backgouge_request_no} onChange={setField('backgouge_request_no')} placeholder="BG-043" />
-                    </div>
+                    <FieldGrid fields={VISUAL_FIELDS} form={form} setField={setField} />
                 </SectionCard>
 
-                <SectionCard icon="NDT" title="Lamcheck / NDT results">
-                    <div>
-                        <Label>Lamcheck Date</Label>
-                        <Input value={form.lamcheck_date} onChange={setField('lamcheck_date')} type="date" />
-                    </div>
-                    <div>
-                        <Label>Lamcheck Request</Label>
-                        <Input value={form.lamcheck_request_no} onChange={setField('lamcheck_request_no')} placeholder="UL-001" />
-                    </div>
-                    <div>
-                        <Label>Lamcheck Report</Label>
-                        <Input value={form.lamcheck_report_no} onChange={setField('lamcheck_report_no')} placeholder="LC-001" />
-                    </div>
-                    <div>
-                        <Label>MT Result</Label>
-                        <Select value={form.mt_result} onChange={setField('mt_result')}>
-                            {NDT_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </Select>
-                    </div>
-                    <div>
-                        <Label>MT Report</Label>
-                        <Input value={form.mt_report_no} onChange={setField('mt_report_no')} placeholder="MT-2211-ST-22-0017" />
-                    </div>
-                    <div>
-                        <Label>UT Result</Label>
-                        <Select value={form.ut_result} onChange={setField('ut_result')}>
-                            {NDT_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </Select>
-                    </div>
-                    <div>
-                        <Label>UT Report</Label>
-                        <Input value={form.ut_report_no} onChange={setField('ut_report_no')} placeholder="UT-2211-ST-22-0033" />
-                    </div>
-                    <div>
-                        <Label>RT Result</Label>
-                        <Select value={form.rt_result} onChange={setField('rt_result')}>
-                            {NDT_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </Select>
-                    </div>
-                    <div>
-                        <Label>RT Report</Label>
-                        <Input value={form.rt_report_no} onChange={setField('rt_report_no')} placeholder="RT-..." />
-                    </div>
-                    <div>
-                        <Label>PWHT Result</Label>
-                        <Select value={form.pwht_result} onChange={setField('pwht_result')}>
-                            {NDT_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </Select>
-                    </div>
-                    <div>
-                        <Label>Defect Length (mm)</Label>
-                        <Input value={form.defect_length} onChange={setField('defect_length')} type="number" placeholder="0" />
-                    </div>
-                    <div>
-                        <Label>Repair Length (mm)</Label>
-                        <Input value={form.repair_length} onChange={setField('repair_length')} type="number" placeholder="0" />
-                    </div>
+                <SectionCard icon="NDT" title="Lamcheck / Kết quả NDT">
+                    <FieldGrid fields={NDT_FIELDS} form={form} setField={setField} />
                 </SectionCard>
 
-                <SectionCard icon="REL" title="Release / Completion">
-                    <div>
-                        <Label>Release Final Date</Label>
-                        <Input value={form.release_final_date} onChange={setField('release_final_date')} type="date" />
-                    </div>
-                    <div>
-                        <Label>Release Final RQ</Label>
-                        <Input value={form.release_final_request_no} onChange={setField('release_final_request_no')} placeholder="FINAL-V-141" />
-                    </div>
-                    <div>
-                        <Label>Release Note / IRN</Label>
-                        <Input value={form.release_note_no} onChange={setField('release_note_no')} placeholder="IRN-2211-ST-22-0001" />
-                    </div>
-                    <div>
-                        <Label>Release Date</Label>
-                        <Input value={form.release_note_date} onChange={setField('release_note_date')} type="date" />
-                    </div>
-                    <div>
-                        <Label>NDT after PWHT</Label>
-                        <Input value={form.ndt_after_pwht} onChange={setField('ndt_after_pwht')} placeholder="MT / UT / RT" />
-                    </div>
-                    <div>
-                        <Label>Cut Off</Label>
-                        <Input value={form.cut_off} onChange={setField('cut_off')} placeholder="Cut-off ref" />
-                    </div>
-                    <div>
-                        <Label>MW1</Label>
-                        <Input value={form.mw1_no} onChange={setField('mw1_no')} placeholder="MW1-..." />
-                    </div>
-                    <div>
-                        <Label>Transmittal No</Label>
-                        <Input value={form.transmittal_no} onChange={setField('transmittal_no')} placeholder="TR-..." />
-                    </div>
-                    <div>
-                        <Label>Contractor Issue</Label>
-                        <Input value={form.contractor_issue} onChange={setField('contractor_issue')} placeholder="Contractor issue" />
-                    </div>
-                    <div>
-                        <Label>Stage</Label>
-                        <Select value={form.stage} onChange={setField('stage')}>
-                            <option value="">-- Tu dong --</option>
-                            {Object.entries(STAGE_LABELS).map(([key, label]) => (
-                                <option key={key} value={key}>
-                                    {label}
-                                </option>
-                            ))}
-                        </Select>
-                    </div>
-                    <div style={{ gridColumn: '1 / -1' }}>
-                        <Label>Note</Label>
-                        <textarea
-                            className="form-input"
-                            rows={2}
-                            value={form.note}
-                            onChange={(event) => setField('note')(event.target.value)}
-                            placeholder="Ghi chu close-out / release..."
-                            style={{ resize: 'vertical', width: '100%', boxSizing: 'border-box', marginBottom: '12px' }}
-                        />
-                        <Label>Remarks</Label>
-                        <textarea
-                            className="form-input"
-                            rows={3}
-                            value={form.remarks}
-                            onChange={(event) => setField('remarks')(event.target.value)}
-                            placeholder="Ghi chu them..."
-                            style={{ resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
-                        />
-                    </div>
+                <SectionCard icon="REL" title="Release / Hoàn công">
+                    <FieldGrid fields={RELEASE_FIELDS} form={form} setField={setField} />
                 </SectionCard>
 
                 <div
@@ -691,10 +587,10 @@ export default function EditWeldPage() {
                     }}
                 >
                     <Link href="/welds" className="btn btn-secondary">
-                        Huy
+                        Hủy
                     </Link>
                     <button type="submit" className="btn btn-primary" disabled={saving}>
-                        {saving ? 'Dang luu...' : 'Luu thay doi'}
+                        {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
                     </button>
                 </div>
             </form>

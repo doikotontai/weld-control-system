@@ -1,37 +1,10 @@
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { requireDashboardAuth } from '@/lib/dashboard-auth'
 import RequestForm from './RequestForm'
 
 export const dynamic = 'force-dynamic'
 
 export default async function NewRequestPage() {
-    const supabase = await createClient()
-    const cookieStore = await cookies()
-    const accessToken = cookieStore.get('weld-control-auth')?.value
-
-    if (!accessToken) {
-        redirect('/login')
-    }
-
-    const {
-        data: { user },
-    } = await supabase.auth.getUser(accessToken)
-
-    if (!user) {
-        redirect('/login')
-    }
-
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, full_name')
-        .eq('id', user.id)
-        .single()
-
-    if (!profile || !['admin', 'dcc', 'qc'].includes(profile.role)) {
-        redirect('/requests')
-    }
-
+    const { supabase, fullName, user } = await requireDashboardAuth(['admin', 'dcc', 'qc'])
     const { data: projects } = await supabase.from('projects').select('*')
 
     return (
@@ -40,7 +13,7 @@ export default async function NewRequestPage() {
                 Tạo yêu cầu kiểm tra mới
             </h1>
             <div style={{ background: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-                <RequestForm projects={projects || []} userName={profile?.full_name || user.email || ''} />
+                <RequestForm projects={projects || []} userName={fullName || user.email || ''} />
             </div>
         </div>
     )

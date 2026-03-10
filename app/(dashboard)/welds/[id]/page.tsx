@@ -117,7 +117,7 @@ export default function WeldDetailPage() {
         async function load() {
             const { data, error: queryError } = await supabase.from('welds').select('*').eq('id', id).single()
             if (queryError || !data) {
-                setError('Khong tim thay moi han.')
+                setError('Không tìm thấy mối hàn.')
                 setLoading(false)
                 return
             }
@@ -133,7 +133,7 @@ export default function WeldDetailPage() {
         return (
             <div style={{ textAlign: 'center', padding: '80px' }}>
                 <div className="spinner" style={{ margin: '0 auto 16px' }} />
-                <p style={{ color: '#64748b' }}>Dang tai...</p>
+                <p style={{ color: '#64748b' }}>Đang tải...</p>
             </div>
         )
     }
@@ -141,7 +141,7 @@ export default function WeldDetailPage() {
     if (error || !weld) {
         return (
             <div style={{ padding: '40px', color: '#dc2626' }}>
-                {error || 'Khong tim thay du lieu.'} <Link href="/welds">Quay lai danh sach</Link>
+                {error || 'Không tìm thấy dữ liệu.'} <Link href="/welds">Quay lại danh sách</Link>
             </div>
         )
     }
@@ -183,13 +183,13 @@ export default function WeldDetailPage() {
                     </div>
                 </div>
                 <Link href={`/welds/${id}/edit`} className="btn btn-primary">
-                    Chinh sua
+                    Chỉnh sửa
                 </Link>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
                 <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>Thong tin co ban</h3>
+                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>Thông tin cơ bản</h3>
                     <Field label="Drawing No" value={displayText(weld.drawing_no)} />
                     <Field label="Weld No" value={displayText(weld.weld_no)} />
                     <Field label="Weld Joints" value={displayText(weld.joint_family)} />
@@ -218,7 +218,7 @@ export default function WeldDetailPage() {
                 </div>
 
                 <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>Ket qua NDT / Release</h3>
+                    <h3 style={{ fontWeight: 600, marginBottom: '12px', color: '#1e40af' }}>Kết quả NDT / Release</h3>
                     <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', flexWrap: 'wrap' }}>
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '4px' }}>MT</div>
@@ -262,10 +262,10 @@ export default function WeldDetailPage() {
 
             <div style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
                 <Link href="/welds" className="btn btn-secondary">
-                    Danh sach
+                    Danh sách
                 </Link>
                 <Link href={`/welds/${id}/edit`} className="btn btn-primary">
-                    Chinh sua
+                    Chỉnh sửa
                 </Link>
             </div>
         </div>
