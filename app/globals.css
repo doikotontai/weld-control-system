@@ -45,6 +45,8 @@ body {
 /* Tables */
 .table-container {
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: stable both-edges;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
@@ -58,6 +60,7 @@ body {
 .table-scrollbar {
   overflow-x: auto;
   overflow-y: hidden;
+  scrollbar-gutter: stable both-edges;
 }
 
 .table-scrollbar-top {
@@ -67,6 +70,24 @@ body {
 .table-scrollbar-bottom {
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.table-container::-webkit-scrollbar,
+.table-scrollbar::-webkit-scrollbar {
+  height: 12px;
+}
+
+.table-container::-webkit-scrollbar-thumb,
+.table-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+  border: 2px solid #f8fafc;
+}
+
+.table-container::-webkit-scrollbar-track,
+.table-scrollbar::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 999px;
 }
 
 table {

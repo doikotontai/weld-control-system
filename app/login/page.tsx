@@ -131,8 +131,6 @@ export default function LoginPage() {
                         🔧
                     </div>
                     <h1 style={{ color: 'white', fontSize: '1.5rem', fontWeight: 700 }}>Weld Control Online</h1>
-                    <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginTop: '4px' }}>THIEN NGA - HAI AU PHASE 1</p>
-                    <p style={{ color: '#64748b', fontSize: '0.75rem' }}>Block 12/11, Offshore Vietnam</p>
                 </div>
 
                 <form onSubmit={handleLogin}>

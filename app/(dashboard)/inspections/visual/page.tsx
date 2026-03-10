@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { requireDashboardAuth } from '@/lib/dashboard-auth'
+import SyncedTableFrame from '@/components/SyncedTableFrame'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,8 +68,8 @@ export default async function VisualPage(props: { searchParams: Promise<{ [key: 
             {!projectId ? (
                 <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>Vui lòng chọn dự án ở menu bên trái.</div>
             ) : (
-                <div className="table-container">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <SyncedTableFrame>
+                    <table style={{ width: 'max-content', minWidth: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr>
                                 <th style={thStyle}>#</th>
@@ -120,7 +121,7 @@ export default async function VisualPage(props: { searchParams: Promise<{ [key: 
                             ))}
                         </tbody>
                     </table>
-                </div>
+                </SyncedTableFrame>
             )}
 
             {totalPages > 1 && (
@@ -137,5 +138,4 @@ export default async function VisualPage(props: { searchParams: Promise<{ [key: 
         </div>
     )
 }
-
 
