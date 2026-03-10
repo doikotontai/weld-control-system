@@ -33,6 +33,8 @@ export interface RequestMethodFlags {
     otherLabel: string
 }
 
+const REQUEST_METHODS_META_PREFIX = '[REQUEST_METHODS]'
+
 type InferInput = {
     ndt_requirements?: string | null
 }
@@ -45,17 +47,14 @@ function normalizeRequirement(input: string) {
         .replace(/\//g, ',')
 }
 
+function normalizeRequirementToken(token: string) {
+    return token
+        .replace(/^\d+%/g, '')
+        .replace(/^(MT|PT|UT|RT|PAUT|FITUP|FINALVISUAL|VISUAL)+$/g, '$1')
+}
+
 export function inferRequestMethods(requestType: RequestType, welds: InferInput[]): RequestMethodFlags {
-    const flags: RequestMethodFlags = {
-        fitUp: requestType === 'fitup',
-        finalVisual: requestType === 'request' || requestType === 'vs_final',
-        mt: false,
-        pt: false,
-        ut: false,
-        rt: false,
-        other: false,
-        otherLabel: '',
-    }
+    const flags = createEmptyRequestMethods(requestType)
 
     const otherTokens = new Set<string>()
 
@@ -72,7 +71,10 @@ export function inferRequestMethods(requestType: RequestType, welds: InferInput[
         if (normalized.includes('UT') || normalized.includes('PAUT')) flags.ut = true
         if (normalized.includes('RT')) flags.rt = true
 
-        const tokens = normalized.split(',').filter(Boolean)
+        const tokens = normalized
+            .split(',')
+            .map((token) => normalizeRequirementToken(token))
+            .filter(Boolean)
         tokens.forEach((token) => {
             if (!['FITUP', 'FINALVISUAL', 'VISUAL', 'MT', 'PT', 'UT', 'RT', 'PAUT'].includes(token)) {
                 otherTokens.add(token)
@@ -90,6 +92,72 @@ export function inferRequestMethods(requestType: RequestType, welds: InferInput[
     }
 
     return flags
+}
+
+export function createEmptyRequestMethods(requestType?: RequestType): RequestMethodFlags {
+    return {
+        fitUp: requestType === 'fitup',
+        finalVisual: requestType === 'vs_final',
+        mt: false,
+        pt: false,
+        ut: false,
+        rt: false,
+        other: false,
+        otherLabel: '',
+    }
+}
+
+export function normalizeRequestMethods(methods?: Partial<RequestMethodFlags> | null, requestType?: RequestType): RequestMethodFlags {
+    const defaults = createEmptyRequestMethods(requestType)
+
+    return {
+        fitUp: methods?.fitUp ?? defaults.fitUp,
+        finalVisual: methods?.finalVisual ?? defaults.finalVisual,
+        mt: methods?.mt ?? false,
+        pt: methods?.pt ?? false,
+        ut: methods?.ut ?? false,
+        rt: methods?.rt ?? false,
+        other: methods?.other ?? false,
+        otherLabel: String(methods?.otherLabel || '').trim(),
+    }
+}
+
+export function parseRequestMethodsFromRemarks(rawRemarks: string | null | undefined, requestType?: RequestType) {
+    const text = String(rawRemarks || '')
+
+    if (!text.startsWith(REQUEST_METHODS_META_PREFIX)) {
+        return {
+            methods: null as RequestMethodFlags | null,
+            remarks: text,
+        }
+    }
+
+    const newlineIndex = text.indexOf('\n')
+    const jsonChunk =
+        newlineIndex === -1
+            ? text.slice(REQUEST_METHODS_META_PREFIX.length)
+            : text.slice(REQUEST_METHODS_META_PREFIX.length, newlineIndex)
+
+    try {
+        const parsed = JSON.parse(jsonChunk) as Partial<RequestMethodFlags>
+        return {
+            methods: normalizeRequestMethods(parsed, requestType),
+            remarks: newlineIndex === -1 ? '' : text.slice(newlineIndex + 1),
+        }
+    } catch {
+        return {
+            methods: null as RequestMethodFlags | null,
+            remarks: text,
+        }
+    }
+}
+
+export function encodeRequestMethodsIntoRemarks(remarks: string | null | undefined, methods: RequestMethodFlags) {
+    const visibleRemarks = String(remarks || '').trim()
+    const normalizedMethods = normalizeRequestMethods(methods)
+    const metaLine = `${REQUEST_METHODS_META_PREFIX}${JSON.stringify(normalizedMethods)}`
+
+    return visibleRemarks ? `${metaLine}\n${visibleRemarks}` : metaLine
 }
 
 export function normalizeRequestNo(requestNo: string) {

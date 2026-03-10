@@ -10,7 +10,16 @@ import {
 import RequestPrintView from '@/app/(dashboard)/requests/[id]/RequestPrintView'
 import SyncedTableFrame from '@/components/SyncedTableFrame'
 import { createClient } from '@/lib/supabase/client'
-import { REQUEST_PREFIX, REQUEST_TYPE_COLUMN, REQUEST_TYPE_LABELS, normalizeRequestNo } from '@/lib/request-config'
+import {
+    createEmptyRequestMethods,
+    inferRequestMethods,
+    normalizeRequestMethods,
+    REQUEST_PREFIX,
+    REQUEST_TYPE_COLUMN,
+    REQUEST_TYPE_LABELS,
+    RequestMethodFlags,
+    normalizeRequestNo,
+} from '@/lib/request-config'
 import { buildEditableRequestItem, EditableRequestItem } from '@/lib/request-items'
 import { PROJECT_CHANGE_EVENT, readActiveProjectIdFromCookie } from '@/lib/project-selection'
 import { RequestType } from '@/types'
@@ -36,6 +45,7 @@ interface RequestRecord {
     inspection_time: string | null
     remarks: string | null
     status?: string | null
+    inspection_methods?: RequestMethodFlags | null
     projects?: { code?: string | null; name?: string | null } | null
 }
 
@@ -67,6 +77,7 @@ interface RequestFormProps {
     mode?: 'create' | 'edit'
     initialRequest?: RequestRecord | null
     initialItems?: EditableRequestItem[]
+    initialMethods?: RequestMethodFlags | null
 }
 
 type RequestFormState = {
@@ -120,6 +131,20 @@ const labelStyle = {
     textTransform: 'uppercase' as const,
     letterSpacing: '0.03em',
 }
+
+const METHOD_EDITOR_CONFIG: Array<{
+    key: Exclude<keyof RequestMethodFlags, 'otherLabel'>
+    label: string
+    hint: string
+}> = [
+    { key: 'fitUp', label: 'Fit-Up', hint: 'Mối ghép' },
+    { key: 'finalVisual', label: 'Final Visual', hint: 'Visual khách hàng' },
+    { key: 'mt', label: 'MT', hint: 'Bột từ' },
+    { key: 'pt', label: 'PT', hint: 'Thẩm thấu' },
+    { key: 'ut', label: 'UT', hint: 'Siêu âm' },
+    { key: 'rt', label: 'RT', hint: 'Chụp phim' },
+    { key: 'other', label: 'Khác', hint: 'PAUT / PMI / ...' },
+]
 
 function toDateInput(value: string | null | undefined) {
     return value ? String(value).slice(0, 10) : ''
@@ -180,6 +205,26 @@ function makeEmptyForm(initialRequest?: RequestRecord | null, userName?: string)
     }
 }
 
+function makeInitialMethods(
+    mode: 'create' | 'edit',
+    requestType: RequestType | '' | undefined,
+    initialItems: EditableRequestItem[],
+    initialMethods?: RequestMethodFlags | null
+) {
+    if (initialMethods) {
+        return normalizeRequestMethods(initialMethods, requestType || undefined)
+    }
+
+    if (mode === 'edit' && requestType) {
+        return inferRequestMethods(
+            requestType,
+            initialItems.map((item) => ({ ndt_requirements: item.inspection_required }))
+        )
+    }
+
+    return createEmptyRequestMethods(requestType || undefined)
+}
+
 function SelectedTag({ count, label }: { count: number; label: string }) {
     return (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 10px', borderRadius: '999px', background: '#eff6ff', color: '#1d4ed8', fontSize: '0.8rem', fontWeight: 600 }}>
@@ -195,10 +240,14 @@ export default function RequestForm({
     mode = 'create',
     initialRequest = null,
     initialItems = [],
+    initialMethods = null,
 }: RequestFormProps) {
     const router = useRouter()
     const supabase = createClient()
     const [form, setForm] = useState<RequestFormState>(() => makeEmptyForm(initialRequest, userName))
+    const [methods, setMethods] = useState<RequestMethodFlags>(() =>
+        makeInitialMethods(mode, initialRequest?.request_type, initialItems, initialMethods)
+    )
     const [selectedItems, setSelectedItems] = useState<EditableRequestItem[]>(initialItems)
     const [lookupResults, setLookupResults] = useState<EditableRequestItem[]>([])
     const [searchResults, setSearchResults] = useState<EditableRequestItem[]>([])
@@ -255,6 +304,32 @@ export default function RequestForm({
 
     const selectedIds = useMemo(() => new Set(selectedItems.map((item) => item.weldId).filter(Boolean)), [selectedItems])
     const currentProject = useMemo(() => projects.find((project) => project.id === form.project_id) || null, [form.project_id, projects])
+    const suggestedMethods = useMemo(
+        () =>
+            inferRequestMethods(
+                (form.request_type || 'request') as RequestType,
+                selectedItems.map((item) => ({ ndt_requirements: item.inspection_required }))
+            ),
+        [form.request_type, selectedItems]
+    )
+
+    const toggleMethod = (key: Exclude<keyof RequestMethodFlags, 'otherLabel'>) => {
+        setMethods((current) => {
+            if (form.request_type === 'fitup' && key === 'fitUp') {
+                return { ...current, fitUp: true }
+            }
+
+            return { ...current, [key]: !current[key] }
+        })
+    }
+
+    const applySuggestedMethods = () => {
+        setMethods((current) => ({
+            ...suggestedMethods,
+            fitUp: form.request_type === 'fitup' ? true : suggestedMethods.fitUp,
+            otherLabel: current.other && current.otherLabel ? current.otherLabel : suggestedMethods.otherLabel,
+        }))
+    }
 
     const addItems = (items: EditableRequestItem[]) => {
         setSelectedItems((current) => {
@@ -368,6 +443,7 @@ export default function RequestForm({
         const formData = new FormData()
         Object.entries(form).forEach(([key, value]) => formData.set(key, value))
         formData.set('request_no', normalizeRequestNo(form.request_no))
+        formData.set('inspection_methods_json', JSON.stringify(methods))
         formData.set('selected_items_json', JSON.stringify(selectedItems))
 
         const result = mode === 'edit' && initialRequest
@@ -415,6 +491,7 @@ export default function RequestForm({
         inspection_date: form.inspection_date || null,
         inspection_time: form.inspection_time || null,
         remarks: form.remarks || null,
+        inspection_methods: methods,
         projects: currentProject ? { code: currentProject.code, name: currentProject.name } : initialRequest?.projects || null,
     }
 
@@ -444,6 +521,11 @@ export default function RequestForm({
                             <select className="form-input" value={form.request_type} onChange={(event) => {
                                 const nextType = event.target.value as RequestType | ''
                                 setField('request_type', nextType)
+                                setMethods((current) => normalizeRequestMethods({
+                                    ...current,
+                                    fitUp: nextType === 'fitup' ? true : current.fitUp,
+                                    finalVisual: nextType === 'vs_final' ? true : current.finalVisual,
+                                }, nextType || undefined))
                                 if (nextType && nextType !== 'vs_final' && !form.request_no.trim()) {
                                     setField('request_no', REQUEST_PREFIX[nextType] || '')
                                 }
@@ -492,6 +574,87 @@ export default function RequestForm({
                         <div style={{ gridColumn: '1 / -1' }}>
                             <label style={labelStyle}>Ghi chú</label>
                             <textarea className="form-input" rows={3} value={form.remarks} onChange={(event) => setField('remarks', event.target.value)} style={{ resize: 'vertical' }} />
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ background: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                        <div>
+                            <h3 style={{ fontWeight: 700, color: '#1e40af', fontSize: '0.95rem', marginBottom: '4px' }}>Phương pháp / nội dung kiểm tra</h3>
+                            <p style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                                Có thể tick đồng thời 2 hoặc 3 phương pháp trên cùng một request.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={applySuggestedMethods}
+                            disabled={selectedItems.length === 0}
+                        >
+                            Gợi ý từ mối hàn đã chọn
+                        </button>
+                    </div>
+
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr>
+                                    {METHOD_EDITOR_CONFIG.map((method) => (
+                                        <th
+                                            key={method.key}
+                                            style={{
+                                                border: '1px solid #cbd5e1',
+                                                background: '#f8fafc',
+                                                padding: '10px 8px',
+                                                textAlign: 'center',
+                                            }}
+                                        >
+                                            <div style={{ fontWeight: 700, color: '#0f172a' }}>{method.label}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '3px' }}>{method.hint}</div>
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    {METHOD_EDITOR_CONFIG.map((method) => (
+                                        <td
+                                            key={method.key}
+                                            style={{ border: '1px solid #cbd5e1', padding: '12px 8px', textAlign: 'center' }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={methods[method.key]}
+                                                disabled={method.key === 'fitUp' && form.request_type === 'fitup'}
+                                                onChange={() => toggleMethod(method.key)}
+                                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                            />
+                                        </td>
+                                    ))}
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: 'minmax(220px, 360px) 1fr', gap: '12px' }}>
+                        <div>
+                            <label style={labelStyle}>Nội dung khác</label>
+                            <input
+                                className="form-input"
+                                value={methods.otherLabel}
+                                onChange={(event) =>
+                                    setMethods((current) => ({
+                                        ...current,
+                                        other: event.target.value.trim().length > 0 || current.other,
+                                        otherLabel: event.target.value,
+                                    }))
+                                }
+                                placeholder="Ví dụ: PAUT, PMI..."
+                            />
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b', alignSelf: 'end' }}>
+                            Bản in request sẽ lấy đúng các ô đã tick ở đây. Nếu muốn theo dữ liệu mối hàn, dùng nút “Gợi ý từ mối hàn đã chọn”.
                         </div>
                     </div>
                 </div>

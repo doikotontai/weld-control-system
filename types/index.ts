@@ -134,6 +134,16 @@ export interface InspectionRequest {
     inspection_time: string | null
     status: RequestStatus
     remarks: string | null
+    inspection_methods?: {
+        fitUp: boolean
+        finalVisual: boolean
+        mt: boolean
+        pt: boolean
+        ut: boolean
+        rt: boolean
+        other: boolean
+        otherLabel: string
+    } | null
     created_at: string
     updated_at: string
     created_by: string | null

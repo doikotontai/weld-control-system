@@ -1,5 +1,5 @@
 import { requireDashboardAuth } from '@/lib/dashboard-auth'
-import { REQUEST_TYPE_COLUMN } from '@/lib/request-config'
+import { parseRequestMethodsFromRemarks, REQUEST_TYPE_COLUMN } from '@/lib/request-config'
 import { buildEditableRequestItem, EditableRequestItem } from '@/lib/request-items'
 import RequestForm from '../new/RequestForm'
 
@@ -51,6 +51,13 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
 
     if (!request) {
         return <div style={{ padding: '40px', textAlign: 'center' }}>Không tìm thấy yêu cầu này.</div>
+    }
+
+    const parsedRequestMeta = parseRequestMethodsFromRemarks(request.remarks, request.request_type)
+    const hydratedRequest = {
+        ...request,
+        remarks: parsedRequestMeta.remarks,
+        inspection_methods: parsedRequestMeta.methods,
     }
 
     const { data: requestItems } = await supabase
@@ -115,13 +122,13 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 remarks: item.remarks || '',
             }
         })
-    } else if (request.request_type !== 'vs_final') {
-        const column = REQUEST_TYPE_COLUMN[request.request_type as keyof typeof REQUEST_TYPE_COLUMN]
+    } else if (hydratedRequest.request_type !== 'vs_final') {
+        const column = REQUEST_TYPE_COLUMN[hydratedRequest.request_type as keyof typeof REQUEST_TYPE_COLUMN]
         const { data: welds } = await supabase
             .from('welds')
             .select('id, weld_id, drawing_no, weld_no, joint_type, welders, wps_no, weld_size, ndt_requirements, goc_code, weld_finish_date, position, weld_length, thickness, remarks')
-            .eq('project_id', request.project_id)
-            .eq(column, request.request_no)
+            .eq('project_id', hydratedRequest.project_id)
+            .eq(column, hydratedRequest.request_no)
             .order('excel_row_order', { ascending: true })
 
         initialItems = (welds || []).map((weld) => buildEditableRequestItem(weld))
@@ -136,8 +143,9 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 projects={projects || []}
                 userName={fullName || user.email || ''}
                 mode="edit"
-                initialRequest={request}
+                initialRequest={hydratedRequest}
                 initialItems={initialItems}
+                initialMethods={parsedRequestMeta.methods}
             />
         </div>
     )

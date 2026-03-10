@@ -4,7 +4,13 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { EditableRequestItem } from '@/lib/request-items'
-import { REQUEST_TYPE_COLUMN, normalizeRequestNo } from '@/lib/request-config'
+import {
+    REQUEST_TYPE_COLUMN,
+    RequestMethodFlags,
+    encodeRequestMethodsIntoRemarks,
+    normalizeRequestMethods,
+    normalizeRequestNo,
+} from '@/lib/request-config'
 import { RequestType } from '@/types'
 
 type ActionResult = {
@@ -74,6 +80,16 @@ function parseSelectedItems(formData: FormData): EditableRequestItem[] {
             : []
     } catch {
         return []
+    }
+}
+
+function parseInspectionMethods(formData: FormData, requestType: RequestType): RequestMethodFlags {
+    const raw = String(formData.get('inspection_methods_json') || '{}')
+
+    try {
+        return normalizeRequestMethods(JSON.parse(raw) as Partial<RequestMethodFlags>, requestType)
+    } catch {
+        return normalizeRequestMethods(null, requestType)
     }
 }
 
@@ -173,9 +189,11 @@ async function replaceRequestItems(
 }
 
 function readRequestPayload(formData: FormData) {
+    const requestType = String(formData.get('request_type') || '').trim() as RequestType
+
     return {
         projectId: String(formData.get('project_id') || '').trim(),
-        requestType: String(formData.get('request_type') || '').trim() as RequestType,
+        requestType,
         requestNo: normalizeRequestNo(String(formData.get('request_no') || '')),
         item: String(formData.get('item') || '').trim() || null,
         taskNo: String(formData.get('task_no') || '').trim() || null,
@@ -186,6 +204,7 @@ function readRequestPayload(formData: FormData) {
         inspectionDate: String(formData.get('inspection_date') || '').trim(),
         inspectionTime: String(formData.get('inspection_time') || '').trim() || null,
         remarks: String(formData.get('remarks') || '').trim() || null,
+        inspectionMethods: parseInspectionMethods(formData, requestType),
         selectedItems: parseSelectedItems(formData),
     }
 }
@@ -197,6 +216,18 @@ function validateRequestPayload(payload: ReturnType<typeof readRequestPayload>) 
 
     if (payload.selectedItems.length === 0) {
         return 'Request phải có ít nhất một mối hàn.'
+    }
+
+    if (
+        !payload.inspectionMethods.fitUp &&
+        !payload.inspectionMethods.finalVisual &&
+        !payload.inspectionMethods.mt &&
+        !payload.inspectionMethods.pt &&
+        !payload.inspectionMethods.ut &&
+        !payload.inspectionMethods.rt &&
+        !payload.inspectionMethods.other
+    ) {
+        return 'Vui lòng tick ít nhất một phương pháp / nội dung kiểm tra.'
     }
 
     return null
@@ -246,7 +277,7 @@ export async function createInspectionRequest(formData: FormData): Promise<Actio
                 request_time: payload.requestTime,
                 inspection_date: payload.inspectionDate ? new Date(payload.inspectionDate).toISOString() : null,
                 inspection_time: payload.inspectionTime,
-                remarks: payload.remarks,
+                remarks: encodeRequestMethodsIntoRemarks(payload.remarks, payload.inspectionMethods),
                 status: 'submitted',
                 created_by: user.id,
             })
@@ -329,7 +360,7 @@ export async function updateInspectionRequest(requestId: string, formData: FormD
                 request_time: payload.requestTime,
                 inspection_date: payload.inspectionDate ? new Date(payload.inspectionDate).toISOString() : null,
                 inspection_time: payload.inspectionTime,
-                remarks: payload.remarks,
+                remarks: encodeRequestMethodsIntoRemarks(payload.remarks, payload.inspectionMethods),
             })
             .eq('id', requestId)
 
@@ -433,4 +464,3 @@ export async function updateRequestStatus(requestId: string, newStatus: string):
         }
     }
 }
-

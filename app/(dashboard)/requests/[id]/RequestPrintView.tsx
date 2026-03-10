@@ -20,6 +20,7 @@ interface RequestRecord {
     inspection_date: string | null
     inspection_time: string | null
     remarks: string | null
+    inspection_methods?: RequestMethodFlags | null
     projects?: { code?: string | null; name?: string | null } | null
 }
 
@@ -78,7 +79,7 @@ function applyMethodTicks(worksheet: ExcelJS.Worksheet, methods: RequestMethodFl
 }
 
 function resolveMethods(request: RequestRecord, items: EditableRequestItem[]) {
-    return inferRequestMethods(
+    return request.inspection_methods || inferRequestMethods(
         request.request_type as never,
         items.map((item) => ({ ndt_requirements: item.inspection_required }))
     )
