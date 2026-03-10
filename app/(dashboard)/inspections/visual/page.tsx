@@ -1,6 +1,5 @@
 ﻿import Link from 'next/link'
-import { cookies } from 'next/headers'
-import { createClient } from '@/lib/supabase/server'
+import { requireDashboardAuth } from '@/lib/dashboard-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,8 +28,7 @@ function displayText(value: unknown) {
 }
 
 export default async function VisualPage(props: { searchParams: Promise<{ [key: string]: string | undefined }> }) {
-    const supabase = await createClient()
-    const cookieStore = await cookies()
+    const { supabase, cookieStore } = await requireDashboardAuth(['admin', 'dcc', 'qc', 'inspector'])
     const projectId = cookieStore.get('weld-control-project-id')?.value || null
     const searchParams = await props.searchParams
     const page = Number.parseInt(searchParams?.page || '0', 10)

@@ -42,11 +42,11 @@ const navSections: NavSection[] = [
     {
         section: 'KIỂM TRA',
         items: [
-            { href: '/inspections/fitup', icon: 'F', label: 'Fit-Up', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
-            { href: '/inspections/visual', icon: 'V', label: 'Visual / Request', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
-            { href: '/inspections/backgouge', icon: 'B', label: 'Backgouge', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
-            { href: '/inspections/lamcheck', icon: 'L', label: 'Lamcheck', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
-            { href: '/inspections/ndt', icon: 'N', label: 'NDT Results', roles: ['admin', 'dcc', 'qc', 'inspector', 'viewer'] },
+            { href: '/inspections/fitup', icon: 'F', label: 'Fit-Up', roles: ['admin', 'dcc', 'qc', 'inspector'] },
+            { href: '/inspections/visual', icon: 'V', label: 'Visual / Request', roles: ['admin', 'dcc', 'qc', 'inspector'] },
+            { href: '/inspections/backgouge', icon: 'B', label: 'Backgouge', roles: ['admin', 'dcc', 'qc', 'inspector'] },
+            { href: '/inspections/lamcheck', icon: 'L', label: 'Lamcheck', roles: ['admin', 'dcc', 'qc', 'inspector'] },
+            { href: '/inspections/ndt', icon: 'N', label: 'NDT Results', roles: ['admin', 'dcc', 'qc', 'inspector'] },
             { href: '/requests', icon: 'R', label: 'Yêu cầu kiểm tra', roles: ['admin', 'dcc', 'qc'] },
         ],
     },
