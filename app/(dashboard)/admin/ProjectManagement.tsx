@@ -24,14 +24,15 @@ export default function ProjectManagement({ initialProjects }: { initialProjects
         setIsCreating(true)
         setMessage('')
 
-        const formData = new FormData(event.currentTarget)
+        const form = event.currentTarget
+        const formData = new FormData(form)
         const result = await createProject(formData)
 
         if (result.error) {
             setMessage(`Lỗi: ${result.error}`)
         } else {
             setMessage('Tạo dự án thành công.')
-            event.currentTarget.reset()
+            form.reset()
         }
 
         setIsCreating(false)
