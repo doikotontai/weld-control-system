@@ -1,12 +1,12 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 import { logoutWithSupabase } from '@/app/actions/auth'
 import { setActiveProject } from '@/app/actions/project-context'
-import { ROLE_LABELS, UserRole } from '@/types'
 import { dispatchActiveProjectChange, writeActiveProjectIdToCookie } from '@/lib/project-selection'
+import { ROLE_LABELS, UserRole } from '@/types'
 
 interface Project {
     id: string
@@ -46,7 +46,7 @@ const navSections: NavSection[] = [
             { href: '/inspections/visual', icon: 'V', label: 'Visual / Request', roles: ['admin', 'dcc', 'qc', 'inspector'] },
             { href: '/inspections/backgouge', icon: 'B', label: 'Backgouge', roles: ['admin', 'dcc', 'qc', 'inspector'] },
             { href: '/inspections/lamcheck', icon: 'L', label: 'Lamcheck', roles: ['admin', 'dcc', 'qc', 'inspector'] },
-            { href: '/inspections/ndt', icon: 'N', label: 'NDT Results', roles: ['admin', 'dcc', 'qc', 'inspector'] },
+            { href: '/inspections/ndt', icon: 'N', label: 'Kết quả NDT', roles: ['admin', 'dcc', 'qc', 'inspector'] },
             { href: '/requests', icon: 'R', label: 'Yêu cầu kiểm tra', roles: ['admin', 'dcc', 'qc'] },
         ],
     },
@@ -61,14 +61,14 @@ const navSections: NavSection[] = [
         section: 'BÁO CÁO',
         items: [
             { href: '/reports/summary', icon: 'S', label: 'Tổng hợp', roles: ['admin', 'dcc', 'qc', 'viewer'] },
-            { href: '/reports/welder-ndt', icon: 'WN', label: 'NDT by Welder', roles: ['admin', 'dcc', 'qc'] },
-            { href: '/reports/repair-rate', icon: 'RR', label: 'Repair Rate', roles: ['admin', 'dcc', 'qc'] },
+            { href: '/reports/welder-ndt', icon: 'WN', label: 'NDT theo thợ hàn', roles: ['admin', 'dcc', 'qc'] },
+            { href: '/reports/repair-rate', icon: 'RR', label: 'Tỷ lệ sửa chữa', roles: ['admin', 'dcc', 'qc'] },
         ],
     },
     {
         section: 'QUẢN LÝ',
         items: [
-            { href: '/import', icon: 'I', label: 'Import Excel', roles: ['admin', 'dcc'] },
+            { href: '/import', icon: 'I', label: 'Import Excel', roles: ['admin', 'dcc', 'qc'] },
             { href: '/admin', icon: 'A', label: 'Quản trị hệ thống', roles: ['admin'] },
         ],
     },
@@ -92,6 +92,10 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
 
     const handleProjectChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const nextProjectId = event.target.value
+        const currentHref = typeof window === 'undefined'
+            ? pathname
+            : `${window.location.pathname}${window.location.search}${window.location.hash}`
+
         setSelectedProjectId(nextProjectId)
         writeActiveProjectIdToCookie(nextProjectId)
         dispatchActiveProjectChange(nextProjectId || null)
@@ -99,6 +103,9 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
         startTransition(() => {
             void setActiveProject(nextProjectId).then(() => {
                 router.refresh()
+                if (typeof window !== 'undefined') {
+                    window.location.assign(currentHref)
+                }
             })
         })
     }
@@ -137,13 +144,13 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
                     </div>
                     <div>
                         <div style={{ color: 'white', fontWeight: 700, fontSize: '0.85rem' }}>Weld Control</div>
-                        <div style={{ color: '#475569', fontSize: '0.65rem' }}>Online System</div>
+                        <div style={{ color: '#94a3b8', fontSize: '0.65rem' }}>Online System</div>
                     </div>
                 </div>
                 <div style={{ padding: '8px', background: 'rgba(255,255,255,0.04)', borderRadius: '6px' }}>
                     <div
                         style={{
-                            color: '#64748b',
+                            color: '#94a3b8',
                             fontSize: '0.6rem',
                             marginBottom: '4px',
                             fontWeight: 600,
@@ -194,7 +201,7 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
                                         padding: '8px 8px 3px',
                                         fontSize: '0.6rem',
                                         fontWeight: 700,
-                                        color: '#334155',
+                                        color: '#475569',
                                         textTransform: 'uppercase',
                                         letterSpacing: '0.07em',
                                     }}
@@ -217,7 +224,7 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
                                             borderRadius: '6px',
                                             marginBottom: '1px',
                                             textDecoration: 'none',
-                                            color: isActive ? 'white' : '#64748b',
+                                            color: isActive ? 'white' : '#94a3b8',
                                             background: isActive ? 'rgba(59,130,246,0.18)' : 'transparent',
                                             borderLeft: isActive ? '3px solid #3b82f6' : '3px solid transparent',
                                             fontSize: '0.82rem',
@@ -273,5 +280,3 @@ export default function Sidebar({ userRole, userName, projects, currentProjectId
         </div>
     )
 }
-
-

@@ -21,6 +21,11 @@ body {
   color: #1e293b;
 }
 
+html,
+body {
+  overflow-x: hidden;
+}
+
 /* Sidebar */
 .sidebar {
   background: var(--sidebar-bg);
@@ -40,6 +45,26 @@ body {
 /* Tables */
 .table-container {
   overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.table-sync-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.table-scrollbar {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.table-scrollbar-top {
+  height: 14px;
+}
+
+.table-scrollbar-bottom {
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }

@@ -1,5 +1,5 @@
 ﻿'use client'
-// app/(dashboard)/import/page.tsx â€” Import Excel
+// app/(dashboard)/import/page.tsx � Import Excel
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -72,12 +72,12 @@ interface WeldUpsertTable {
     upsert(values: WeldUpsertRow[], options: { onConflict: string }): Promise<{ error: { message: string } | null }>
 }
 
-// Cá»™t trong DATA INPUT (dá»±a trÃªn phÃ¢n tÃ­ch thá»±c táº¿ file WELD CONTROL.xlsx)
-// ROW 1 headers + data rows tá»« ROW 3 onward
+// C�"t trong DATA INPUT (dựa trên phân tích thực tế file WELD CONTROL.xlsx)
+// ROW 1 headers + data rows từ ROW 3 onward
 const COLUMN_MAP: Record<number, string> = {
-    0: 'weld_id',               // Weld ID Ä‘áº§y Ä‘á»§ (e.g. 9001-2211-DS-0032-01-WM1)
+    0: 'weld_id',               // Weld ID �ầy �ủ (e.g. 9001-2211-DS-0032-01-WM1)
     1: 'drawing_no',            // Drawing No
-    2: 'weld_no',               // Weld No (sá»‘ má»‘i hÃ n trong báº£n váº½)
+    2: 'weld_no',               // Weld No (s� m�i hàn trong bản vẽ)
     3: 'joint_family',          // Weld Joints family (X1, X2, X3, DB, SB...)
     4: 'joint_type',            // Weld Type (DB, DV, SB, SV...)
     5: 'ndt_requirements',      // NDT Requirements (100%MT & UT)
@@ -185,7 +185,7 @@ export default function ImportPage() {
     const supabase = createClient()
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
     const [currentProjectCode, setCurrentProjectCode] = useState<string>('')
-    const { checking: checkingRole } = useRoleGuard(['admin', 'dcc'])
+    const { checking: checkingRole } = useRoleGuard(['admin', 'dcc', 'qc'])
 
     useEffect(() => {
         if (typeof window === 'undefined') {

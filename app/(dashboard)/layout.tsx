@@ -1,7 +1,8 @@
-// app/(dashboard)/layout.tsx
-// Layout chung cho tất cả trang sau khi đăng nhập
 import Sidebar from '@/components/Sidebar'
 import { requireDashboardAuth } from '@/lib/dashboard-auth'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function DashboardLayout({
     children,

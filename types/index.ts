@@ -295,7 +295,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
     dcc: 'DCC',
     qc: 'QC Engineer',
     inspector: 'Inspector',
-    viewer: 'Xem',
+    viewer: 'Chỉ xem',
 }
 
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
