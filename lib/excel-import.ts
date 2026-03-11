@@ -800,23 +800,9 @@ function toUpsertRow(previewRow: PreviewRow, projectId: string, excelRowOrder: n
     }
 }
 
-function mergeUpsertRows(existing: WeldUpsertRow, incoming: WeldUpsertRow): WeldUpsertRow {
-    const merged: WeldUpsertRow = { ...existing }
-    const keys = new Set([...Object.keys(existing), ...Object.keys(incoming)])
-
-    for (const key of keys) {
-        const nextValue = incoming[key]
-        if (nextValue !== null && nextValue !== '') {
-            merged[key] = nextValue
-        }
-    }
-
-    merged.project_id = incoming.project_id
-    merged.weld_id = incoming.weld_id
-    merged.is_repair = Boolean(existing.is_repair || incoming.is_repair)
-    merged.excel_row_order = incoming.excel_row_order
-
-    return merged
+function buildImportUniqueWeldId(weldId: string, occurrenceIndex: number, excelSheetRow: number): string {
+    if (occurrenceIndex <= 1) return weldId
+    return `${weldId}__ROW${excelSheetRow}`
 }
 
 export function parseWorkbookData(
@@ -833,7 +819,8 @@ export function parseWorkbookData(
     }
 
     const preview: PreviewRow[] = []
-    const rowsByKey = new Map<string, WeldUpsertRow>()
+    const rows: WeldUpsertRow[] = []
+    const weldIdOccurrences = new Map<string, number>()
     const duplicateExamples = new Map<string, { firstRow: number; latestRow: number }>()
 
     let dataRowOrder = 0
@@ -849,22 +836,23 @@ export function parseWorkbookData(
             preview.push(parsedRow)
         }
         if (projectId && missingRequired.length === 0) {
-            const nextRow = toUpsertRow(parsedRow, projectId, dataRowOrder)
-            const dedupeKey = `${projectId}::${parsedRow.weld_id.trim().toUpperCase()}`
-            const existingRow = rowsByKey.get(dedupeKey)
-            if (existingRow) {
-                rowsByKey.set(dedupeKey, mergeUpsertRows(existingRow, nextRow))
+            const duplicateKey = `${projectId}::${parsedRow.weld_id.trim().toUpperCase()}`
+            const nextOccurrence = (weldIdOccurrences.get(duplicateKey) ?? 0) + 1
+            weldIdOccurrences.set(duplicateKey, nextOccurrence)
+
+            if (nextOccurrence > 1) {
+                const currentMeta = duplicateExamples.get(parsedRow.weld_id)
                 duplicateExamples.set(parsedRow.weld_id, {
-                    firstRow: duplicateExamples.get(parsedRow.weld_id)?.firstRow ?? existingRow.excel_row_order,
-                    latestRow: dataRowOrder,
+                    firstRow: currentMeta?.firstRow ?? rowIndex,
+                    latestRow: rowIndex + 1,
                 })
-            } else {
-                rowsByKey.set(dedupeKey, nextRow)
             }
+
+            const nextRow = toUpsertRow(parsedRow, projectId, dataRowOrder)
+            nextRow.weld_id = buildImportUniqueWeldId(parsedRow.weld_id, nextOccurrence, rowIndex + 1)
+            rows.push(nextRow)
         }
     }
-
-    const rows = Array.from(rowsByKey.values())
 
     if (rows.length === 0) {
         if (preview.length === 0) {
@@ -879,7 +867,7 @@ export function parseWorkbookData(
             .slice(0, 5)
             .map(([weldId, meta]) => `${weldId} (d??ng ${meta.firstRow} v?? ${meta.latestRow})`)
         issues.push(
-            `Ph??t hi???n ${duplicateExamples.size} weld ID b??? tr??ng trong file import. H??? th???ng ???? t??? g???p d??? li???u tr??ng tr?????c khi import. V?? d???: ${samples.join(', ')}.`,
+            `Ph??t hi???n ${duplicateExamples.size} weld ID b??? l???p t??n trong file import. H??? th???ng s??? t??? t???o kh??a n???i b??? ri??ng theo d??ng Excel ????? gi??? c??? c??c b???n ghi n??y. V?? d???: ${samples.join(', ')}.`,
         )
     }
 
