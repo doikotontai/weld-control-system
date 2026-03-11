@@ -17,8 +17,11 @@ export interface WeldWorkflowInput {
     ndtOverallResult?: string | null
     overallStatusRaw?: string | null
     mtResult?: string | null
+    mtReportNo?: string | null
     utResult?: string | null
+    utReportNo?: string | null
     rtResult?: string | null
+    rtReportNo?: string | null
     pwhtResult?: string | null
     inspectionRequestNo?: string | null
     backgougeDate?: string | null
@@ -93,9 +96,18 @@ function deriveOverallNdtResult(input: WeldWorkflowInput): 'ACC' | 'REJ' | null 
         PWHT: normalizeResult(input.pwhtResult),
         PAUT: null,
     }
+    const reportMap: Record<RequiredNdtType, boolean> = {
+        MT: hasValue(input.mtReportNo),
+        UT: hasValue(input.utReportNo),
+        RT: hasValue(input.rtReportNo),
+        PT: false,
+        PWHT: false,
+        PAUT: false,
+    }
 
-    const requiredResults = requiredTypes.map((type) => resultMap[type])
-    const hasAnyDetailedRequiredResult = requiredResults.some((result) => result !== null)
+    const hasAnyDetailedRequiredEvidence = requiredTypes.some(
+        (type) => resultMap[type] !== null || reportMap[type]
+    )
 
     if (requiredTypes.some((type) => resultMap[type] === 'REJ')) {
         return 'REJ'
@@ -105,7 +117,7 @@ function deriveOverallNdtResult(input: WeldWorkflowInput): 'ACC' | 'REJ' | null 
         return 'ACC'
     }
 
-    if (!hasAnyDetailedRequiredResult && explicitResult) {
+    if (!hasAnyDetailedRequiredEvidence && explicitResult) {
         return explicitResult
     }
 
