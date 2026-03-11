@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatNumber } from '@/lib/formatters'
 import { PROJECT_CHANGE_EVENT, readActiveProjectIdFromCookie } from '@/lib/project-selection'
 import { deriveWeldWorkflow } from '@/lib/weld-workflow'
+import { getDisplayWeldId } from '@/lib/weld-id'
 import { STAGE_LABELS } from '@/types'
 import { useRoleGuard } from '@/lib/use-role-guard'
 
@@ -201,7 +202,7 @@ function getDefaultColumnWidths(): ColumnWidths {
     )
 }
 
-function buildDynamicFilterOptions(values: Iterable<string>): SelectOption[] {
+function buildDynamicFilterOptions(values: Iterable<string>, displayValue?: (value: string) => string): SelectOption[] {
     const unique = Array.from(
         new Set(
             Array.from(values)
@@ -210,7 +211,7 @@ function buildDynamicFilterOptions(values: Iterable<string>): SelectOption[] {
         )
     ).sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }))
 
-    return [DEFAULT_FILTER_OPTION, ...unique.map((value) => ({ value, label: value }))]
+    return [DEFAULT_FILTER_OPTION, ...unique.map((value) => ({ value, label: displayValue ? displayValue(value) : value }))]
 }
 
 function sanitizeColumnWidths(value: unknown) {
@@ -492,7 +493,7 @@ function renderReadOnlyCell(column: ColumnDef, weld: WeldRow, columnWidth: numbe
                     href={`/welds/${weld.id}`}
                     style={{ color: '#1d4ed8', textDecoration: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}
                 >
-                    {normalizeText(value)}
+                    {getDisplayWeldId(normalizeText(value))}
                 </Link>
             )
         case 'drawing_no':
@@ -752,7 +753,7 @@ export default function WeldsPage() {
 
             setDynamicFilterOptions(
                 FILTERABLE_COLUMN_KEYS.reduce<DynamicFilterOptions>((acc, key) => {
-                    acc[key] = buildDynamicFilterOptions(valueSets[key])
+                    acc[key] = buildDynamicFilterOptions(valueSets[key], key === 'weld_id' ? getDisplayWeldId : undefined)
                     return acc
                 }, {})
             )

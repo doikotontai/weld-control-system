@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
+import { getDisplayWeldId } from '@/lib/weld-id'
 import { WeldStats } from '@/types'
 
 export default async function DashboardPage() {
@@ -213,7 +214,7 @@ export default async function DashboardPage() {
                                     <tr key={weld.weld_id}>
                                         <td>
                                             <Link href={`/welds/${weld.id}`} style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500, fontSize: '0.8rem' }}>
-                                                {weld.weld_id}
+                                                {getDisplayWeldId(weld.weld_id)}
                                             </Link>
                                         </td>
                                         <td style={{ fontSize: '0.75rem', color: '#64748b' }}>{weld.drawing_no?.split('-WM')[0]}</td>
@@ -326,5 +327,4 @@ function StageBadge({ stage }: { stage: string }) {
         </span>
     )
 }
-
 

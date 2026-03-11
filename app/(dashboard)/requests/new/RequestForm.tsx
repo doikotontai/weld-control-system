@@ -9,6 +9,7 @@ import {
 } from '@/app/actions/requests'
 import RequestPrintView from '@/app/(dashboard)/requests/[id]/RequestPrintView'
 import SyncedTableFrame from '@/components/SyncedTableFrame'
+import { getDisplayWeldId } from '@/lib/weld-id'
 import { createClient } from '@/lib/supabase/client'
 import {
     createEmptyRequestMethods,
@@ -683,7 +684,7 @@ export default function RequestForm({
                                     <tbody>
                                         {lookupResults.map((item, index) => (
                                             <tr key={`lookup-${item.weldId}`}>
-                                                <td>{index + 1}</td><td style={{ fontWeight: 700, color: '#1d4ed8' }}>{item.weld_id}</td><td>{item.drawing_no}</td><td>{item.weld_no}</td><td>{item.weld_type}</td><td>{item.welder_no}</td><td>{item.wps}</td><td>{item.weld_size}</td><td>{item.inspection_required}</td><td>{item.goc_code}</td>
+                                                <td>{index + 1}</td><td style={{ fontWeight: 700, color: '#1d4ed8' }}>{getDisplayWeldId(item.weld_id)}</td><td>{item.drawing_no}</td><td>{item.weld_no}</td><td>{item.weld_type}</td><td>{item.welder_no}</td><td>{item.wps}</td><td>{item.weld_size}</td><td>{item.inspection_required}</td><td>{item.goc_code}</td>
                                                 <td><button type="button" className="btn btn-secondary" onClick={() => addItems([item])} disabled={selectedIds.has(item.weldId)}>{selectedIds.has(item.weldId) ? 'Đã thêm' : 'Thêm'}</button></td>
                                             </tr>
                                         ))}
@@ -718,7 +719,7 @@ export default function RequestForm({
                                     <tbody>
                                         {searchResults.map((item, index) => (
                                             <tr key={`search-${item.weldId}`}>
-                                                <td>{index + 1}</td><td style={{ fontWeight: 700, color: '#1d4ed8' }}>{item.weld_id}</td><td>{item.drawing_no}</td><td>{item.weld_no}</td><td>{item.weld_type}</td><td>{item.welder_no}</td><td>{item.wps}</td><td>{item.weld_size}</td><td>{item.inspection_required}</td><td>{item.goc_code}</td>
+                                                <td>{index + 1}</td><td style={{ fontWeight: 700, color: '#1d4ed8' }}>{getDisplayWeldId(item.weld_id)}</td><td>{item.drawing_no}</td><td>{item.weld_no}</td><td>{item.weld_type}</td><td>{item.welder_no}</td><td>{item.wps}</td><td>{item.weld_size}</td><td>{item.inspection_required}</td><td>{item.goc_code}</td>
                                                 <td><button type="button" className="btn btn-secondary" onClick={() => addItems([item])} disabled={selectedIds.has(item.weldId)}>{selectedIds.has(item.weldId) ? 'Đã thêm' : 'Thêm'}</button></td>
                                             </tr>
                                         ))}
@@ -742,7 +743,7 @@ export default function RequestForm({
                                     <tr><td colSpan={13} style={{ textAlign: 'center', color: '#64748b', padding: '22px' }}>Chưa có mối hàn nào trong request.</td></tr>
                                 ) : selectedItems.map((item, index) => (
                                     <tr key={`selected-${item.weldId}`}>
-                                        <td>{index + 1}</td><td style={{ fontWeight: 700, color: '#1d4ed8' }}>{item.weld_id}</td><td>{item.drawing_no}</td><td>{item.weld_no}</td><td>{item.weld_type}</td><td>{item.welder_no}</td><td>{item.wps}</td><td>{item.weld_size}</td><td>{item.inspection_required}</td><td>{item.goc_code}</td><td>{item.finish_date || '-'}</td>
+                                        <td>{index + 1}</td><td style={{ fontWeight: 700, color: '#1d4ed8' }}>{getDisplayWeldId(item.weld_id)}</td><td>{item.drawing_no}</td><td>{item.weld_no}</td><td>{item.weld_type}</td><td>{item.welder_no}</td><td>{item.wps}</td><td>{item.weld_size}</td><td>{item.inspection_required}</td><td>{item.goc_code}</td><td>{item.finish_date || '-'}</td>
                                         <td style={{ minWidth: '160px' }}><input className="form-input" value={item.remarks} onChange={(event) => updateItemRemarks(item.weldId, event.target.value)} placeholder="Ghi chú riêng trên phiếu" /></td>
                                         <td><button type="button" className="btn btn-danger" onClick={() => removeItem(item.weldId)}>Xóa</button></td>
                                     </tr>

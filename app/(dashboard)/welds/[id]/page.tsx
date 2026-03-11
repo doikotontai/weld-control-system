@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getDisplayWeldId } from '@/lib/weld-id'
 import { STAGE_LABELS } from '@/types'
 
 interface WeldRecord {
@@ -221,7 +222,7 @@ export default function WeldDetailPage() {
                             fontFamily: 'monospace',
                         }}
                     >
-                        {displayText(weld.weld_id) || ''}
+                        {getDisplayWeldId(displayText(weld.weld_id) || '')}
                     </h1>
                     <div
                         style={{

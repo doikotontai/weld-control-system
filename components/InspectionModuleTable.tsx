@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import SyncedTableFrame from '@/components/SyncedTableFrame'
 import { createClient } from '@/lib/supabase/client'
 import { PROJECT_CHANGE_EVENT, readActiveProjectIdFromCookie } from '@/lib/project-selection'
+import { getDisplayWeldId } from '@/lib/weld-id'
 import { STAGE_LABELS } from '@/types'
 
 type ModuleKey = 'fitup' | 'visual' | 'backgouge' | 'lamcheck' | 'ndt'
@@ -382,7 +383,7 @@ export default function InspectionModuleTable({
             DEFAULT_FILTER_OPTION,
             ...unique.map((value) => ({
                 value,
-                label: column.kind === 'stage' ? displayStage(value) : value,
+                label: column.kind === 'stage' ? displayStage(value) : column.key === 'weld_id' ? getDisplayWeldId(value) : value,
             })),
         ]
         return acc
@@ -429,7 +430,7 @@ export default function InspectionModuleTable({
                         textDecoration: 'none',
                     }}
                 >
-                    {display}
+                    {column.key === 'weld_id' ? getDisplayWeldId(display) : display}
                 </Link>
             )
         }
