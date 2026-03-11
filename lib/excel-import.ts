@@ -800,6 +800,25 @@ function toUpsertRow(previewRow: PreviewRow, projectId: string, excelRowOrder: n
     }
 }
 
+function mergeUpsertRows(existing: WeldUpsertRow, incoming: WeldUpsertRow): WeldUpsertRow {
+    const merged: WeldUpsertRow = { ...existing }
+    const keys = new Set([...Object.keys(existing), ...Object.keys(incoming)])
+
+    for (const key of keys) {
+        const nextValue = incoming[key]
+        if (nextValue !== null && nextValue !== '') {
+            merged[key] = nextValue
+        }
+    }
+
+    merged.project_id = incoming.project_id
+    merged.weld_id = incoming.weld_id
+    merged.is_repair = Boolean(existing.is_repair || incoming.is_repair)
+    merged.excel_row_order = incoming.excel_row_order
+
+    return merged
+}
+
 export function parseWorkbookData(
     source: ImportWorkbookSource,
     layout: ImportLayoutConfig,
@@ -810,11 +829,12 @@ export function parseWorkbookData(
 
     const missingRequired = REQUIRED_IMPORT_FIELDS.filter((fieldKey) => layout.fieldToColumn[fieldKey] == null)
     if (missingRequired.length > 0) {
-        issues.push(`Chưa map đủ cột bắt buộc: ${missingRequired.map((fieldKey) => fieldLabel(fieldKey)).join(', ')}`)
+        issues.push(`Ch??a map ????? c???t b???t bu???c: ${missingRequired.map((fieldKey) => fieldLabel(fieldKey)).join(', ')}`)
     }
 
     const preview: PreviewRow[] = []
-    const rows: WeldUpsertRow[] = []
+    const rowsByKey = new Map<string, WeldUpsertRow>()
+    const duplicateExamples = new Map<string, { firstRow: number; latestRow: number }>()
 
     let dataRowOrder = 0
     for (let rowIndex = Math.max(layout.dataStartRow - 1, 0); rowIndex < rawData.length; rowIndex += 1) {
@@ -829,16 +849,38 @@ export function parseWorkbookData(
             preview.push(parsedRow)
         }
         if (projectId && missingRequired.length === 0) {
-            rows.push(toUpsertRow(parsedRow, projectId, dataRowOrder))
+            const nextRow = toUpsertRow(parsedRow, projectId, dataRowOrder)
+            const dedupeKey = `${projectId}::${parsedRow.weld_id.trim().toUpperCase()}`
+            const existingRow = rowsByKey.get(dedupeKey)
+            if (existingRow) {
+                rowsByKey.set(dedupeKey, mergeUpsertRows(existingRow, nextRow))
+                duplicateExamples.set(parsedRow.weld_id, {
+                    firstRow: duplicateExamples.get(parsedRow.weld_id)?.firstRow ?? existingRow.excel_row_order,
+                    latestRow: dataRowOrder,
+                })
+            } else {
+                rowsByKey.set(dedupeKey, nextRow)
+            }
         }
     }
 
+    const rows = Array.from(rowsByKey.values())
+
     if (rows.length === 0) {
         if (preview.length === 0) {
-            issues.push('Không tìm thấy dòng dữ liệu hợp lệ theo cấu hình hiện tại.')
+            issues.push('Kh??ng t??m th???y d??ng d??? li???u h???p l??? theo c???u h??nh hi???n t???i.')
         } else if (!projectId) {
-            issues.push('Đã đọc được dữ liệu preview, nhưng cần chọn dự án trước khi import.')
+            issues.push('???? ?????c ???????c d??? li???u preview, nh??ng c???n ch???n d??? ??n tr?????c khi import.')
         }
+    }
+
+    if (duplicateExamples.size > 0) {
+        const samples = Array.from(duplicateExamples.entries())
+            .slice(0, 5)
+            .map(([weldId, meta]) => `${weldId} (d??ng ${meta.firstRow} v?? ${meta.latestRow})`)
+        issues.push(
+            `Ph??t hi???n ${duplicateExamples.size} weld ID b??? tr??ng trong file import. H??? th???ng ???? t??? g???p d??? li???u tr??ng tr?????c khi import. V?? d???: ${samples.join(', ')}.`,
+        )
     }
 
     return { preview, rows, issues }
