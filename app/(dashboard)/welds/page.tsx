@@ -336,7 +336,7 @@ function buildInlineUpdatePayload(draft: DraftRow) {
         lamcheck_date: normalizeText(draft.lamcheck_date) || null,
         lamcheck_request_no: normalizeText(draft.lamcheck_request_no) || null,
         lamcheck_report_no: normalizeText(draft.lamcheck_report_no) || null,
-        ndt_overall_result: normalizeText(draft.ndt_overall_result) || null,
+        ndt_overall_result: workflow.ndtOverallResult,
         mt_result: normalizeText(draft.mt_result) || null,
         mt_report_no: normalizeText(draft.mt_report_no) || null,
         ut_result: normalizeText(draft.ut_result) || null,

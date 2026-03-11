@@ -80,13 +80,9 @@ function requiresNdt(ndtRequirements: unknown) {
 
 function deriveOverallNdtResult(input: WeldWorkflowInput): 'ACC' | 'REJ' | null {
     const explicitResult = normalizeResult(input.ndtOverallResult)
-    if (explicitResult) {
-        return explicitResult
-    }
-
     const requiredTypes = parseRequiredNdtTypes(input.ndtRequirements)
     if (requiredTypes.length === 0) {
-        return null
+        return explicitResult
     }
 
     const resultMap: Record<RequiredNdtType, 'ACC' | 'REJ' | null> = {
@@ -98,12 +94,19 @@ function deriveOverallNdtResult(input: WeldWorkflowInput): 'ACC' | 'REJ' | null 
         PAUT: null,
     }
 
+    const requiredResults = requiredTypes.map((type) => resultMap[type])
+    const hasAnyDetailedRequiredResult = requiredResults.some((result) => result !== null)
+
     if (requiredTypes.some((type) => resultMap[type] === 'REJ')) {
         return 'REJ'
     }
 
     if (requiredTypes.every((type) => resultMap[type] === 'ACC')) {
         return 'ACC'
+    }
+
+    if (!hasAnyDetailedRequiredResult && explicitResult) {
+        return explicitResult
     }
 
     return null
