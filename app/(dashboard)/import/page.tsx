@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/client'
 import {
     cloneLayoutWithColumns,
     detectWorkbookLayout,
+    DuplicateWeldHandlingMode,
+    DuplicateWeldWarning,
     IMPORT_FIELD_DEFINITIONS,
     ImportFieldKey,
     ImportLayoutConfig,
@@ -129,6 +131,8 @@ export default function ImportPage() {
     const [preview, setPreview] = useState<PreviewRow[]>([])
     const [preparedRows, setPreparedRows] = useState<WeldUpsertRow[]>([])
     const [parseIssues, setParseIssues] = useState<string[]>([])
+    const [duplicateWarnings, setDuplicateWarnings] = useState<DuplicateWeldWarning[]>([])
+    const [duplicateMode, setDuplicateMode] = useState<DuplicateWeldHandlingMode>('separate')
     const [showManualMapping, setShowManualMapping] = useState(false)
     const [importing, setImporting] = useState(false)
     const [progress, setProgress] = useState(0)
@@ -172,13 +176,15 @@ export default function ImportPage() {
             setPreview([])
             setPreparedRows([])
             setParseIssues([])
+            setDuplicateWarnings([])
             return
         }
-        const parsed = parseWorkbookData(workbookSource, layout, currentProjectId)
+        const parsed = parseWorkbookData(workbookSource, layout, currentProjectId, duplicateMode)
         setPreview(parsed.preview)
         setPreparedRows(parsed.rows)
         setParseIssues(parsed.issues)
-    }, [currentProjectId, layout, workbookSource])
+        setDuplicateWarnings(parsed.duplicateWarnings)
+    }, [currentProjectId, duplicateMode, layout, workbookSource])
 
     const updateLayout = (updater: (current: ImportLayoutConfig) => ImportLayoutConfig) => {
         setLayout((current) => {
@@ -198,6 +204,7 @@ export default function ImportPage() {
             setFile(nextFile)
             setWorkbookSource(source)
             setLayout(detectedLayout)
+            setDuplicateMode('separate')
             setShowManualMapping(detectedLayout.profileId === 'manual' || detectedLayout.issues.length > 0)
             setResult(null)
             setProgress(0)
@@ -276,6 +283,42 @@ export default function ImportPage() {
                     <button type="button" className="btn btn-secondary" onClick={() => setShowManualMapping((value) => !value)}>{showManualMapping ? 'Ẩn mapping thủ công' : 'Mở mapping thủ công'}</button>
                 </div>
                 {([...layout.issues, ...parseIssues]).length > 0 && <div style={{ marginBottom: 16, padding: '12px 14px', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 10 }}>{[...layout.issues, ...parseIssues].map((issue, index) => <div key={`${issue}-${index}`} style={{ color: '#92400e', fontSize: '0.875rem' }}>• {issue}</div>)}</div>}
+                {duplicateWarnings.length > 0 && <div style={{ marginBottom: 16, padding: 16, background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 12 }}>
+                    <div style={{ fontWeight: 700, color: '#1d4ed8', marginBottom: 8 }}>Phát hiện mối hàn trùng tên hiển thị</div>
+                    <p style={{ color: '#1e3a8a', fontSize: '0.9rem', lineHeight: '1.6', marginBottom: 12 }}>
+                        Đây thường là các trường hợp kiểu <strong>1PCS / padeye / item không có số mối hàn riêng</strong>. ID nội bộ thật của hệ thống vẫn là <strong>UUID</strong>; lựa chọn dưới đây chỉ quyết định cách tạo <strong>khóa import/upsert</strong> cho các dòng trùng tên hiển thị trong file.
+                    </p>
+                    <div style={{ display: 'grid', gap: 10, marginBottom: 14 }}>
+                        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: 12, border: `1px solid ${duplicateMode === 'separate' ? '#2563eb' : '#cbd5e1'}`, borderRadius: 10, background: duplicateMode === 'separate' ? '#dbeafe' : 'white', cursor: 'pointer' }}>
+                            <input type="radio" name="duplicate-mode" checked={duplicateMode === 'separate'} onChange={() => setDuplicateMode('separate')} />
+                            <span style={{ color: '#0f172a', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                                <strong>Tách riêng từng dòng</strong> (khuyến nghị)
+                                <br />
+                                Hệ thống giữ từng dòng Excel là một bản ghi riêng, tự tạo khóa import ẩn nếu trùng tên hiển thị.
+                            </span>
+                        </label>
+                        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: 12, border: `1px solid ${duplicateMode === 'merge' ? '#2563eb' : '#cbd5e1'}`, borderRadius: 10, background: duplicateMode === 'merge' ? '#dbeafe' : 'white', cursor: 'pointer' }}>
+                            <input type="radio" name="duplicate-mode" checked={duplicateMode === 'merge'} onChange={() => setDuplicateMode('merge')} />
+                            <span style={{ color: '#0f172a', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                                <strong>Gộp các dòng cùng tên hiển thị</strong>
+                                <br />
+                                Chỉ dùng khi mày chắc chắn đó là dữ liệu lặp thật và muốn upsert thành một bản ghi.
+                            </span>
+                        </label>
+                    </div>
+                    <div style={{ color: '#334155', fontSize: '0.85rem', marginBottom: 8 }}>Các nhóm cần xem xét trước khi import:</div>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                        {duplicateWarnings.slice(0, 8).map((warning) => (
+                            <div key={`${warning.displayWeldId}-${warning.firstRow}-${warning.latestRow}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '10px 12px', borderRadius: 8, background: 'white', border: '1px solid #dbeafe' }}>
+                                <div style={{ fontWeight: 600, color: '#0f172a' }}>{warning.displayWeldId}</div>
+                                <div style={{ color: '#475569', fontSize: '0.85rem' }}>
+                                    {warning.occurrences} dòng • bắt đầu từ hàng {warning.firstRow} • gần nhất ở hàng {warning.latestRow}
+                                </div>
+                            </div>
+                        ))}
+                        {duplicateWarnings.length > 8 && <div style={{ color: '#475569', fontSize: '0.85rem' }}>Còn {duplicateWarnings.length - 8} nhóm nữa trong file.</div>}
+                    </div>
+                </div>}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: showManualMapping ? 16 : 0 }}>
                     <label style={{ display: 'grid', gap: 6 }}><span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Sheet dữ liệu</span><select value={layout.sheetName} onChange={(event) => { const sheetName = event.target.value; const next = detectWorkbookLayout({ fileName: workbookSource.fileName, sheets: { [sheetName]: workbookSource.sheets[sheetName] || [] } }); setLayout(next); setShowManualMapping(true); setResult(null) }} style={{ border: '1px solid #cbd5e1', borderRadius: 8, padding: '10px 12px' }}>{Object.keys(workbookSource.sheets).map((sheetName) => <option key={sheetName} value={sheetName}>{sheetName}</option>)}</select></label>
                     <label style={{ display: 'grid', gap: 6 }}><span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Hàng header chính</span><input type="number" min={1} value={layout.headerRow} onChange={(event) => updateLayout((current) => ({ ...current, headerRow: Math.max(1, Number(event.target.value) || 1) }))} style={{ border: '1px solid #cbd5e1', borderRadius: 8, padding: '10px 12px' }} /></label>
@@ -291,7 +334,9 @@ export default function ImportPage() {
             {preview.length > 0 && <div style={{ background: 'white', borderRadius: 12, padding: 24, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
                     <h3 style={{ fontWeight: 600 }}>3. Preview 10 dòng đầu</h3>
-                    <div style={{ color: '#64748b', fontSize: '0.875rem' }}>Nhận diện được <strong>{preparedRows.length}</strong> dòng dữ liệu hợp lệ</div>
+                    <div style={{ color: '#64748b', fontSize: '0.875rem' }}>
+                        Preview đọc được <strong>{preview.length}</strong> dòng đầu • dự kiến import <strong>{preparedRows.length}</strong> bản ghi
+                    </div>
                 </div>
                 <SyncedTableFrame><table style={{ fontSize: '0.73rem', minWidth: '2200px' }}><thead><tr>{PREVIEW_COLUMNS.map((column) => <th key={column.label}>{column.label}</th>)}</tr></thead><tbody>{preview.map((row, rowIndex) => <tr key={`${row.weld_id}-${rowIndex}`}>{PREVIEW_COLUMNS.map((column) => <td key={`${row.weld_id}-${column.label}`}>{column.render(row)}</td>)}</tr>)}</tbody></table></SyncedTableFrame>
                 <p style={{ color: '#64748b', fontSize: '0.8rem', marginTop: 8 }}>Preview chỉ hiển thị 10 dòng đầu. Toàn bộ dữ liệu hợp lệ sẽ được import khi bấm nút bên dưới.</p>

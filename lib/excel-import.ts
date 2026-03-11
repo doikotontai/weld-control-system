@@ -145,6 +145,16 @@ export interface ParsedWorkbookData {
     preview: PreviewRow[]
     rows: WeldUpsertRow[]
     issues: string[]
+    duplicateWarnings: DuplicateWeldWarning[]
+}
+
+export type DuplicateWeldHandlingMode = 'separate' | 'merge'
+
+export interface DuplicateWeldWarning {
+    displayWeldId: string
+    firstRow: number
+    latestRow: number
+    occurrences: number
 }
 
 type ImportProfileId = 'tnha-classic' | 'rcbk' | 'manual'
@@ -805,23 +815,42 @@ function buildImportUniqueWeldId(weldId: string, occurrenceIndex: number, excelS
     return `${weldId}__ROW${excelSheetRow}`
 }
 
+function mergeUpsertRows(target: WeldUpsertRow, source: WeldUpsertRow) {
+    for (const [key, rawValue] of Object.entries(source)) {
+        if (key === 'project_id' || key === 'weld_id') continue
+        if (key === 'excel_row_order') {
+            target.excel_row_order = Math.min(target.excel_row_order, source.excel_row_order)
+            continue
+        }
+        if (key === 'is_repair') {
+            target.is_repair = Boolean(target.is_repair || source.is_repair)
+            continue
+        }
+        if (rawValue === null || rawValue === '') continue
+        target[key] = rawValue
+    }
+}
+
 export function parseWorkbookData(
     source: ImportWorkbookSource,
     layout: ImportLayoutConfig,
     projectId: string | null,
+    duplicateMode: DuplicateWeldHandlingMode = 'separate',
 ): ParsedWorkbookData {
     const rawData = source.sheets[layout.sheetName] || []
     const issues = [...layout.issues]
 
     const missingRequired = REQUIRED_IMPORT_FIELDS.filter((fieldKey) => layout.fieldToColumn[fieldKey] == null)
     if (missingRequired.length > 0) {
-        issues.push(`Ch??a map ????? c???t b???t bu???c: ${missingRequired.map((fieldKey) => fieldLabel(fieldKey)).join(', ')}`)
+        issues.push(`Chưa map được cột bắt buộc: ${missingRequired.map((fieldKey) => fieldLabel(fieldKey)).join(', ')}`)
     }
 
     const preview: PreviewRow[] = []
     const rows: WeldUpsertRow[] = []
-    const weldIdOccurrences = new Map<string, number>()
-    const duplicateExamples = new Map<string, { firstRow: number; latestRow: number }>()
+    const mergedRowsByKey = new Map<string, WeldUpsertRow>()
+    const visibleWeldIdOccurrences = new Map<string, number>()
+    const visibleWeldIdFirstRow = new Map<string, number>()
+    const duplicateExamples = new Map<string, DuplicateWeldWarning>()
 
     let dataRowOrder = 0
     for (let rowIndex = Math.max(layout.dataStartRow - 1, 0); rowIndex < rawData.length; rowIndex += 1) {
@@ -831,47 +860,66 @@ export function parseWorkbookData(
             continue
         }
 
+        const duplicateKey = parsedRow.weld_id.trim().toUpperCase()
+        const nextOccurrence = (visibleWeldIdOccurrences.get(duplicateKey) ?? 0) + 1
+        visibleWeldIdOccurrences.set(duplicateKey, nextOccurrence)
+        if (!visibleWeldIdFirstRow.has(duplicateKey)) {
+            visibleWeldIdFirstRow.set(duplicateKey, rowIndex + 1)
+        }
+
+        if (nextOccurrence > 1) {
+            duplicateExamples.set(duplicateKey, {
+                displayWeldId: parsedRow.weld_id,
+                firstRow: visibleWeldIdFirstRow.get(duplicateKey) ?? rowIndex + 1,
+                latestRow: rowIndex + 1,
+                occurrences: nextOccurrence,
+            })
+        }
+
         dataRowOrder += 1
         if (preview.length < 10) {
             preview.push(parsedRow)
         }
+
         if (projectId && missingRequired.length === 0) {
-            const duplicateKey = `${projectId}::${parsedRow.weld_id.trim().toUpperCase()}`
-            const nextOccurrence = (weldIdOccurrences.get(duplicateKey) ?? 0) + 1
-            weldIdOccurrences.set(duplicateKey, nextOccurrence)
-
-            if (nextOccurrence > 1) {
-                const currentMeta = duplicateExamples.get(parsedRow.weld_id)
-                duplicateExamples.set(parsedRow.weld_id, {
-                    firstRow: currentMeta?.firstRow ?? rowIndex,
-                    latestRow: rowIndex + 1,
-                })
-            }
-
             const nextRow = toUpsertRow(parsedRow, projectId, dataRowOrder)
-            nextRow.weld_id = buildImportUniqueWeldId(parsedRow.weld_id, nextOccurrence, rowIndex + 1)
-            rows.push(nextRow)
+            if (duplicateMode === 'merge') {
+                const mergeKey = `${projectId}::${duplicateKey}`
+                const existingRow = mergedRowsByKey.get(mergeKey)
+                if (existingRow) {
+                    mergeUpsertRows(existingRow, nextRow)
+                } else {
+                    mergedRowsByKey.set(mergeKey, nextRow)
+                    rows.push(nextRow)
+                }
+            } else {
+                nextRow.weld_id = buildImportUniqueWeldId(parsedRow.weld_id, nextOccurrence, rowIndex + 1)
+                rows.push(nextRow)
+            }
         }
     }
 
     if (rows.length === 0) {
         if (preview.length === 0) {
-            issues.push('Kh??ng t??m th???y d??ng d??? li???u h???p l??? theo c???u h??nh hi???n t???i.')
+            issues.push('Không tìm thấy dòng dữ liệu hợp lệ theo cấu hình hiện tại.')
         } else if (!projectId) {
-            issues.push('???? ?????c ???????c d??? li???u preview, nh??ng c???n ch???n d??? ??n tr?????c khi import.')
+            issues.push('Đã đọc được dữ liệu preview, nhưng cần chọn dự án trước khi import.')
         }
     }
 
-    if (duplicateExamples.size > 0) {
-        const samples = Array.from(duplicateExamples.entries())
+    const duplicateWarnings = Array.from(duplicateExamples.values()).sort((left, right) => left.firstRow - right.firstRow)
+    if (duplicateWarnings.length > 0) {
+        const samples = duplicateWarnings
             .slice(0, 5)
-            .map(([weldId, meta]) => `${weldId} (d??ng ${meta.firstRow} v?? ${meta.latestRow})`)
+            .map((warning) => `${warning.displayWeldId} (dòng ${warning.firstRow} và ${warning.latestRow})`)
         issues.push(
-            `Ph??t hi???n ${duplicateExamples.size} weld ID b??? l???p t??n trong file import. H??? th???ng s??? t??? t???o kh??a n???i b??? ri??ng theo d??ng Excel ????? gi??? c??? c??c b???n ghi n??y. V?? d???: ${samples.join(', ')}.`,
+            duplicateMode === 'merge'
+                ? `Phát hiện ${duplicateWarnings.length} nhóm mối hàn trùng tên hiển thị trong file import. Hiện đang chọn chế độ gộp, nên các dòng cùng tên sẽ nhập vào cùng một bản ghi. Ví dụ: ${samples.join(', ')}.`
+                : `Phát hiện ${duplicateWarnings.length} nhóm mối hàn trùng tên hiển thị trong file import. Hệ thống sẽ giữ riêng từng dòng bằng khóa import nội bộ ẩn, còn Weld ID hiển thị vẫn giữ nguyên như file Excel. Ví dụ: ${samples.join(', ')}.`,
         )
     }
 
-    return { preview, rows, issues }
+    return { preview, rows, issues, duplicateWarnings }
 }
 
 export function cloneLayoutWithColumns(
