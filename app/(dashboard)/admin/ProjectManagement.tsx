@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createProject, deleteProject } from '@/app/actions/projects'
 import { formatDateTime } from '@/lib/formatters'
 
@@ -15,6 +16,7 @@ interface Project {
 }
 
 export default function ProjectManagement({ initialProjects }: { initialProjects: Project[] }) {
+    const router = useRouter()
     const [isCreating, setIsCreating] = useState(false)
     const [message, setMessage] = useState('')
     const [isDeleting, setIsDeleting] = useState<string | null>(null)
@@ -33,6 +35,7 @@ export default function ProjectManagement({ initialProjects }: { initialProjects
         } else {
             setMessage('Tạo dự án thành công.')
             form.reset()
+            router.refresh()
         }
 
         setIsCreating(false)
@@ -56,6 +59,7 @@ export default function ProjectManagement({ initialProjects }: { initialProjects
             alert(`Xóa thất bại: ${result.error}`)
         } else {
             setMessage(`Đã xóa dự án ${code}.`)
+            router.refresh()
         }
 
         setIsDeleting(null)

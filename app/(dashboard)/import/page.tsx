@@ -136,7 +136,7 @@ export default function ImportPage() {
     const [parseIssues, setParseIssues] = useState<string[]>([])
     const [duplicateWarnings, setDuplicateWarnings] = useState<DuplicateWeldWarning[]>([])
     const [duplicateMode, setDuplicateMode] = useState<DuplicateWeldHandlingMode>('separate')
-    const [importMode, setImportMode] = useState<ImportMode>('upsert')
+    const [importMode, setImportMode] = useState<ImportMode>('append-only')
     const [showManualMapping, setShowManualMapping] = useState(false)
     const [importing, setImporting] = useState(false)
     const [progress, setProgress] = useState(0)

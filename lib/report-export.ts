@@ -77,6 +77,48 @@ export interface CutOffWeeklyExportRow {
     excel_row_order: number
 }
 
+export interface NdtResultSourceRow {
+    weld_id: string | null
+    drawing_no: string | null
+    weld_no: string | null
+    ndt_requirements?: string | null
+    mt_result?: string | null
+    mt_report_no?: string | null
+    ut_result?: string | null
+    ut_report_no?: string | null
+    rt_result?: string | null
+    rt_report_no?: string | null
+    pwht_result?: string | null
+    ndt_overall_result?: string | null
+    defect_length?: number | null
+    repair_length?: number | null
+    release_note_no?: string | null
+    release_note_date?: string | null
+    overall_status?: string | null
+    excel_row_order?: number | null
+}
+
+export interface NdtResultExportRow {
+    drawing_no: string
+    weld_no: string
+    weld_id: string
+    ndt_requirements: string
+    mt_result: string
+    mt_report_no: string
+    ut_result: string
+    ut_report_no: string
+    rt_result: string
+    rt_report_no: string
+    pwht_result: string
+    ndt_overall_result: string
+    defect_length: number
+    repair_length: number
+    release_note_no: string
+    release_note_date: string
+    status: string
+    excel_row_order: number
+}
+
 function normalizeText(value: unknown) {
     return value == null ? '' : String(value).trim()
 }
@@ -164,4 +206,115 @@ export function buildCutOffWeeklyExportRows(rows: CutOffSourceRow[]): CutOffWeek
         })
         .filter((row) => row.cut_off && row.weld_id)
         .sort((left, right) => left.cut_off_week.localeCompare(right.cut_off_week) || sortByDrawingAndOrder(left, right))
+}
+
+function escapeHtml(value: string) {
+    return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;')
+}
+
+export function buildCutOffWeeklyPrintHtml(
+    rows: CutOffWeeklyExportRow[],
+    projectLabel = '',
+) {
+    const safeProjectLabel = projectLabel ? ` - ${escapeHtml(projectLabel)}` : ''
+    const bodyRows = rows
+        .map(
+            (row, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${escapeHtml(row.cut_off_week)}</td>
+                    <td>${escapeHtml(row.cut_off || '-')}</td>
+                    <td>${escapeHtml(row.drawing_no || '-')}</td>
+                    <td>${escapeHtml(row.weld_no || '-')}</td>
+                    <td>${escapeHtml(row.weld_id || '-')}</td>
+                    <td>${escapeHtml(row.release_note_no || '-')}</td>
+                    <td>${escapeHtml(row.transmittal_no || '-')}</td>
+                    <td>${escapeHtml(row.mw1_no || '-')}</td>
+                    <td>${escapeHtml(row.status || '-')}</td>
+                </tr>
+            `,
+        )
+        .join('')
+
+    return `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>Báo cáo Cut-Off theo tuần${safeProjectLabel}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #0f172a; }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    p { margin: 0 0 16px; color: #475569; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #e2e8f0; font-weight: 700; }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+  </style>
+</head>
+<body>
+  <h1>Báo cáo Cut-Off theo tuần${safeProjectLabel}</h1>
+  <p>Xuất từ module Báo cáo tổng hợp.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>STT</th>
+        <th>Tuần Cut-Off</th>
+        <th>Cut-Off</th>
+        <th>Bản vẽ</th>
+        <th>Weld No</th>
+        <th>Weld ID</th>
+        <th>Release note</th>
+        <th>Transmittal No</th>
+        <th>MW1</th>
+        <th>Trạng thái</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows}
+    </tbody>
+  </table>
+</body>
+</html>`
+}
+
+export function buildNdtResultExportRows(rows: NdtResultSourceRow[]): NdtResultExportRow[] {
+    return rows
+        .map((row) => ({
+            drawing_no: normalizeText(row.drawing_no),
+            weld_no: normalizeText(row.weld_no),
+            weld_id: normalizeText(row.weld_id),
+            ndt_requirements: normalizeText(row.ndt_requirements),
+            mt_result: normalizeText(row.mt_result),
+            mt_report_no: normalizeText(row.mt_report_no),
+            ut_result: normalizeText(row.ut_result),
+            ut_report_no: normalizeText(row.ut_report_no),
+            rt_result: normalizeText(row.rt_result),
+            rt_report_no: normalizeText(row.rt_report_no),
+            pwht_result: normalizeText(row.pwht_result),
+            ndt_overall_result: normalizeText(row.ndt_overall_result),
+            defect_length: Number(row.defect_length) || 0,
+            repair_length: Number(row.repair_length) || 0,
+            release_note_no: normalizeText(row.release_note_no),
+            release_note_date: normalizeText(row.release_note_date),
+            status: normalizeText(row.overall_status),
+            excel_row_order: Number(row.excel_row_order) || 0,
+        }))
+        .filter(
+            (row) =>
+                row.weld_id &&
+                (row.mt_result ||
+                    row.mt_report_no ||
+                    row.ut_result ||
+                    row.ut_report_no ||
+                    row.rt_result ||
+                    row.rt_report_no ||
+                    row.pwht_result ||
+                    row.ndt_overall_result)
+        )
+        .sort(sortByDrawingAndOrder)
 }

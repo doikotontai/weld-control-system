@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
     buildDrawingRegistryRows,
     buildDrawingSyncRows,
+    extractDrawingSheet,
 } from '../lib/drawing-registry.ts'
 
 test('buildDrawingSyncRows groups welds by drawing and counts total welds', () => {
@@ -30,6 +31,9 @@ test('buildDrawingRegistryRows merges stored drawing metadata with weld progress
                 description: 'Padeye layout',
                 part: 'TOPSIDE',
                 nde_pct: '100%',
+                dossier_transmittal_no: 'TR-MANUAL-01',
+                dossier_submission_date: '2026-03-14',
+                dossier_notes: 'Nop ho so dot 1',
                 total_welds: 0,
                 created_at: '2026-03-15T00:00:00Z',
             },
@@ -40,6 +44,9 @@ test('buildDrawingRegistryRows merges stored drawing metadata with weld progress
                 description: 'No weld yet',
                 part: null,
                 nde_pct: null,
+                dossier_transmittal_no: null,
+                dossier_submission_date: null,
+                dossier_notes: null,
                 total_welds: 0,
                 created_at: '2026-03-15T00:00:00Z',
             },
@@ -63,7 +70,7 @@ test('buildDrawingRegistryRows merges stored drawing metadata with weld progress
                 drawing_no: 'DW-001',
                 goc_code: 'ST-02',
                 fitup_date: null,
-                visual_date: null,
+                visual_date: '2026-03-12',
                 mt_result: null,
                 ut_result: 'ACC',
                 rt_result: null,
@@ -72,6 +79,7 @@ test('buildDrawingRegistryRows merges stored drawing metadata with weld progress
                 transmittal_no: 'TR-001',
                 cut_off: '2026-03-14',
                 mw1_no: 'MW1-B',
+                overall_status: 'REJ',
             },
             {
                 drawing_no: 'DW-002',
@@ -99,7 +107,11 @@ test('buildDrawingRegistryRows merges stored drawing metadata with weld progress
         description: 'Padeye layout',
         part: 'TOPSIDE',
         nde_pct: '100%',
+        dossier_transmittal_no: 'TR-MANUAL-01',
+        dossier_submission_date: '2026-03-14',
+        dossier_notes: 'Nop ho so dot 1',
         total_welds: 2,
+        sheet_ref: '001',
         fitup_done: 1,
         visual_done: 1,
         ndt_done: 2,
@@ -120,6 +132,9 @@ test('buildDrawingRegistryRows merges stored drawing metadata with weld progress
     assert.equal(rows[2].drawing_no, 'DW-003')
     assert.equal(rows[2].total_welds, 0)
     assert.equal(rows[2].description, 'No weld yet')
+    assert.equal(rows[2].dossier_transmittal_no, null)
+    assert.equal(rows[2].dossier_submission_date, null)
+    assert.equal(rows[2].dossier_notes, null)
 })
 
 test('buildDrawingRegistryRows does not double count totals when stored rows already have synced total_welds', () => {
@@ -132,6 +147,9 @@ test('buildDrawingRegistryRows does not double count totals when stored rows alr
                 description: 'Already synced',
                 part: null,
                 nde_pct: null,
+                dossier_transmittal_no: null,
+                dossier_submission_date: null,
+                dossier_notes: null,
                 total_welds: 2,
                 created_at: '2026-03-15T00:00:00Z',
             },
@@ -169,4 +187,11 @@ test('buildDrawingRegistryRows does not double count totals when stored rows alr
     )
 
     assert.equal(rows[0].total_welds, 2)
+})
+
+test('extractDrawingSheet returns the sheet suffix from drawing numbers when available', () => {
+    assert.equal(extractDrawingSheet('9001-2211-DS-0032-01-WM'), '0032-01-WM')
+    assert.equal(extractDrawingSheet('ND-BK20.BK24-002-TS-BK24-EC10-DW-004.04'), '004.04')
+    assert.equal(extractDrawingSheet('DW-001'), '001')
+    assert.equal(extractDrawingSheet(''), '')
 })

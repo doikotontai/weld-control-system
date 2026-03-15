@@ -12,6 +12,9 @@ type DrawingViewRow = {
     description: string | null
     part: string | null
     nde_pct: string | null
+    dossier_transmittal_no?: string | null
+    dossier_submission_date?: string | null
+    dossier_notes?: string | null
     total_welds: number
     fitup_done: number
     visual_done: number
@@ -31,20 +34,48 @@ export default async function DrawingsPage() {
     const projectId = cookieStore.get('weld-control-project-id')?.value || null
 
     let rows: DrawingViewRow[] = []
+    let supportsDossierFields = false
 
     if (projectId) {
-        const [{ data: drawingRows }, weldRows] = await Promise.all([
-            supabase
-                .from('drawings')
-                .select('id, project_id, drawing_no, description, part, nde_pct, total_welds, created_at')
-                .eq('project_id', projectId)
-                .order('drawing_no', { ascending: true }),
+        const baseSelect = 'id, project_id, drawing_no, description, part, nde_pct, total_welds, created_at'
+        const extendedSelect = `${baseSelect}, dossier_transmittal_no, dossier_submission_date, dossier_notes`
+
+        const [{ rows: drawingResult, supports }, weldRows] = await Promise.all([
+            (async () => {
+                const extended = await supabase
+                    .from('drawings')
+                    .select(extendedSelect)
+                    .eq('project_id', projectId)
+                    .order('drawing_no', { ascending: true })
+
+                if (!extended.error) {
+                    return {
+                        rows: extended.data,
+                        supports: true,
+                    }
+                }
+
+                const fallback = await supabase
+                    .from('drawings')
+                    .select(baseSelect)
+                    .eq('project_id', projectId)
+                    .order('drawing_no', { ascending: true })
+
+                if (fallback.error) {
+                    throw new Error(fallback.error.message)
+                }
+
+                return {
+                    rows: fallback.data,
+                    supports: false,
+                }
+            })(),
             fetchAllBatches({
                 fetchPage: async (from, to) => {
                     const { data, error } = await supabase
                         .from('welds')
                         .select(
-                            'drawing_no, goc_code, fitup_date, visual_date, mt_result, ut_result, rt_result, release_note_no, release_note_date, transmittal_no, cut_off, mw1_no'
+                            'drawing_no, goc_code, fitup_date, visual_date, overall_status, mt_result, ut_result, rt_result, release_note_no, release_note_date, transmittal_no, cut_off, mw1_no'
                         )
                         .eq('project_id', projectId)
                         .order('drawing_no', { ascending: true })
@@ -59,6 +90,7 @@ export default async function DrawingsPage() {
                         goc_code: string | null
                         fitup_date: string | null
                         visual_date: string | null
+                        overall_status: string | null
                         mt_result: string | null
                         ut_result: string | null
                         rt_result: string | null
@@ -72,14 +104,19 @@ export default async function DrawingsPage() {
             }),
         ])
 
+        supportsDossierFields = supports
+
         rows = buildDrawingRegistryRows(
-            (drawingRows || []) as Array<{
+            (drawingResult || []) as Array<{
                 id?: string
                 project_id: string
                 drawing_no: string
                 description: string | null
                 part: string | null
                 nde_pct: string | null
+                dossier_transmittal_no?: string | null
+                dossier_submission_date?: string | null
+                dossier_notes?: string | null
                 total_welds: number
                 created_at?: string
             }>,
@@ -133,6 +170,7 @@ export default async function DrawingsPage() {
                     initialRows={rows}
                     projectId={projectId}
                     canEdit={['admin', 'dcc', 'qc'].includes(role)}
+                    supportsDossierFields={supportsDossierFields}
                 />
             )}
         </div>

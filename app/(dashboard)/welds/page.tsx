@@ -8,6 +8,7 @@ import { BLANK_FILTER_VALUE, buildScopedFilterOptions } from '@/lib/filter-ui'
 import { createClient } from '@/lib/supabase/client'
 import { formatNumber } from '@/lib/formatters'
 import { PROJECT_CHANGE_EVENT, readActiveProjectIdFromCookie } from '@/lib/project-selection'
+import { createStagedDraft, getDirtyStagedIds, hasStagedChanges, patchStagedDraft, removeStagedDraft } from '@/lib/staged-edit-state'
 import { deriveWeldWorkflow } from '@/lib/weld-workflow'
 import { getDisplayWeldId } from '@/lib/weld-id'
 import { STAGE_LABELS } from '@/types'
@@ -18,6 +19,7 @@ type Align = 'right' | 'center'
 type InputType = 'text' | 'number' | 'date' | 'select'
 type ColFilters = Record<string, string>
 type DraftRow = Record<string, string>
+type DraftRows = Record<string, { original: DraftRow; current: DraftRow }>
 type ColumnWidths = Record<string, number>
 type TableMessage = { type: 'success' | 'error'; text: string } | null
 type WeldRow = Record<string, unknown> & { id: string }
@@ -677,9 +679,8 @@ export default function WeldsPage() {
     const [colFilters, setColFilters] = useState<ColFilters>({})
     const [globalSearch, setGlobalSearch] = useState(drawingFilter)
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
-    const [editingRowId, setEditingRowId] = useState<string | null>(null)
-    const [draftRow, setDraftRow] = useState<DraftRow>({})
-    const [rowSavingId, setRowSavingId] = useState<string | null>(null)
+    const [draftRows, setDraftRows] = useState<DraftRows>({})
+    const [savingRowIds, setSavingRowIds] = useState<string[]>([])
     const [tableMessage, setTableMessage] = useState<TableMessage>(null)
     const [filterSourceRows, setFilterSourceRows] = useState<FilterSourceRow[]>([])
     const [tableStateReady, setTableStateReady] = useState(false)
@@ -687,6 +688,7 @@ export default function WeldsPage() {
     const resizeStateRef = useRef<ResizeState | null>(null)
     const [columnWidths, setColumnWidths] = useState<ColumnWidths>(() => getDefaultColumnWidths())
     const [draggingColumnKey, setDraggingColumnKey] = useState<string | null>(null)
+    const dirtyDraftIds = useMemo(() => getDirtyStagedIds(draftRows), [draftRows])
 
     useEffect(() => {
         if (typeof window === 'undefined') {
@@ -828,8 +830,8 @@ export default function WeldsPage() {
             setSort({ col: 'excel_row_order', dir: 'asc' })
             setLimit(50)
             setPage(0)
-            setEditingRowId(null)
-            setDraftRow({})
+            setDraftRows({})
+            setSavingRowIds([])
             setTableStateReady(true)
             return
         }
@@ -849,8 +851,8 @@ export default function WeldsPage() {
         setSort(restored.sort)
         setLimit(restored.limit)
         setPage(restored.page)
-        setEditingRowId(null)
-        setDraftRow({})
+        setDraftRows({})
+        setSavingRowIds([])
         setTableStateReady(true)
     }, [currentProjectId, drawingFilter])
 
@@ -992,53 +994,136 @@ export default function WeldsPage() {
     }
 
     const startInlineEdit = (weld: WeldRow) => {
-        setEditingRowId(String(weld.id))
-        setDraftRow(buildDraftFromWeld(weld))
+        const rowId = String(weld.id)
+        setDraftRows((current) =>
+            current[rowId]
+                ? current
+                : {
+                      ...current,
+                      [rowId]: createStagedDraft(buildDraftFromWeld(weld)),
+                  }
+        )
         setTableMessage(null)
     }
 
-    const cancelInlineEdit = () => {
-        setEditingRowId(null)
-        setDraftRow({})
+    const cancelInlineEdit = (weldId: string) => {
+        setDraftRows((current) => removeStagedDraft(current, weldId))
     }
 
-    const updateDraftField = (column: string, value: string) => {
-        setDraftRow((current) => ({ ...current, [column]: value }))
+    const cancelAllInlineEdits = () => {
+        setDraftRows({})
+        setSavingRowIds([])
+    }
+
+    const updateDraftField = (weldId: string, column: string, value: string) => {
+        setDraftRows((current) => patchStagedDraft(current, weldId, column, value))
+    }
+
+    const persistDraftRow = async (weldId: string, draft: DraftRow) => {
+        const payload = buildInlineUpdatePayload(draft)
+        const weldTable = supabase.from('welds') as unknown as WeldUpdateTable
+        return weldTable.update(payload).eq('id', weldId)
     }
 
     const saveInlineEdit = async (weldId: string) => {
-        setRowSavingId(weldId)
-        setTableMessage(null)
+        const staged = draftRows[weldId]
+        if (!staged) return
 
-        const payload = buildInlineUpdatePayload(draftRow)
-        const weldTable = supabase.from('welds') as unknown as WeldUpdateTable
-        const { error } = await weldTable.update(payload).eq('id', weldId)
-
-        if (error) {
-            setTableMessage({ type: 'error', text: `Không thể lưu dòng này: ${error.message}` })
-            setRowSavingId(null)
+        if (!hasStagedChanges(staged)) {
+            setDraftRows((current) => removeStagedDraft(current, weldId))
+            setTableMessage({ type: 'success', text: 'Không có thay đổi nào cần lưu.' })
             return
         }
 
-        setEditingRowId(null)
-        setDraftRow({})
+        setSavingRowIds((current) => Array.from(new Set([...current, weldId])))
+        setTableMessage(null)
+
+        const { error } = await persistDraftRow(weldId, staged.current)
+
+        if (error) {
+            setTableMessage({ type: 'error', text: `Không thể lưu dòng này: ${error.message}` })
+            setSavingRowIds((current) => current.filter((id) => id !== weldId))
+            return
+        }
+
+        setDraftRows((current) => removeStagedDraft(current, weldId))
         setTableMessage({ type: 'success', text: 'Đã lưu trực tiếp trên bảng.' })
-        setRowSavingId(null)
+        setSavingRowIds((current) => current.filter((id) => id !== weldId))
         await fetchWelds()
     }
 
+    const saveAllInlineEdits = async () => {
+        const dirtyIds = getDirtyStagedIds(draftRows)
+        if (dirtyIds.length === 0) {
+            setTableMessage({ type: 'success', text: 'Không có thay đổi nào cần lưu.' })
+            return
+        }
+
+        setSavingRowIds(dirtyIds)
+        setTableMessage(null)
+
+        const successIds: string[] = []
+        const errorMessages: string[] = []
+
+        for (const weldId of dirtyIds) {
+            const staged = draftRows[weldId]
+            if (!staged) continue
+
+            const { error } = await persistDraftRow(weldId, staged.current)
+            if (error) {
+                errorMessages.push(`${staged.current.weld_id || staged.current.weld_no || weldId}: ${error.message}`)
+                continue
+            }
+            successIds.push(weldId)
+        }
+
+        if (successIds.length > 0) {
+            setDraftRows((current) => {
+                let next = current
+                for (const weldId of successIds) {
+                    next = removeStagedDraft(next, weldId)
+                }
+                return next
+            })
+            await fetchWelds()
+        }
+
+        setSavingRowIds([])
+
+        if (errorMessages.length > 0) {
+            setTableMessage({
+                type: 'error',
+                text:
+                    successIds.length > 0
+                        ? `Đã lưu ${successIds.length} dòng, còn ${errorMessages.length} dòng lỗi. ${errorMessages[0]}`
+                        : `Không thể lưu các dòng đã chọn. ${errorMessages[0]}`,
+            })
+            return
+        }
+
+        setTableMessage({ type: 'success', text: `Đã lưu ${successIds.length} dòng một lần.` })
+    }
+
     const renderEditableCell = (column: ColumnDef, weld: WeldRow) => {
+        const rowId = String(weld.id)
+        const staged = draftRows[rowId]
+        const currentDraft = staged?.current
+
+        if (!currentDraft) {
+            return renderReadOnlyCell(column, weld, getColumnWidth(column))
+        }
+
         if (READ_ONLY_INLINE_COLUMNS.has(column.key)) {
-            const previewWeld = { ...weld, ...buildInlineUpdatePayload(draftRow) }
+            const previewWeld = { ...weld, ...buildInlineUpdatePayload(currentDraft) }
             return renderReadOnlyCell(column, previewWeld as WeldRow, getColumnWidth(column))
         }
 
-        const currentValue = draftRow[column.key] || ''
+        const currentValue = currentDraft[column.key] || ''
         if (column.inputType === 'select') {
             return (
                 <select
                     value={currentValue}
-                    onChange={(event) => updateDraftField(column.key, event.target.value)}
+                    onChange={(event) => updateDraftField(rowId, column.key, event.target.value)}
                     style={{
                         width: '100%',
                         minWidth: '76px',
@@ -1064,7 +1149,7 @@ export default function WeldsPage() {
                 type={column.inputType === 'date' ? 'date' : column.inputType === 'number' ? 'number' : 'text'}
                 step={column.inputType === 'number' && !INTEGER_COLUMNS.has(column.key) ? 'any' : undefined}
                 value={currentValue}
-                onChange={(event) => updateDraftField(column.key, event.target.value)}
+                onChange={(event) => updateDraftField(rowId, column.key, event.target.value)}
                 style={{
                     width: '100%',
                     minWidth: '76px',
@@ -1193,7 +1278,7 @@ export default function WeldsPage() {
                     </div>
                 ) : null}
 
-                {canEdit && editingRowId ? (
+                {canEdit && Object.keys(draftRows).length > 0 ? (
                     <div
                         style={{
                             display: 'flex',
@@ -1208,18 +1293,18 @@ export default function WeldsPage() {
                         }}
                     >
                         <div style={{ color: '#9a3412', fontWeight: 600 }}>
-                            Đang sửa trực tiếp trên bảng: {draftRow.weld_id || draftRow.weld_no || editingRowId}
+                            Đang mở {Object.keys(draftRows).length} dòng để sửa, có {dirtyDraftIds.length} dòng chưa lưu.
                         </div>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                             <button
                                 className="btn btn-primary"
-                                onClick={() => saveInlineEdit(editingRowId)}
-                                disabled={rowSavingId === editingRowId}
+                                onClick={saveAllInlineEdits}
+                                disabled={dirtyDraftIds.length === 0 || savingRowIds.length > 0}
                             >
-                                {rowSavingId === editingRowId ? 'Đang lưu...' : 'Lưu dòng đang sửa'}
+                                {savingRowIds.length > 0 ? 'Đang lưu...' : `Lưu ${dirtyDraftIds.length} dòng`}
                             </button>
-                            <button className="btn btn-secondary" onClick={cancelInlineEdit} disabled={rowSavingId === editingRowId}>
-                                Hủy chỉnh sửa
+                            <button className="btn btn-secondary" onClick={cancelAllInlineEdits} disabled={savingRowIds.length > 0}>
+                                Hủy toàn bộ chỉnh sửa
                             </button>
                         </div>
                     </div>
@@ -1392,8 +1477,8 @@ export default function WeldsPage() {
                                 ) : (
                                     welds.map((weld, index) => {
                                         const rowId = String(weld.id)
-                                        const editing = editingRowId === rowId
-                                        const saving = rowSavingId === rowId
+                                        const editing = Boolean(draftRows[rowId])
+                                        const saving = savingRowIds.includes(rowId)
 
                                         return (
                                             <tr
@@ -1435,7 +1520,7 @@ export default function WeldsPage() {
                                                             <button className="btn btn-primary" onClick={() => saveInlineEdit(rowId)} disabled={saving}>
                                                                 {saving ? 'Đang lưu...' : 'Lưu'}
                                                             </button>
-                                                            <button className="btn btn-secondary" onClick={cancelInlineEdit} disabled={saving}>
+                                                            <button className="btn btn-secondary" onClick={() => cancelInlineEdit(rowId)} disabled={saving}>
                                                                 Hủy
                                                             </button>
                                                         </div>

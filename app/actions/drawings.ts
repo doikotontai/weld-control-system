@@ -83,7 +83,14 @@ export async function syncProjectDrawings(projectId: string) {
 
 export async function updateDrawingMetadata(
     drawingId: string,
-    values: { description?: string; part?: string; nde_pct?: string }
+    values: {
+        description?: string
+        part?: string
+        nde_pct?: string
+        dossier_transmittal_no?: string
+        dossier_submission_date?: string
+        dossier_notes?: string
+    }
 ) {
     try {
         await requireManagedDrawingRole()
@@ -93,6 +100,9 @@ export async function updateDrawingMetadata(
             description: values.description?.trim() || null,
             part: values.part?.trim() || null,
             nde_pct: values.nde_pct?.trim() || null,
+            dossier_transmittal_no: values.dossier_transmittal_no?.trim() || null,
+            dossier_submission_date: values.dossier_submission_date?.trim() || null,
+            dossier_notes: values.dossier_notes?.trim() || null,
         }
 
         const { error } = await adminClient.from('drawings').update(payload).eq('id', drawingId)

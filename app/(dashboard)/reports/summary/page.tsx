@@ -1,6 +1,7 @@
 import SummaryExportPanel from '@/app/(dashboard)/reports/SummaryExportPanel'
 import { requireDashboardAuth } from '@/lib/dashboard-auth'
 import { fetchAllBatches } from '@/lib/fetch-all-batches'
+import { shouldCountVisualProgress } from '@/lib/report-progress'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,9 +35,13 @@ interface SummaryRow {
     visual_date: string | null
     backgouge_date: string | null
     lamcheck_date: string | null
+    ndt_overall_result: string | null
     mt_result: string | null
+    mt_report_no: string | null
     ut_result: string | null
+    ut_report_no: string | null
     rt_result: string | null
+    rt_report_no: string | null
     pwht_result: string | null
     release_note_no: string | null
     release_note_date: string | null
@@ -45,6 +50,7 @@ interface SummaryRow {
     cut_off: string | null
     weld_length: number | null
     defect_length: number | null
+    repair_length: number | null
     is_repair: boolean | null
     drawing_no: string | null
     weld_id: string | null
@@ -122,6 +128,7 @@ function StageRow({ stage, count, total }: { stage: string; count: number; total
 export default async function SummaryReportPage() {
     const { supabase, cookieStore } = await requireDashboardAuth(['admin', 'dcc', 'qc', 'viewer'])
     const projectId = cookieStore.get('weld-control-project-id')?.value || null
+    let projectLabel = ''
 
     const stats: SummaryStats = {
         total: 0,
@@ -150,30 +157,43 @@ export default async function SummaryReportPage() {
     let exportRows: SummaryRow[] = []
 
     if (projectId) {
-        exportRows = await fetchAllBatches({
-            fetchPage: async (from, to) => {
-                const { data, error } = await supabase
-                    .from('welds')
-                    .select(
-                        'stage, fitup_date, visual_date, backgouge_date, lamcheck_date, mt_result, ut_result, rt_result, pwht_result, release_note_no, release_note_date, transmittal_no, mw1_no, cut_off, weld_length, defect_length, is_repair, drawing_no, weld_id, weld_no, joint_type, wps_no, weld_size, ndt_requirements, goc_code, weld_finish_date, welders, overall_status, excel_row_order'
-                    )
-                    .eq('project_id', projectId)
-                    .range(from, to)
+        const [{ data: project }, fetchedRows] = await Promise.all([
+            supabase.from('projects').select('code,name').eq('id', projectId).maybeSingle(),
+            fetchAllBatches({
+                fetchPage: async (from, to) => {
+                    const { data, error } = await supabase
+                        .from('welds')
+                        .select(
+                            'stage, fitup_date, visual_date, backgouge_date, lamcheck_date, ndt_overall_result, mt_result, mt_report_no, ut_result, ut_report_no, rt_result, rt_report_no, pwht_result, release_note_no, release_note_date, transmittal_no, mw1_no, cut_off, weld_length, defect_length, repair_length, is_repair, drawing_no, weld_id, weld_no, joint_type, wps_no, weld_size, ndt_requirements, goc_code, weld_finish_date, welders, overall_status, excel_row_order'
+                        )
+                        .eq('project_id', projectId)
+                        .range(from, to)
 
-                if (error) {
-                    throw new Error(error.message)
-                }
+                    if (error) {
+                        throw new Error(error.message)
+                    }
 
-                return (data || []) as SummaryRow[]
-            },
-        })
+                    return (data || []) as SummaryRow[]
+                },
+            }),
+        ])
+
+        projectLabel = [project?.code, project?.name].filter(Boolean).join(' - ')
+        exportRows = fetchedRows
 
         const drawings = new Set<string>()
         for (const row of exportRows) {
             stats.total += 1
             if (row.drawing_no) drawings.add(row.drawing_no)
             if (row.fitup_date) stats.withFitup += 1
-            if (row.visual_date) stats.withVisual += 1
+            if (
+                shouldCountVisualProgress({
+                    visualDate: row.visual_date,
+                    overallStatus: row.overall_status,
+                })
+            ) {
+                stats.withVisual += 1
+            }
             if (row.backgouge_date) stats.withBG += 1
             if (row.lamcheck_date) stats.withLC += 1
             if (row.mt_result) {
@@ -272,7 +292,7 @@ export default async function SummaryReportPage() {
                         />
                     </div>
 
-                    <SummaryExportPanel rows={exportRows} />
+                    <SummaryExportPanel rows={exportRows} projectLabel={projectLabel} />
 
                     <div
                         style={{

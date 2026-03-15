@@ -103,6 +103,9 @@ CREATE TABLE drawings (
   description TEXT,
   part TEXT,
   nde_pct TEXT,
+  dossier_transmittal_no TEXT,
+  dossier_submission_date DATE,
+  dossier_notes TEXT,
   total_welds INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(project_id, drawing_no)

@@ -5,6 +5,9 @@ export interface DrawingRegistryStoredRow {
     description: string | null
     part: string | null
     nde_pct: string | null
+    dossier_transmittal_no?: string | null
+    dossier_submission_date?: string | null
+    dossier_notes?: string | null
     total_welds: number
     created_at?: string
 }
@@ -14,6 +17,7 @@ export interface DrawingRegistryWeldRow {
     goc_code?: string | null
     fitup_date?: string | null
     visual_date?: string | null
+    overall_status?: string | null
     mt_result?: string | null
     ut_result?: string | null
     rt_result?: string | null
@@ -25,6 +29,7 @@ export interface DrawingRegistryWeldRow {
 }
 
 export interface DrawingRegistryRow extends DrawingRegistryStoredRow {
+    sheet_ref: string
     fitup_done: number
     visual_done: number
     ndt_done: number
@@ -47,10 +52,37 @@ function normalizeText(value: unknown) {
     return value == null ? '' : String(value).trim()
 }
 
+function shouldCountVisualRegistryProgress(visualDate: string, overallStatus: string) {
+    if (!visualDate) {
+        return false
+    }
+
+    const normalizedStatus = overallStatus.trim().toUpperCase()
+    return normalizedStatus !== 'REJ' && normalizedStatus !== 'DELETE'
+}
+
 function toSortedUniqueText(values: Array<string | null | undefined>) {
     return Array.from(
         new Set(values.map((value) => normalizeText(value)).filter(Boolean)),
     ).sort((left, right) => left.localeCompare(right)).join(', ')
+}
+
+export function extractDrawingSheet(drawingNo: string | null | undefined) {
+    const normalized = normalizeText(drawingNo)
+    if (!normalized) return ''
+
+    const dwMatch = normalized.match(/DW-([A-Z0-9.\-]+)$/i)
+    if (dwMatch) {
+        return dwMatch[1]
+    }
+
+    const wmMatch = normalized.match(/([A-Z0-9.]+-[A-Z0-9.]+-WM)$/i)
+    if (wmMatch) {
+        return wmMatch[1]
+    }
+
+    const lastToken = normalized.split('-').pop()
+    return lastToken ? lastToken.trim() : ''
 }
 
 function createEmptyRegistryRow(projectId: string, drawingNo: string): DrawingRegistryRow {
@@ -60,7 +92,11 @@ function createEmptyRegistryRow(projectId: string, drawingNo: string): DrawingRe
         description: null,
         part: null,
         nde_pct: null,
+        dossier_transmittal_no: null,
+        dossier_submission_date: null,
+        dossier_notes: null,
         total_welds: 0,
+        sheet_ref: extractDrawingSheet(drawingNo),
         fitup_done: 0,
         visual_done: 0,
         ndt_done: 0,
@@ -118,7 +154,9 @@ export function buildDrawingRegistryRows(
 
         row.total_welds += 1
         if (normalizeText(weld.fitup_date)) row.fitup_done += 1
-        if (normalizeText(weld.visual_date)) row.visual_done += 1
+        if (shouldCountVisualRegistryProgress(normalizeText(weld.visual_date), normalizeText(weld.overall_status))) {
+            row.visual_done += 1
+        }
         if (
             normalizeText(weld.mt_result) ||
             normalizeText(weld.ut_result) ||
