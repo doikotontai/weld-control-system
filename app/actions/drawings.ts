@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
+import { fetchAllBatches } from '@/lib/fetch-all-batches'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { buildDrawingSyncRows } from '@/lib/drawing-registry'
 
@@ -41,20 +42,25 @@ export async function syncProjectDrawings(projectId: string) {
         await requireManagedDrawingRole()
         const adminClient = createAdminClient()
 
-        const { data: weldRows, error: weldError } = await adminClient
-            .from('welds')
-            .select('drawing_no')
-            .eq('project_id', projectId)
+        const weldRows = await fetchAllBatches({
+            fetchPage: async (from, to) => {
+                const { data, error } = await adminClient
+                    .from('welds')
+                    .select('drawing_no')
+                    .eq('project_id', projectId)
+                    .range(from, to)
 
-        if (weldError) {
-            return { success: false, error: weldError.message }
-        }
+                if (error) {
+                    throw new Error(error.message)
+                }
+
+                return (data || []) as Array<{ drawing_no: string | null }>
+            },
+        })
 
         const syncRows = buildDrawingSyncRows(
             projectId,
-            (weldRows || []) as Array<{
-                drawing_no: string | null
-            }>
+            weldRows
         )
 
         if (syncRows.length > 0) {

@@ -1,6 +1,7 @@
 import DrawingsRegistryClient from '@/app/(dashboard)/drawings/DrawingsRegistryClient'
 import { requireDashboardAuth } from '@/lib/dashboard-auth'
 import { buildDrawingRegistryRows } from '@/lib/drawing-registry'
+import { fetchAllBatches } from '@/lib/fetch-all-batches'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,19 +33,43 @@ export default async function DrawingsPage() {
     let rows: DrawingViewRow[] = []
 
     if (projectId) {
-        const [{ data: drawingRows }, { data: weldRows }] = await Promise.all([
+        const [{ data: drawingRows }, weldRows] = await Promise.all([
             supabase
                 .from('drawings')
                 .select('id, project_id, drawing_no, description, part, nde_pct, total_welds, created_at')
                 .eq('project_id', projectId)
                 .order('drawing_no', { ascending: true }),
-            supabase
-                .from('welds')
-                .select(
-                    'drawing_no, goc_code, fitup_date, visual_date, mt_result, ut_result, rt_result, release_note_no, release_note_date, transmittal_no, cut_off, mw1_no'
-                )
-                .eq('project_id', projectId)
-                .order('drawing_no', { ascending: true }),
+            fetchAllBatches({
+                fetchPage: async (from, to) => {
+                    const { data, error } = await supabase
+                        .from('welds')
+                        .select(
+                            'drawing_no, goc_code, fitup_date, visual_date, mt_result, ut_result, rt_result, release_note_no, release_note_date, transmittal_no, cut_off, mw1_no'
+                        )
+                        .eq('project_id', projectId)
+                        .order('drawing_no', { ascending: true })
+                        .range(from, to)
+
+                    if (error) {
+                        throw new Error(error.message)
+                    }
+
+                    return (data || []) as Array<{
+                        drawing_no: string | null
+                        goc_code: string | null
+                        fitup_date: string | null
+                        visual_date: string | null
+                        mt_result: string | null
+                        ut_result: string | null
+                        rt_result: string | null
+                        release_note_no: string | null
+                        release_note_date: string | null
+                        transmittal_no: string | null
+                        cut_off: string | null
+                        mw1_no: string | null
+                    }>
+                },
+            }),
         ])
 
         rows = buildDrawingRegistryRows(
@@ -58,20 +83,7 @@ export default async function DrawingsPage() {
                 total_welds: number
                 created_at?: string
             }>,
-            (weldRows || []) as Array<{
-                drawing_no: string | null
-                goc_code: string | null
-                fitup_date: string | null
-                visual_date: string | null
-                mt_result: string | null
-                ut_result: string | null
-                rt_result: string | null
-                release_note_no: string | null
-                release_note_date: string | null
-                transmittal_no: string | null
-                cut_off: string | null
-                mw1_no: string | null
-            }>
+            weldRows
         )
     }
 

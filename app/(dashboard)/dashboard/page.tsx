@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { cookies } from 'next/headers'
+import { fetchAllBatches } from '@/lib/fetch-all-batches'
 import { createClient } from '@/lib/supabase/server'
 import { getDisplayWeldId } from '@/lib/weld-id'
 import { WeldStats } from '@/types'
@@ -41,17 +42,46 @@ export default async function DashboardPage() {
         .order('updated_at', { ascending: false })
         .limit(10)
 
-    const { data: stageStats } = await supabase.from('welds').select('stage').eq('project_id', currentProjectId)
+    const stageStats = await fetchAllBatches({
+        fetchPage: async (from, to) => {
+            const { data, error } = await supabase
+                .from('welds')
+                .select('stage')
+                .eq('project_id', currentProjectId)
+                .range(from, to)
 
-    const stageCounts: Record<string, number> = {}
-    stageStats?.forEach(weld => {
-        stageCounts[weld.stage] = (stageCounts[weld.stage] || 0) + 1
+            if (error) {
+                throw new Error(error.message)
+            }
+
+            return (data || []) as Array<{ stage: string | null }>
+        },
     })
 
-    const { data: gocStats } = await supabase.from('welds').select('goc_code').eq('project_id', currentProjectId)
+    const stageCounts: Record<string, number> = {}
+    stageStats.forEach(weld => {
+        const stage = weld.stage || 'unknown'
+        stageCounts[stage] = (stageCounts[stage] || 0) + 1
+    })
+
+    const gocStats = await fetchAllBatches({
+        fetchPage: async (from, to) => {
+            const { data, error } = await supabase
+                .from('welds')
+                .select('goc_code')
+                .eq('project_id', currentProjectId)
+                .range(from, to)
+
+            if (error) {
+                throw new Error(error.message)
+            }
+
+            return (data || []) as Array<{ goc_code: string | null }>
+        },
+    })
 
     const gocCounts: Record<string, number> = {}
-    gocStats?.forEach(weld => {
+    gocStats.forEach(weld => {
         if (weld.goc_code) {
             gocCounts[weld.goc_code] = (gocCounts[weld.goc_code] || 0) + 1
         }
@@ -327,4 +357,3 @@ function StageBadge({ stage }: { stage: string }) {
         </span>
     )
 }
-

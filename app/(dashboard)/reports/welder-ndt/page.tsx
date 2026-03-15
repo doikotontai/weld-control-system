@@ -1,4 +1,5 @@
 import { requireDashboardAuth } from '@/lib/dashboard-auth'
+import { fetchAllBatches } from '@/lib/fetch-all-batches'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,41 +56,50 @@ export default async function WelderNDTPage() {
     let welderStats: WelderNdtStat[] = []
 
     if (projectId) {
-        const { data } = await supabase
-            .from('welds')
-            .select('welders, weld_length, defect_length, mt_result, ut_result, rt_result, release_note_no')
-            .eq('project_id', projectId)
+        const weldRows = await fetchAllBatches({
+            fetchPage: async (from, to) => {
+                const { data, error } = await supabase
+                    .from('welds')
+                    .select('welders, weld_length, defect_length, mt_result, ut_result, rt_result, release_note_no')
+                    .eq('project_id', projectId)
+                    .range(from, to)
 
-        if (data) {
-            const statsMap: Record<string, Omit<WelderNdtStat, 'repairRate'>> = {}
+                if (error) {
+                    throw new Error(error.message)
+                }
 
-            ;(data as WelderNdtSourceRow[]).forEach((row) => {
-                splitWelders(row.welders).forEach((welder) => {
-                    if (!statsMap[welder]) {
-                        statsMap[welder] = { welder, total: 0, length: 0, defect: 0, mtAcc: 0, mtRej: 0, utAcc: 0, utRej: 0, rtAcc: 0, rtRej: 0, irnDone: 0 }
-                    }
+                return (data || []) as WelderNdtSourceRow[]
+            },
+        })
 
-                    const stat = statsMap[welder]
-                    stat.total += 1
-                    stat.length += Number(row.weld_length) || 0
-                    stat.defect += Number(row.defect_length) || 0
-                    if (row.mt_result === 'ACC') stat.mtAcc += 1
-                    if (row.mt_result === 'REJ') stat.mtRej += 1
-                    if (row.ut_result === 'ACC') stat.utAcc += 1
-                    if (row.ut_result === 'REJ') stat.utRej += 1
-                    if (row.rt_result === 'ACC') stat.rtAcc += 1
-                    if (row.rt_result === 'REJ') stat.rtRej += 1
-                    if (row.release_note_no) stat.irnDone += 1
-                })
+        const statsMap: Record<string, Omit<WelderNdtStat, 'repairRate'>> = {}
+
+        weldRows.forEach((row) => {
+            splitWelders(row.welders).forEach((welder) => {
+                if (!statsMap[welder]) {
+                    statsMap[welder] = { welder, total: 0, length: 0, defect: 0, mtAcc: 0, mtRej: 0, utAcc: 0, utRej: 0, rtAcc: 0, rtRej: 0, irnDone: 0 }
+                }
+
+                const stat = statsMap[welder]
+                stat.total += 1
+                stat.length += Number(row.weld_length) || 0
+                stat.defect += Number(row.defect_length) || 0
+                if (row.mt_result === 'ACC') stat.mtAcc += 1
+                if (row.mt_result === 'REJ') stat.mtRej += 1
+                if (row.ut_result === 'ACC') stat.utAcc += 1
+                if (row.ut_result === 'REJ') stat.utRej += 1
+                if (row.rt_result === 'ACC') stat.rtAcc += 1
+                if (row.rt_result === 'REJ') stat.rtRej += 1
+                if (row.release_note_no) stat.irnDone += 1
             })
+        })
 
-            welderStats = Object.values(statsMap)
-                .map((stat) => ({
-                    ...stat,
-                    repairRate: stat.length > 0 ? Math.round((stat.defect * 10000) / stat.length) / 100 : 0,
-                }))
-                .sort((left, right) => right.repairRate - left.repairRate)
-        }
+        welderStats = Object.values(statsMap)
+            .map((stat) => ({
+                ...stat,
+                repairRate: stat.length > 0 ? Math.round((stat.defect * 10000) / stat.length) / 100 : 0,
+            }))
+            .sort((left, right) => right.repairRate - left.repairRate)
     }
 
     const thStyle = { padding: '10px 14px', fontWeight: 600, color: '#475569', textAlign: 'left' as const, fontSize: '0.75rem', textTransform: 'uppercase' as const, background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }
@@ -149,5 +159,4 @@ export default async function WelderNDTPage() {
         </div>
     )
 }
-
 

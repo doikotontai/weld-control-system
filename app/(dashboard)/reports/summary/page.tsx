@@ -1,5 +1,6 @@
 import SummaryExportPanel from '@/app/(dashboard)/reports/SummaryExportPanel'
 import { requireDashboardAuth } from '@/lib/dashboard-auth'
+import { fetchAllBatches } from '@/lib/fetch-all-batches'
 
 export const dynamic = 'force-dynamic'
 
@@ -149,14 +150,23 @@ export default async function SummaryReportPage() {
     let exportRows: SummaryRow[] = []
 
     if (projectId) {
-        const { data } = await supabase
-            .from('welds')
-            .select(
-                'stage, fitup_date, visual_date, backgouge_date, lamcheck_date, mt_result, ut_result, rt_result, pwht_result, release_note_no, release_note_date, transmittal_no, mw1_no, cut_off, weld_length, defect_length, is_repair, drawing_no, weld_id, weld_no, joint_type, wps_no, weld_size, ndt_requirements, goc_code, weld_finish_date, welders, overall_status, excel_row_order'
-            )
-            .eq('project_id', projectId)
+        exportRows = await fetchAllBatches({
+            fetchPage: async (from, to) => {
+                const { data, error } = await supabase
+                    .from('welds')
+                    .select(
+                        'stage, fitup_date, visual_date, backgouge_date, lamcheck_date, mt_result, ut_result, rt_result, pwht_result, release_note_no, release_note_date, transmittal_no, mw1_no, cut_off, weld_length, defect_length, is_repair, drawing_no, weld_id, weld_no, joint_type, wps_no, weld_size, ndt_requirements, goc_code, weld_finish_date, welders, overall_status, excel_row_order'
+                    )
+                    .eq('project_id', projectId)
+                    .range(from, to)
 
-        exportRows = (data || []) as SummaryRow[]
+                if (error) {
+                    throw new Error(error.message)
+                }
+
+                return (data || []) as SummaryRow[]
+            },
+        })
 
         const drawings = new Set<string>()
         for (const row of exportRows) {

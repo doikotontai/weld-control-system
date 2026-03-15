@@ -1,4 +1,5 @@
 import { requireDashboardAuth } from '@/lib/dashboard-auth'
+import { fetchAllBatches } from '@/lib/fetch-all-batches'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,45 +38,53 @@ export default async function RepairRatePage() {
     let totalDefect = 0
 
     if (projectId) {
-        const { data } = await supabase
-            .from('welds')
-            .select('welders, weld_length, defect_length, repair_length, mt_result, ut_result')
-            .eq('project_id', projectId)
+        const weldRows = await fetchAllBatches({
+            fetchPage: async (from, to) => {
+                const { data, error } = await supabase
+                    .from('welds')
+                    .select('welders, weld_length, defect_length, repair_length, mt_result, ut_result')
+                    .eq('project_id', projectId)
+                    .range(from, to)
 
-        if (data) {
-            const weldRows = data as RepairRateSourceRow[]
-            totalWelds = weldRows.length
+                if (error) {
+                    throw new Error(error.message)
+                }
 
-            weldRows.forEach((row) => {
-                totalLength += Number(row.weld_length) || 0
-                totalDefect += Number(row.defect_length) || 0
+                return (data || []) as RepairRateSourceRow[]
+            },
+        })
+
+        totalWelds = weldRows.length
+
+        weldRows.forEach((row) => {
+            totalLength += Number(row.weld_length) || 0
+            totalDefect += Number(row.defect_length) || 0
+        })
+
+        const statsMap: Record<string, Omit<WelderRepairStat, 'repairRate'>> = {}
+
+        weldRows.forEach((row) => {
+            splitWelders(row.welders).forEach((welder) => {
+                if (!statsMap[welder]) {
+                    statsMap[welder] = { welder, total: 0, length: 0, defect: 0, repair: 0, mtRej: 0, utRej: 0 }
+                }
+
+                const stat = statsMap[welder]
+                stat.total += 1
+                stat.length += Number(row.weld_length) || 0
+                stat.defect += Number(row.defect_length) || 0
+                stat.repair += Number(row.repair_length) || 0
+                if (row.mt_result === 'REJ') stat.mtRej += 1
+                if (row.ut_result === 'REJ') stat.utRej += 1
             })
+        })
 
-            const statsMap: Record<string, Omit<WelderRepairStat, 'repairRate'>> = {}
-
-            weldRows.forEach((row) => {
-                splitWelders(row.welders).forEach((welder) => {
-                    if (!statsMap[welder]) {
-                        statsMap[welder] = { welder, total: 0, length: 0, defect: 0, repair: 0, mtRej: 0, utRej: 0 }
-                    }
-
-                    const stat = statsMap[welder]
-                    stat.total += 1
-                    stat.length += Number(row.weld_length) || 0
-                    stat.defect += Number(row.defect_length) || 0
-                    stat.repair += Number(row.repair_length) || 0
-                    if (row.mt_result === 'REJ') stat.mtRej += 1
-                    if (row.ut_result === 'REJ') stat.utRej += 1
-                })
-            })
-
-            welderStats = Object.values(statsMap)
-                .map((stat) => ({
-                    ...stat,
-                    repairRate: stat.length > 0 ? Math.round((stat.defect * 10000) / stat.length) / 100 : 0,
-                }))
-                .sort((left, right) => right.repairRate - left.repairRate)
-        }
+        welderStats = Object.values(statsMap)
+            .map((stat) => ({
+                ...stat,
+                repairRate: stat.length > 0 ? Math.round((stat.defect * 10000) / stat.length) / 100 : 0,
+            }))
+            .sort((left, right) => right.repairRate - left.repairRate)
     }
 
     const overallRate = totalLength > 0 ? (totalDefect / totalLength * 100).toFixed(2) : '0'
