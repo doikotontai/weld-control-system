@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ChangeEvent, ReactNode, useEffect, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
+import { syncProjectDrawings } from '@/app/actions/drawings'
 import SyncedTableFrame from '@/components/SyncedTableFrame'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -27,6 +28,8 @@ interface ImportResult {
     errors: number
     messages: string[]
 }
+
+type ImportMode = 'upsert' | 'append-only'
 
 interface WeldUpsertTable {
     upsert(values: WeldUpsertRow[], options: { onConflict: string }): Promise<{ error: { message: string } | null }>
@@ -133,6 +136,7 @@ export default function ImportPage() {
     const [parseIssues, setParseIssues] = useState<string[]>([])
     const [duplicateWarnings, setDuplicateWarnings] = useState<DuplicateWeldWarning[]>([])
     const [duplicateMode, setDuplicateMode] = useState<DuplicateWeldHandlingMode>('separate')
+    const [importMode, setImportMode] = useState<ImportMode>('upsert')
     const [showManualMapping, setShowManualMapping] = useState(false)
     const [importing, setImporting] = useState(false)
     const [progress, setProgress] = useState(0)
@@ -220,11 +224,58 @@ export default function ImportPage() {
         setProgress(0)
         try {
             const weldTable = supabase.from('welds') as unknown as WeldUpsertTable
+            let effectiveRows = preparedRows
+            let skippedExisting = 0
+
+            if (importMode === 'append-only') {
+                const existingIds = new Set<string>()
+
+                for (let pageIndex = 0; pageIndex < 100; pageIndex += 1) {
+                    const from = pageIndex * 1000
+                    const to = from + 999
+                    const { data, error } = await supabase
+                        .from('welds')
+                        .select('weld_id')
+                        .eq('project_id', currentProjectId)
+                        .range(from, to)
+
+                    if (error) {
+                        throw new Error(`Không đọc được dữ liệu mối hàn hiện có: ${error.message}`)
+                    }
+
+                    const currentRows = (data || []) as Array<{ weld_id: string | null }>
+                    currentRows.forEach((row) => {
+                        const weldId = String(row.weld_id || '').trim().toUpperCase()
+                        if (weldId) {
+                            existingIds.add(weldId)
+                        }
+                    })
+
+                    if (currentRows.length < 1000) {
+                        break
+                    }
+                }
+
+                effectiveRows = preparedRows.filter((row) => !existingIds.has(String(row.weld_id).trim().toUpperCase()))
+                skippedExisting = preparedRows.length - effectiveRows.length
+            }
+
+            if (effectiveRows.length === 0) {
+                setResult({
+                    success: 0,
+                    errors: 0,
+                    messages: skippedExisting > 0
+                        ? [`Không có bản ghi mới để import. Đã bỏ qua ${skippedExisting} mối hàn đã tồn tại trong dự án.`]
+                        : ['Không có bản ghi hợp lệ để import.'],
+                })
+                return
+            }
+
             let success = 0
             let errors = 0
             const messages: string[] = []
-            for (let index = 0; index < preparedRows.length; index += BATCH_SIZE) {
-                const batch = preparedRows.slice(index, index + BATCH_SIZE)
+            for (let index = 0; index < effectiveRows.length; index += BATCH_SIZE) {
+                const batch = effectiveRows.slice(index, index + BATCH_SIZE)
                 const { error } = await weldTable.upsert(batch, { onConflict: 'project_id,weld_id' })
                 if (error) {
                     messages.push(`Batch ${Math.floor(index / BATCH_SIZE) + 1}: ${error.message}`)
@@ -232,7 +283,20 @@ export default function ImportPage() {
                     break
                 }
                 success += batch.length
-                setProgress(Math.round(((index + batch.length) / preparedRows.length) * 100))
+                setProgress(Math.round(((index + batch.length) / effectiveRows.length) * 100))
+            }
+
+            if (success > 0) {
+                const syncResult = await syncProjectDrawings(currentProjectId)
+                if (!syncResult.success) {
+                    messages.push(`Đã import mối hàn nhưng đồng bộ Drawing Map thất bại: ${syncResult.error}`)
+                } else if (syncResult.count) {
+                    messages.push(`Đã đồng bộ Drawing Map cho ${syncResult.count} bản vẽ trong dự án.`)
+                }
+            }
+
+            if (skippedExisting > 0) {
+                messages.unshift(`Đã bỏ qua ${skippedExisting} mối hàn đã tồn tại vì đang chọn chế độ "Chỉ thêm mới".`)
             }
             setResult({ success, errors, messages })
         } catch (error) {
@@ -281,6 +345,27 @@ export default function ImportPage() {
                         <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Đã map <strong>{mappingCoverage(layout)}</strong> / <strong>{IMPORT_FIELD_DEFINITIONS.length}</strong> trường.</p>
                     </div>
                     <button type="button" className="btn btn-secondary" onClick={() => setShowManualMapping((value) => !value)}>{showManualMapping ? 'Ẩn mapping thủ công' : 'Mở mapping thủ công'}</button>
+                </div>
+                <div style={{ marginBottom: 16, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                    <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>Chế độ import</div>
+                    <div style={{ display: 'grid', gap: 10 }}>
+                        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: 12, border: `1px solid ${importMode === 'upsert' ? '#2563eb' : '#cbd5e1'}`, borderRadius: 10, background: importMode === 'upsert' ? '#dbeafe' : 'white', cursor: 'pointer' }}>
+                            <input type="radio" name="import-mode" checked={importMode === 'upsert'} onChange={() => setImportMode('upsert')} />
+                            <span style={{ color: '#0f172a', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                                <strong>Cập nhật nếu trùng, thêm nếu mới</strong>
+                                <br />
+                                Dùng khi import lại cùng một nguồn Excel để cập nhật tiến độ, kết quả NDT hoặc các cột phát sinh mới.
+                            </span>
+                        </label>
+                        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: 12, border: `1px solid ${importMode === 'append-only' ? '#2563eb' : '#cbd5e1'}`, borderRadius: 10, background: importMode === 'append-only' ? '#dbeafe' : 'white', cursor: 'pointer' }}>
+                            <input type="radio" name="import-mode" checked={importMode === 'append-only'} onChange={() => setImportMode('append-only')} />
+                            <span style={{ color: '#0f172a', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                                <strong>Chỉ thêm mới, bỏ qua mối hàn đã tồn tại</strong>
+                                <br />
+                                Dùng khi muốn đổ dữ liệu mới vào cuối dự án mà không chạm vào các mối hàn đã có sẵn trong hệ thống.
+                            </span>
+                        </label>
+                    </div>
                 </div>
                 {([...layout.issues, ...parseIssues]).length > 0 && <div style={{ marginBottom: 16, padding: '12px 14px', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 10 }}>{[...layout.issues, ...parseIssues].map((issue, index) => <div key={`${issue}-${index}`} style={{ color: '#92400e', fontSize: '0.875rem' }}>• {issue}</div>)}</div>}
                 {duplicateWarnings.length > 0 && <div style={{ marginBottom: 16, padding: 16, background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 12 }}>

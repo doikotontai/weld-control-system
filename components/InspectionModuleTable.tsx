@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import SyncedTableFrame from '@/components/SyncedTableFrame'
+import { buildScopedFilterOptions } from '@/lib/filter-ui'
 import { createClient } from '@/lib/supabase/client'
 import { PROJECT_CHANGE_EVENT, readActiveProjectIdFromCookie } from '@/lib/project-selection'
 import { getDisplayWeldId } from '@/lib/weld-id'
@@ -12,9 +13,7 @@ type ModuleKey = 'fitup' | 'visual' | 'backgouge' | 'lamcheck' | 'ndt'
 type FilterMap = Record<string, string>
 type FilterOptionsMap = Record<string, Array<{ value: string; label: string }>>
 type GenericRow = Record<string, unknown> & { id: string }
-type QueryFilter =
-    | { type: 'notNull'; column: string }
-    | { type: 'anyNotNull'; columns: string[] }
+type QueryFilter = { type: 'notNull'; column: string } | { type: 'anyNotNull'; columns: string[] }
 
 interface ModuleColumn {
     key: string
@@ -33,10 +32,27 @@ interface ModuleConfig {
     filter: QueryFilter
     columns: ModuleColumn[]
     ndtSummary?: boolean
+    summaryCount?: (rows: GenericRow[]) => number
 }
 
-const DEFAULT_FILTER_OPTION = { value: '', label: 'Tất cả' }
 const PAGE_SIZE = 100
+const MODULE_TABLE_STATE_STORAGE_KEY = 'inspection-module-table-state-v1'
+
+function normalizeText(value: unknown) {
+    return value == null ? '' : String(value).trim()
+}
+
+function formatDateValue(value: unknown) {
+    return value != null && value !== '' ? String(value).slice(0, 10) : ''
+}
+
+function displayStage(value: unknown) {
+    const raw = normalizeText(value)
+    if (!raw) return '-'
+    if (raw === 'completed') return 'Hoàn thành'
+    if (raw === 'rejected') return 'Bị từ chối'
+    return STAGE_LABELS[raw as keyof typeof STAGE_LABELS] || raw
+}
 
 const MODULE_CONFIGS: Record<ModuleKey, ModuleConfig> = {
     fitup: {
@@ -63,9 +79,11 @@ const MODULE_CONFIGS: Record<ModuleKey, ModuleConfig> = {
     visual: {
         title: 'Visual / Request',
         descriptionPrefix: 'Dữ liệu visual hiện có trong weld master',
-        countLabel: 'mối hàn đã visual',
+        countLabel: 'mối hàn đã visual (không tính REJ / DELETE)',
         emptyText: 'Chưa có mối hàn nào có dữ liệu visual.',
         filter: { type: 'notNull', column: 'visual_date' },
+        summaryCount: (rows) =>
+            rows.filter((row) => !['REJ', 'DELETE'].includes(normalizeText(row.overall_status))).length,
         columns: [
             { key: 'weld_id', label: 'Weld ID', kind: 'link', accentColor: '#7c3aed' },
             { key: 'drawing_no', label: 'Bản vẽ' },
@@ -150,77 +168,40 @@ const MODULE_CONFIGS: Record<ModuleKey, ModuleConfig> = {
     },
 }
 
-function normalizeText(value: unknown) {
-    return value == null ? '' : String(value).trim()
-}
-
-function formatDateValue(value: unknown) {
-    return value != null && value !== '' ? String(value).slice(0, 10) : ''
-}
-
-function displayStage(value: unknown) {
-    const raw = normalizeText(value)
-    if (!raw) {
-        return '-'
-    }
-
-    if (raw === 'completed') {
-        return 'Hoàn thành'
-    }
-
-    if (raw === 'rejected') {
-        return 'Bị từ chối'
-    }
-
-    return STAGE_LABELS[raw as keyof typeof STAGE_LABELS] || raw
-}
-
 function displayCellValue(column: ModuleColumn, row: GenericRow) {
     const raw = row[column.key]
-
-    if (column.kind === 'date') {
-        return formatDateValue(raw) || '-'
-    }
-
+    if (column.kind === 'date') return formatDateValue(raw) || '-'
     if (column.kind === 'number') {
         const value = normalizeText(raw)
         return value ? `${value}${column.suffix || ''}` : '-'
     }
-
-    if (column.kind === 'stage') {
-        return displayStage(raw)
-    }
-
+    if (column.kind === 'stage') return displayStage(raw)
     return normalizeText(raw) || '-'
 }
 
 function filterValueForColumn(column: ModuleColumn, row: GenericRow) {
     const raw = row[column.key]
-
-    if (column.kind === 'date') {
-        return formatDateValue(raw)
-    }
-
+    if (column.kind === 'date') return formatDateValue(raw)
     return normalizeText(raw)
 }
 
-function applyBaseFilter(query: ReturnType<ReturnType<typeof createClient>['from']>, filter: QueryFilter) {
-    if (filter.type === 'notNull') {
-        return query.not(filter.column, 'is', null)
-    }
+function getModuleTableStateStorageKey(module: ModuleKey, projectId: string) {
+    return `${MODULE_TABLE_STATE_STORAGE_KEY}:${module}:${projectId}`
+}
 
+function applyBaseFilter(query: ReturnType<ReturnType<typeof createClient>['from']>, filter: QueryFilter) {
+    if (filter.type === 'notNull') return query.not(filter.column, 'is', null)
     return query.or(filter.columns.map((column) => `${column}.not.is.null`).join(','))
 }
 
 function ResultBadge({ value }: { value: string }) {
     const accepted = value === 'ACC'
     const rejected = value === 'REJ'
-
     return (
         <span
             style={{
                 padding: '2px 8px',
-                borderRadius: '4px',
+                borderRadius: 4,
                 fontWeight: 700,
                 fontSize: '0.7rem',
                 background: accepted ? '#dcfce7' : rejected ? '#fee2e2' : '#f1f5f9',
@@ -247,13 +228,12 @@ function StageBadge({ value }: { value: string }) {
         completed: '#16a34a',
         rejected: '#b91c1c',
     }
-
     const color = colorMap[value] || '#64748b'
     return (
         <span
             style={{
                 padding: '2px 7px',
-                borderRadius: '4px',
+                borderRadius: 4,
                 background: `${color}18`,
                 color,
                 fontWeight: 600,
@@ -280,18 +260,44 @@ export default function InspectionModuleTable({
     const [loading, setLoading] = useState(true)
     const [page, setPage] = useState(0)
     const [filters, setFilters] = useState<FilterMap>({})
+    const [tableStateReady, setTableStateReady] = useState(false)
 
     useEffect(() => {
         const syncProject = () => {
             const nextProjectId = readActiveProjectIdFromCookie()
-            setProjectId((current) => {
-                if (current !== nextProjectId) {
-                    setPage(0)
-                    setFilters({})
+            let nextState: { filters: FilterMap; page: number } = { filters: {}, page: 0 }
+
+            if (nextProjectId && typeof window !== 'undefined') {
+                try {
+                    const raw = window.localStorage.getItem(getModuleTableStateStorageKey(module, nextProjectId))
+                    if (raw) {
+                        const parsed = JSON.parse(raw) as { filters?: FilterMap; page?: number }
+                        nextState = {
+                            filters:
+                                parsed.filters && typeof parsed.filters === 'object'
+                                    ? Object.fromEntries(
+                                          Object.entries(parsed.filters).filter(
+                                              ([key, value]) =>
+                                                  config.columns.some((column) => column.key === key) &&
+                                                  typeof value === 'string'
+                                          )
+                                      )
+                                    : {},
+                            page: typeof parsed.page === 'number' && parsed.page >= 0 ? Math.floor(parsed.page) : 0,
+                        }
+                    }
+                } catch {
+                    nextState = { filters: {}, page: 0 }
                 }
-                return nextProjectId
-            })
+            }
+
+            setTableStateReady(false)
+            setProjectId(nextProjectId)
+            setFilters(nextState.filters)
+            setPage(nextState.page)
+            setTableStateReady(true)
         }
+
         syncProject()
         window.addEventListener(PROJECT_CHANGE_EVENT, syncProject)
         window.addEventListener('focus', syncProject)
@@ -299,7 +305,7 @@ export default function InspectionModuleTable({
             window.removeEventListener(PROJECT_CHANGE_EVENT, syncProject)
             window.removeEventListener('focus', syncProject)
         }
-    }, [])
+    }, [config.columns, module])
 
     useEffect(() => {
         let cancelled = false
@@ -313,7 +319,9 @@ export default function InspectionModuleTable({
 
             setLoading(true)
             const allRows: GenericRow[] = []
-            const selectColumns = ['id', 'excel_row_order', ...config.columns.map((column) => column.key)].join(',')
+            const selectColumns = Array.from(
+                new Set(['id', 'excel_row_order', 'overall_status', ...config.columns.map((column) => column.key)])
+            ).join(',')
 
             for (let pageIndex = 0; pageIndex < 100; pageIndex += 1) {
                 const from = pageIndex * 1000
@@ -335,63 +343,95 @@ export default function InspectionModuleTable({
 
                 const currentRows = (data || []) as GenericRow[]
                 allRows.push(...currentRows)
-
-                if (currentRows.length < 1000) {
-                    break
-                }
+                if (currentRows.length < 1000) break
             }
 
-            if (cancelled) {
-                return
-            }
-
+            if (cancelled) return
             setRows(allRows)
             setLoading(false)
         }
 
         void loadRows()
-
         return () => {
             cancelled = true
         }
     }, [config.columns, config.filter, projectId, supabase])
 
-    const filteredRows = rows.filter((row) =>
-        config.columns.every((column) => {
-            const selected = filters[column.key] || ''
-            if (!selected) {
-                return true
-            }
+    useEffect(() => {
+        if (!tableStateReady || !projectId || typeof window === 'undefined') return
+        try {
+            window.localStorage.setItem(
+                getModuleTableStateStorageKey(module, projectId),
+                JSON.stringify({ filters, page })
+            )
+        } catch {
+            // Ignore storage errors.
+        }
+    }, [filters, module, page, projectId, tableStateReady])
 
-            return filterValueForColumn(column, row) === selected
-        })
+    const filteredRows = useMemo(
+        () =>
+            rows.filter((row) =>
+                config.columns.every((column) => {
+                    const selected = filters[column.key] || ''
+                    if (!selected) return true
+                    return filterValueForColumn(column, row) === selected
+                })
+            ),
+        [config.columns, filters, rows]
     )
 
+    const displayCount = config.summaryCount ? config.summaryCount(rows) : rows.length
     const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
     const safePage = Math.min(page, totalPages - 1)
     const pageRows = filteredRows.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
-    const filterOptions = config.columns.reduce<FilterOptionsMap>((acc, column) => {
-        const unique = Array.from(
-            new Set(
-                rows
-                    .map((row) => filterValueForColumn(column, row))
-                    .filter(Boolean)
-            )
-        ).sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }))
-
-        acc[column.key] = [
-            DEFAULT_FILTER_OPTION,
-            ...unique.map((value) => ({
-                value,
-                label: column.kind === 'stage' ? displayStage(value) : column.key === 'weld_id' ? getDisplayWeldId(value) : value,
-            })),
-        ]
-        return acc
-    }, {})
+    const filterOptions = useMemo(
+        () =>
+            buildScopedFilterOptions({
+                rows,
+                columns: config.columns.map((column) => column.key),
+                filters,
+                globalSearch: '',
+                globalSearchColumns: [],
+                dateColumns: new Set(
+                    config.columns.filter((column) => column.kind === 'date').map((column) => column.key)
+                ),
+                displayValueMap: Object.fromEntries(
+                    config.columns.map((column) => [
+                        column.key,
+                        (value: string) =>
+                            column.kind === 'stage'
+                                ? displayStage(value)
+                                : column.key === 'weld_id'
+                                  ? getDisplayWeldId(value)
+                                  : value,
+                    ])
+                ),
+            }) as FilterOptionsMap,
+        [config.columns, filters, rows]
+    )
 
     const resetFilters = () => {
         setFilters({})
         setPage(0)
+    }
+
+    const handleExport = async () => {
+        const { utils, writeFile } = await import('xlsx')
+        const worksheet = utils.json_to_sheet(
+            filteredRows.map((row, index) =>
+                Object.fromEntries([
+                    ['STT', index + 1],
+                    ...config.columns.map((column) => [column.label, displayCellValue(column, row)]),
+                ])
+            )
+        )
+        const workbook = utils.book_new()
+        utils.book_append_sheet(workbook, worksheet, config.title)
+        writeFile(
+            workbook,
+            `${config.title.toLowerCase().replace(/[^a-z0-9]+/gi, '-')}-${new Date().toISOString().slice(0, 10)}.xlsx`
+        )
     }
 
     const thStyle = {
@@ -435,18 +475,11 @@ export default function InspectionModuleTable({
             )
         }
 
-        if (column.kind === 'result') {
-            return raw ? <ResultBadge value={raw} /> : <span style={{ color: '#94a3b8' }}>-</span>
-        }
-
-        if (column.kind === 'stage') {
-            return raw ? <StageBadge value={raw} /> : <span style={{ color: '#94a3b8' }}>-</span>
-        }
-
+        if (column.kind === 'result') return raw ? <ResultBadge value={raw} /> : <span style={{ color: '#94a3b8' }}>-</span>
+        if (column.kind === 'stage') return raw ? <StageBadge value={raw} /> : <span style={{ color: '#94a3b8' }}>-</span>
         if (column.accentColor && display !== '-') {
             return <span style={{ fontWeight: 600, color: column.accentColor }}>{display}</span>
         }
-
         return display
     }
 
@@ -463,27 +496,25 @@ export default function InspectionModuleTable({
 
     return (
         <div className="page-enter">
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: 20 }}>
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>{config.title}</h1>
-                <p style={{ color: '#64748b', marginTop: '4px', fontSize: '0.875rem' }}>
-                    {projectId
-                        ? `${config.descriptionPrefix} - ${rows.length.toLocaleString()} ${config.countLabel}`
-                        : 'Chọn dự án để xem'}
+                <p style={{ color: '#64748b', marginTop: 4, fontSize: '0.875rem' }}>
+                    {projectId ? `${config.descriptionPrefix} - ${displayCount.toLocaleString()} ${config.countLabel}` : 'Chọn dự án để xem'}
                 </p>
             </div>
 
             {!projectId ? (
-                <div style={{ padding: '40px', textAlign: 'center', background: 'white', borderRadius: '12px', color: '#64748b' }}>
+                <div style={{ padding: 40, textAlign: 'center', background: 'white', borderRadius: 12, color: '#64748b' }}>
                     Vui lòng chọn dự án ở menu bên trái.
                 </div>
             ) : (
                 <>
                     {config.ndtSummary && rows.length > 0 ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', marginBottom: '20px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 10, marginBottom: 20 }}>
                             {ndtCards.map((card) => (
-                                <div key={card.label} style={{ background: card.bg, borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                                <div key={card.label} style={{ background: card.bg, borderRadius: 10, padding: 12, textAlign: 'center' }}>
                                     <div style={{ fontSize: '1.5rem', fontWeight: 700, color: card.color }}>{card.value}</div>
-                                    <div style={{ fontSize: '0.7rem', fontWeight: 600, color: card.color, marginTop: '2px' }}>{card.label}</div>
+                                    <div style={{ fontSize: '0.7rem', fontWeight: 600, color: card.color, marginTop: 2 }}>{card.label}</div>
                                 </div>
                             ))}
                         </div>
@@ -494,16 +525,22 @@ export default function InspectionModuleTable({
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            gap: '12px',
-                            marginBottom: '12px',
+                            gap: 12,
+                            marginBottom: 12,
+                            flexWrap: 'wrap',
                         }}
                     >
                         <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
                             Hiển thị {filteredRows.length.toLocaleString()} / {rows.length.toLocaleString()} dòng
                         </span>
-                        <button className="btn btn-secondary" onClick={resetFilters} disabled={!Object.values(filters).some(Boolean)}>
-                            Xóa lọc
-                        </button>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <button className="btn btn-secondary" onClick={handleExport} disabled={filteredRows.length === 0}>
+                                Xuất Excel
+                            </button>
+                            <button className="btn btn-secondary" onClick={resetFilters} disabled={!Object.values(filters).some(Boolean)}>
+                                Xóa lọc
+                            </button>
+                        </div>
                     </div>
 
                     <SyncedTableFrame>
@@ -530,10 +567,10 @@ export default function InspectionModuleTable({
                                                 title={`Lọc theo ${column.label}`}
                                                 style={{
                                                     width: '100%',
-                                                    minWidth: '120px',
+                                                    minWidth: 120,
                                                     fontSize: '0.72rem',
                                                     border: '1px solid #e2e8f0',
-                                                    borderRadius: '4px',
+                                                    borderRadius: 4,
                                                     padding: '4px 6px',
                                                     background: 'white',
                                                     color: filters[column.key] ? '#0f172a' : '#94a3b8',
@@ -552,13 +589,13 @@ export default function InspectionModuleTable({
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={config.columns.length + 1} style={{ ...tdStyle, textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                                        <td colSpan={config.columns.length + 1} style={{ ...tdStyle, textAlign: 'center', padding: 40, color: '#94a3b8' }}>
                                             Đang tải dữ liệu...
                                         </td>
                                     </tr>
                                 ) : pageRows.length === 0 ? (
                                     <tr>
-                                        <td colSpan={config.columns.length + 1} style={{ ...tdStyle, textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                                        <td colSpan={config.columns.length + 1} style={{ ...tdStyle, textAlign: 'center', padding: 40, color: '#94a3b8' }}>
                                             {config.emptyText}
                                         </td>
                                     </tr>
@@ -581,11 +618,11 @@ export default function InspectionModuleTable({
             )}
 
             {!loading && projectId && filteredRows.length > 0 && totalPages > 1 ? (
-                <div style={{ padding: '16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                <div style={{ padding: '16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
                     <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
                         Trang {safePage + 1}/{totalPages} - Khớp {filteredRows.length} dòng
                     </span>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
                         <button className="btn btn-secondary" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={safePage === 0}>
                             Trước
                         </button>

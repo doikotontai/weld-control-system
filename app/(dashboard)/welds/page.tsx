@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { type PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import SyncedTableFrame from '@/components/SyncedTableFrame'
+import { BLANK_FILTER_VALUE, buildScopedFilterOptions } from '@/lib/filter-ui'
 import { createClient } from '@/lib/supabase/client'
 import { formatNumber } from '@/lib/formatters'
 import { PROJECT_CHANGE_EVENT, readActiveProjectIdFromCookie } from '@/lib/project-selection'
@@ -20,6 +21,7 @@ type DraftRow = Record<string, string>
 type ColumnWidths = Record<string, number>
 type TableMessage = { type: 'success' | 'error'; text: string } | null
 type WeldRow = Record<string, unknown> & { id: string }
+type FilterSourceRow = Record<string, unknown>
 
 interface WeldUpdateTable {
     update(values: Record<string, string | number | null>): {
@@ -30,6 +32,14 @@ interface WeldUpdateTable {
 interface ColSort {
     col: string
     dir: SortDir
+}
+
+interface PersistedTableState {
+    globalSearch: string
+    colFilters: ColFilters
+    sort: ColSort
+    limit: number
+    page: number
 }
 
 interface SelectOption {
@@ -59,6 +69,8 @@ const LIMIT_OPTIONS = [50, 100, 200, 500, 1000, 999999]
 const ACTION_COLUMN_KEY = '__actions__'
 const ACTION_COLUMN_DEFAULT_WIDTH = 180
 const COLUMN_RESIZE_STORAGE_KEY = 'weld-management-column-widths-v1'
+const TABLE_STATE_STORAGE_KEY = 'weld-management-table-state-v1'
+const GLOBAL_SEARCH_COLUMNS = ['weld_id', 'weld_no', 'drawing_no', 'welders', 'joint_family']
 const DEFAULT_FILTER_OPTION: SelectOption = { value: '', label: 'Tất cả' }
 
 const RESULT_OPTIONS: SelectOption[] = [
@@ -202,16 +214,71 @@ function getDefaultColumnWidths(): ColumnWidths {
     )
 }
 
-function buildDynamicFilterOptions(values: Iterable<string>, displayValue?: (value: string) => string): SelectOption[] {
-    const unique = Array.from(
-        new Set(
-            Array.from(values)
-                .map((value) => normalizeText(value))
-                .filter(Boolean)
-        )
-    ).sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }))
+function getTableStateStorageKey(projectId: string) {
+    return `${TABLE_STATE_STORAGE_KEY}:${projectId}`
+}
 
-    return [DEFAULT_FILTER_OPTION, ...unique.map((value) => ({ value, label: displayValue ? displayValue(value) : value }))]
+function sanitizePersistedTableState(value: unknown): PersistedTableState {
+    const fallback: PersistedTableState = {
+        globalSearch: '',
+        colFilters: {},
+        sort: { col: 'excel_row_order', dir: 'asc' },
+        limit: 50,
+        page: 0,
+    }
+
+    if (!value || typeof value !== 'object') {
+        return fallback
+    }
+
+    const candidate = value as Partial<PersistedTableState>
+    const nextFilters =
+        candidate.colFilters && typeof candidate.colFilters === 'object'
+            ? Object.fromEntries(
+                  Object.entries(candidate.colFilters).filter(
+                      ([key, filterValue]) =>
+                          FILTERABLE_COLUMN_KEYS.includes(key) &&
+                          typeof filterValue === 'string'
+                  )
+              )
+            : {}
+
+    const sortColumn = typeof candidate.sort?.col === 'string' ? candidate.sort.col : fallback.sort.col
+    const sortDir = candidate.sort?.dir === 'desc' ? 'desc' : 'asc'
+    const nextLimit =
+        typeof candidate.limit === 'number' && LIMIT_OPTIONS.includes(candidate.limit)
+            ? candidate.limit
+            : fallback.limit
+    const nextPage =
+        typeof candidate.page === 'number' && candidate.page >= 0 ? Math.floor(candidate.page) : fallback.page
+
+    return {
+        globalSearch: typeof candidate.globalSearch === 'string' ? candidate.globalSearch : fallback.globalSearch,
+        colFilters: nextFilters,
+        sort: { col: FILTERABLE_COLUMN_KEYS.includes(sortColumn) ? sortColumn : fallback.sort.col, dir: sortDir },
+        limit: nextLimit,
+        page: nextPage,
+    }
+}
+
+function buildContextualFilterOptions(rows: FilterSourceRow[], filters: ColFilters, globalSearch: string): DynamicFilterOptions {
+    return buildScopedFilterOptions({
+        rows,
+        columns: FILTERABLE_COLUMN_KEYS,
+        filters,
+        globalSearch,
+        globalSearchColumns: GLOBAL_SEARCH_COLUMNS,
+        dateColumns: DATE_COLUMNS,
+        displayValueMap: {
+            weld_id: (value: string) => getDisplayWeldId(value),
+            stage: (value: string) =>
+                value === 'completed'
+                    ? 'Hoàn thành'
+                    : value === 'rejected'
+                      ? 'Bị từ chối'
+                      : STAGE_LABELS[value as keyof typeof STAGE_LABELS] || value,
+        },
+    }) as DynamicFilterOptions
 }
 
 function sanitizeColumnWidths(value: unknown) {
@@ -556,6 +623,11 @@ function renderReadOnlyCell(column: ColumnDef, weld: WeldRow, columnWidth: numbe
 }
 
 function getFilterOptions(column: ColumnDef, dynamicFilterOptions: DynamicFilterOptions): SelectOption[] {
+    const contextualOptions = dynamicFilterOptions[column.key]
+    if (contextualOptions?.length) {
+        return contextualOptions
+    }
+
     if (column.key === 'overall_status') {
         return STATUS_OPTIONS
     }
@@ -609,12 +681,8 @@ export default function WeldsPage() {
     const [draftRow, setDraftRow] = useState<DraftRow>({})
     const [rowSavingId, setRowSavingId] = useState<string | null>(null)
     const [tableMessage, setTableMessage] = useState<TableMessage>(null)
-    const [dynamicFilterOptions, setDynamicFilterOptions] = useState<DynamicFilterOptions>(() =>
-        FILTERABLE_COLUMN_KEYS.reduce<DynamicFilterOptions>((acc, key) => {
-            acc[key] = [DEFAULT_FILTER_OPTION]
-            return acc
-        }, {})
-    )
+    const [filterSourceRows, setFilterSourceRows] = useState<FilterSourceRow[]>([])
+    const [tableStateReady, setTableStateReady] = useState(false)
     const debounceRef = useRef<NodeJS.Timeout | null>(null)
     const resizeStateRef = useRef<ResizeState | null>(null)
     const [columnWidths, setColumnWidths] = useState<ColumnWidths>(() => getDefaultColumnWidths())
@@ -688,7 +756,10 @@ export default function WeldsPage() {
     }, [])
 
     useEffect(() => {
-        const syncProject = () => setCurrentProjectId(readActiveProjectIdFromCookie())
+        const syncProject = () => {
+            setTableStateReady(false)
+            setCurrentProjectId(readActiveProjectIdFromCookie())
+        }
         syncProject()
         window.addEventListener(PROJECT_CHANGE_EVENT, syncProject)
         window.addEventListener('focus', syncProject)
@@ -699,31 +770,17 @@ export default function WeldsPage() {
     }, [])
 
     useEffect(() => {
-        if (drawingFilter) {
-            setGlobalSearch(drawingFilter)
-        }
-    }, [drawingFilter])
-
-    useEffect(() => {
         let cancelled = false
 
-        const loadDynamicFilterOptions = async () => {
+        const loadFilterSourceRows = async () => {
             if (!currentProjectId) {
-                setDynamicFilterOptions(
-                    FILTERABLE_COLUMN_KEYS.reduce<DynamicFilterOptions>((acc, key) => {
-                        acc[key] = [DEFAULT_FILTER_OPTION]
-                        return acc
-                    }, {})
-                )
+                setFilterSourceRows([])
                 return
             }
 
-            const valueSets = FILTERABLE_COLUMN_KEYS.reduce<Record<string, Set<string>>>((acc, key) => {
-                acc[key] = new Set<string>()
-                return acc
-            }, {})
             const pageSize = 1000
             const selectColumns = FILTERABLE_COLUMN_KEYS.join(',')
+            const collectedRows: FilterSourceRow[] = []
 
             for (let pageIndex = 0; pageIndex < 20; pageIndex += 1) {
                 const from = pageIndex * pageSize
@@ -739,14 +796,7 @@ export default function WeldsPage() {
                 }
 
                 const rows = (data as Array<Record<string, unknown>>) || []
-                for (const row of rows) {
-                    for (const key of FILTERABLE_COLUMN_KEYS) {
-                        const value = DATE_COLUMNS.has(key) ? normalizeDate(row[key]) : normalizeText(row[key])
-                        if (value) {
-                            valueSets[key].add(value)
-                        }
-                    }
-                }
+                collectedRows.push(...rows)
 
                 if (rows.length < pageSize) {
                     break
@@ -757,20 +807,78 @@ export default function WeldsPage() {
                 return
             }
 
-            setDynamicFilterOptions(
-                FILTERABLE_COLUMN_KEYS.reduce<DynamicFilterOptions>((acc, key) => {
-                    acc[key] = buildDynamicFilterOptions(valueSets[key], key === 'weld_id' ? getDisplayWeldId : undefined)
-                    return acc
-                }, {})
-            )
+            setFilterSourceRows(collectedRows)
         }
 
-        void loadDynamicFilterOptions()
+        void loadFilterSourceRows()
 
         return () => {
             cancelled = true
         }
     }, [currentProjectId, supabase])
+
+    useEffect(() => {
+        if (currentProjectId === null) {
+            return
+        }
+
+        if (!currentProjectId) {
+            setGlobalSearch(drawingFilter)
+            setColFilters({})
+            setSort({ col: 'excel_row_order', dir: 'asc' })
+            setLimit(50)
+            setPage(0)
+            setEditingRowId(null)
+            setDraftRow({})
+            setTableStateReady(true)
+            return
+        }
+
+        let restored = sanitizePersistedTableState(null)
+        if (typeof window !== 'undefined') {
+            try {
+                const raw = window.localStorage.getItem(getTableStateStorageKey(currentProjectId))
+                restored = sanitizePersistedTableState(raw ? JSON.parse(raw) : null)
+            } catch {
+                restored = sanitizePersistedTableState(null)
+            }
+        }
+
+        setGlobalSearch(drawingFilter || restored.globalSearch)
+        setColFilters(restored.colFilters)
+        setSort(restored.sort)
+        setLimit(restored.limit)
+        setPage(restored.page)
+        setEditingRowId(null)
+        setDraftRow({})
+        setTableStateReady(true)
+    }, [currentProjectId, drawingFilter])
+
+    useEffect(() => {
+        if (!tableStateReady || !currentProjectId || typeof window === 'undefined') {
+            return
+        }
+
+        try {
+            window.localStorage.setItem(
+                getTableStateStorageKey(currentProjectId),
+                JSON.stringify({
+                    globalSearch,
+                    colFilters,
+                    sort,
+                    limit,
+                    page,
+                } satisfies PersistedTableState)
+            )
+        } catch {
+            // Ignore storage write failures and keep the in-memory state.
+        }
+    }, [colFilters, currentProjectId, globalSearch, limit, page, sort, tableStateReady])
+
+    const dynamicFilterOptions = useMemo(
+        () => buildContextualFilterOptions(filterSourceRows, colFilters, globalSearch),
+        [colFilters, filterSourceRows, globalSearch]
+    )
 
     const fetchWelds = useCallback(async () => {
         if (!currentProjectId) {
@@ -801,6 +909,11 @@ export default function WeldsPage() {
                 continue
             }
 
+            if (trimmed === BLANK_FILTER_VALUE) {
+                query = query.is(column, null)
+                continue
+            }
+
             query = query.eq(column, trimmed)
         }
 
@@ -811,7 +924,7 @@ export default function WeldsPage() {
     }, [colFilters, currentProjectId, globalSearch, limit, page, sort, supabase])
 
     useEffect(() => {
-        if (currentProjectId === null) {
+        if (!tableStateReady || currentProjectId === null) {
             return
         }
 
@@ -825,11 +938,18 @@ export default function WeldsPage() {
                 clearTimeout(debounceRef.current)
             }
         }
-    }, [currentProjectId, fetchWelds])
+    }, [currentProjectId, fetchWelds, tableStateReady])
 
     const canEdit = role !== null && ['admin', 'dcc', 'qc'].includes(role)
     const totalPages = totalCount === 0 ? 0 : Math.ceil(totalCount / limit)
     const actionColumnWidth = columnWidths[ACTION_COLUMN_KEY] || ACTION_COLUMN_DEFAULT_WIDTH
+
+    useEffect(() => {
+        const maxPage = totalPages > 0 ? totalPages - 1 : 0
+        if (page > maxPage) {
+            setPage(maxPage)
+        }
+    }, [page, totalPages])
 
     const getColumnWidth = (column: ColumnDef) => columnWidths[column.key] || column.minWidth || 120
 
@@ -905,14 +1025,6 @@ export default function WeldsPage() {
         setTableMessage({ type: 'success', text: 'Đã lưu trực tiếp trên bảng.' })
         setRowSavingId(null)
         await fetchWelds()
-    }
-
-    const SortIcon = ({ column }: { column: string }) => {
-        if (sort.col !== column) {
-            return <span style={{ opacity: 0.3, marginLeft: '4px' }}>↕</span>
-        }
-
-        return <span style={{ marginLeft: '4px', color: '#3b82f6' }}>{sort.dir === 'asc' ? '↑' : '↓'}</span>
     }
 
     const renderEditableCell = (column: ColumnDef, weld: WeldRow) => {
@@ -1080,6 +1192,38 @@ export default function WeldsPage() {
                         {tableMessage.text}
                     </div>
                 ) : null}
+
+                {canEdit && editingRowId ? (
+                    <div
+                        style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '12px',
+                            flexWrap: 'wrap',
+                            padding: '12px 16px',
+                            borderRadius: '10px',
+                            background: '#fff7ed',
+                            border: '1px solid #fdba74',
+                        }}
+                    >
+                        <div style={{ color: '#9a3412', fontWeight: 600 }}>
+                            Đang sửa trực tiếp trên bảng: {draftRow.weld_id || draftRow.weld_no || editingRowId}
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                                className="btn btn-primary"
+                                onClick={() => saveInlineEdit(editingRowId)}
+                                disabled={rowSavingId === editingRowId}
+                            >
+                                {rowSavingId === editingRowId ? 'Đang lưu...' : 'Lưu dòng đang sửa'}
+                            </button>
+                            <button className="btn btn-secondary" onClick={cancelInlineEdit} disabled={rowSavingId === editingRowId}>
+                                Hủy chỉnh sửa
+                            </button>
+                        </div>
+                    </div>
+                ) : null}
             </div>
 
             <div style={{ background: 'white', borderRadius: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
@@ -1114,7 +1258,6 @@ export default function WeldsPage() {
                                                 title={`Sắp xếp theo ${column.label}`}
                                             >
                                             {column.label}
-                                            <SortIcon column={column.key} />
                                             <div
                                                 role="presentation"
                                                 title={`Kéo để đổi độ rộng cột ${column.label}`}
